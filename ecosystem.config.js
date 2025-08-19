@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "nextjs-app",
+      name: "pod-ocr-app",
       cwd: "/workspace/var/www/POD-OCR",
       script: "npm",
       args: "run start:prod",
@@ -10,7 +10,7 @@ module.exports = {
       },
     },
     {
-      name: "ocr-cron",
+      name: "pod-ocr-cron",
       cwd: "/workspace/var/www/POD-OCR",
       script: "node",
       args: "cron.js",
