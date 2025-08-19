@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+div.rdtPicker {
+  @apply bg-gray-100 text-gray-800 rounded-md shadow-md border border-gray-300;
+}
+
+div.rdtPicker div.rdtTime td.active {
+  @apply bg-blue-500 text-gray-800;
+}
+
+div.rdtPicker input.form-control {
+  @apply w-full border px-4 py-2 mt-1 pr-10;
+}
+
+/* CSS to hide the default date picker icon */
+.custom-date-input::-webkit-outer-spin-button,
+.custom-date-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.custom-date-input[type="date"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.custom-date-input[type="date"] {
+  -moz-appearance: textfield;
+  appearance: none;
+}
+
+.custom-time-input[type="time"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.custom-time-input[type="time"] {
+  -moz-appearance: textfield;
+  appearance: none;
+}
+
+.rs-picker-popup.rs-picker-popup-date {
+  z-index: 1050 !important;
+}
+
+.rs-input-group.rs-input-group-inside {
+  outline: none !important;
+  border-color: none !important;
+}
+.rs-picker-input-group .rs-input-group .rs-input-group-inside {
+  outline: none !important;
+  border-color: none !important;
+}
+.rs-input-group-focus {
+  border-color: none !important;
+  outline: none !important;
+}
+.rs-picker-input-group .rs-input-group .rs-input-group-inside:focus {
+  border-color: none !important;
+}
+.tippy-box {
+  background: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.tippy-content {
+  padding: 0 !important;
+}
+@keyframes dots {
+  0% {
+    content: ".";
+  }
+  45% {
+    content: "...";
+  }
+  55% {
+    content: "...";
+  }
+  86% {
+    content: "....";
+  }
+}
+
+.dot-animation::after {
+  display: inline-block;
+  animation: dots 1.5s infinite steps(4);
+  content: "";
+}
+
+.react-datepicker-wrapper{
+  width: 100%;
+}
