@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import oracledb from 'oracledb';
+import oracledb from "oracledb";
 
 export async function DELETE(req: Request) {
   let connection;
@@ -9,23 +9,35 @@ export async function DELETE(req: Request) {
     const { fileId } = data;
 
     if (!fileId) {
-      return NextResponse.json({ error: "fileId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "fileId is required" },
+        { status: 400 }
+      );
     }
 
     // Get Oracle DB connection
     connection = await oracledb.getConnection({
-      user: "numan",
-      password: "numan786$",
-      connectString: "192.168.0.145:1539/ORCLCDB",
+      user: "JDATM_PROD",
+      password: "StrongPass123",
+      connectString: "192.168.100.50:1521/ORCLPDB1",
     });
 
     if (!connection) {
-      return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 }
+      );
     }
 
     // Begin transaction
-    await connection.execute(`DELETE FROM xti_pod_stamp_reqrd_t WHERE file_id = :fileId`, { fileId });
-    await connection.execute(`DELETE FROM xti_file_pod_t WHERE file_id = :fileId`, { fileId });
+    await connection.execute(
+      `DELETE FROM xti_pod_stamp_reqrd_t WHERE file_id = :fileId`,
+      { fileId }
+    );
+    await connection.execute(
+      `DELETE FROM xti_file_pod_t WHERE file_id = :fileId`,
+      { fileId }
+    );
 
     await connection.commit();
     await connection.close();

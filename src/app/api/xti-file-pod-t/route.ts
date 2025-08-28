@@ -11,9 +11,9 @@ export async function POST(req: Request) {
 
     // Get Oracle DB connection
     connection = await oracledb.getConnection({
-      user: "numan",
-      password: "numan786$",
-      connectString: "192.168.0.145:1539/ORCLCDB",
+      user: "JDATM_PROD",
+      password: "StrongPass123",
+      connectString: "192.168.100.50:1521/ORCLPDB1",
     });
 
     if (!connection) {

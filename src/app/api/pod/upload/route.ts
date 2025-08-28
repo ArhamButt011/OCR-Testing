@@ -1,5 +1,5 @@
-import oracledb from 'oracledb';
-import { NextRequest, NextResponse } from 'next/server';
+import oracledb from "oracledb";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   let connection;
@@ -11,13 +11,16 @@ export async function POST(req: NextRequest) {
     const files = entries.filter(([, value]) => value instanceof Blob);
 
     if (files.length === 0) {
-      return NextResponse.json({ message: "No files uploaded" }, { status: 400 });
+      return NextResponse.json(
+        { message: "No files uploaded" },
+        { status: 400 }
+      );
     }
 
     connection = await oracledb.getConnection({
-      user: "numan",
-      password: "numan786$",
-      connectString: "192.168.0.145:1539/ORCLCDB",
+      user: "JDATM_PROD",
+      password: "StrongPass123",
+      connectString: "192.168.100.50:1521/ORCLPDB1",
     });
 
     const results = [];
@@ -28,10 +31,11 @@ export async function POST(req: NextRequest) {
       const arrayBuffer = await blob.arrayBuffer();
       const pdfBuffer = Buffer.from(arrayBuffer);
 
-      const fileType = blob.type || 'application/octet-stream';
-      const fileName = (blob instanceof File && blob.name)
-        ? blob.name
-        : `uploaded-${Date.now()}.pdf`;
+      const fileType = blob.type || "application/octet-stream";
+      const fileName =
+        blob instanceof File && blob.name
+          ? blob.name
+          : `uploaded-${Date.now()}.pdf`;
       const fileId = `POD_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
 
       const check = await connection.execute<{ FILE_DATA: oracledb.Lob }>(
@@ -50,7 +54,7 @@ export async function POST(req: NextRequest) {
             id: fileId,
             fileName,
             fileType,
-            blob: { dir: oracledb.BIND_OUT, type: oracledb.BLOB }
+            blob: { dir: oracledb.BIND_OUT, type: oracledb.BLOB },
           },
           { autoCommit: false }
         );
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
             id: fileId,
             fileName,
             fileType,
-            blob: { dir: oracledb.BIND_OUT, type: oracledb.BLOB }
+            blob: { dir: oracledb.BIND_OUT, type: oracledb.BLOB },
           },
           { autoCommit: false }
         );
@@ -89,9 +93,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ results });
-
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+    const errorMessage =
+      err instanceof Error ? err.message : "Unknown error occurred";
     console.error("Error inserting PDF:", errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   } finally {
