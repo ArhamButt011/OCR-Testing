@@ -468,7 +468,7 @@ const MasterPage = () => {
         }
         if (!fileName) return null;
         return {
-          file_url_or_path: `${baseUrl}/api/access-file?filename=${encodeURIComponent(
+          file_url_or_path: `https://h0palyajms52cn-8080.proxy.runpod.net/api/access-file?filename=${encodeURIComponent(
             fileName
           )}`,
           _id: job?._id,
@@ -1968,7 +1968,7 @@ const MasterPage = () => {
                                 job.pdfUrl.split("/").pop()?.trim() ?? ""
                               )
                             : "";
-                          const progressKey = `${baseUrl}/api/access-file?filename=${pdfFilename}`;
+                          const progressKey = `https://h0palyajms52cn-8080.proxy.runpod.net/api/access-file?filename=${pdfFilename}`;
                           const jobProgress = progress[progressKey] ?? 0;
                           // style={{ width: `${jobProgress}%` }}
                           // {jobProgress}%
