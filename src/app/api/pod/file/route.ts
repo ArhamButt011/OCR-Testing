@@ -5,7 +5,9 @@ import oracledb from "oracledb";
 import fs from "fs";
 import path from "path";
 
-const PUBLIC_DIR = path.join(process.cwd(), "public", "file");
+// const PUBLIC_DIR = path.join(process.cwd(), "public", "file");
+const PUBLIC_DIR =
+  process.env.FILE_STORAGE_PATH || path.join(process.cwd(), "public", "file");
 
 interface FileRow {
   FILE_ID: string;
@@ -69,7 +71,6 @@ export async function GET(req: NextRequest) {
     //     { status: 400 }
     //   );
     // }
-
 
     const result = await connection.execute<FileRow>(
       `SELECT FILE_ID, FILE_DATA FROM ${process.env.ORACLE_DB_USER_NAME}.${fileTable} WHERE FILE_ID = :fileId`,
