@@ -8,7 +8,9 @@ export async function getOracleConnection(
   serviceName
 ) {
   try {
-    const dbResponse = await fetch("http://localhost:3000/api/auth/public-db");
+    const dbResponse = await fetch(
+      `${process.env.API_BASE_URL}/auth/public-db`
+    );
 
     if (!dbResponse.ok) {
       console.error("Failed to fetch database info.");
@@ -16,7 +18,6 @@ export async function getOracleConnection(
     }
 
     // const dbData = await dbResponse.json();
-    
 
     // if (dbType !== "remote") {
     //   console.log("Database is not remote. Skipping OracleDB connection.");

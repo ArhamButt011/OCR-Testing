@@ -10,6 +10,8 @@ const { default: PQueue } = require("p-queue");
 dayjs.extend(utc);
 dayjs.extend(isBetween);
 
+let baseURL = "https://h0palyajms52cn-8080.proxy.runpod.net/api";
+
 console.log("OCR Cron Job Script Initialized");
 const scheduledTasks = new Map();
 
@@ -49,41 +51,62 @@ const getDBConnectionType = () => {
   }
 };
 
-async function processBatch(batch, job, ocrUrl, baseUrl, wmsUrl, userName, passWord) {
+async function processBatch(
+  batch,
+  job,
+  ocrUrl,
+  baseUrl,
+  wmsUrl,
+  userName,
+  passWord
+) {
   try {
     const payload = [];
     const fileMetaDataMap = new Map();
 
-    await Promise.all(batch.map(async (item) => {
-      const fileId = item.FILE_ID || item.file_id;
-      const fileTable = item.FILE_TABLE || item.file_table;
+    await Promise.all(
+      batch.map(async (item) => {
+        const fileId = item.FILE_ID || item.file_id;
+        const fileTable = item.FILE_TABLE || item.file_table;
 
-      const fileRes = await fetchWithTimeout(
-        `http://localhost:3000/api/pod/file?fileId=${fileId}&fileTable=${fileTable}`,
-        {}, 5000
-      );
-      if (!fileRes.ok) return;
+        const fileRes = await fetchWithTimeout(
+          `${baseURL}/pod/file?fileId=${fileId}&fileTable=${fileTable}`,
+          {},
+          5000
+        );
+        if (!fileRes.ok) return;
 
-      const fileData = await fileRes.json();
-      fileMetaDataMap.set(fileId, fileData);
+        const fileData = await fileRes.json();
+        fileMetaDataMap.set(fileId, fileData);
 
-      await fetchWithTimeout("http://localhost:3000/api/pod/store", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: fileData.FILE_ID }),
-      }, 5000);
+        await fetchWithTimeout(
+          `${baseURL}/pod/store`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileId: fileData.FILE_ID }),
+          },
+          5000
+        );
 
-      const filePath = `${baseUrl}/api/access-file?filename=${encodeURIComponent(fileData.FILE_NAME)}`;
-      payload.push({ _id: fileId, file_url_or_path: filePath });
-    }));
+        const filePath = `${baseUrl}/api/access-file?filename=${encodeURIComponent(
+          fileData.FILE_NAME
+        )}`;
+        payload.push({ _id: fileId, file_url_or_path: filePath });
+      })
+    );
 
     if (payload.length === 0) return;
 
-    const ocrRes = await fetchWithTimeout(ocrUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }, 60000);
+    const ocrRes = await fetchWithTimeout(
+      ocrUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      60000
+    );
 
     if (!ocrRes.ok) {
       const errJson = await ocrRes.json().catch(() => null);
@@ -94,84 +117,112 @@ async function processBatch(batch, job, ocrUrl, baseUrl, wmsUrl, userName, passW
     if (!Array.isArray(ocrData)) return;
     const processedBatch = [];
 
-    await Promise.all(ocrData.map(async (d) => {
-      const fileId = d._id;
-      const fileData = fileMetaDataMap.get(fileId);
-      if (!fileData) return;
+    await Promise.all(
+      ocrData.map(async (d) => {
+        const fileId = d._id;
+        const fileData = fileMetaDataMap.get(fileId);
+        if (!fileData) return;
 
-      const filePath = `${baseUrl}/api/access-file?filename=${encodeURIComponent(fileData.FILE_NAME)}`;
+        const filePath = `${baseUrl}/api/access-file?filename=${encodeURIComponent(
+          fileData.FILE_NAME
+        )}`;
 
-      const processed = {
-        _id: fileId,
-        jobId: job._id,
-        fileId: fileId,
-        pdfUrl: decodeURIComponent(new URL(filePath).searchParams.get("filename") || ""),
-        deliveryDate: new Date().toISOString().split("T")[0],
-        noOfPages: 1,
-        blNumber: String(d?.B_L_Number || ""),
-        podDate: d?.POD_Date || "",
-        podSignature: d?.Signature_Exists || "unknown",
-        totalQty: Number(d?.Issued_Qty) || 0,
-        received: Number(d?.Received_Qty) || 0,
-        damaged: d?.Damage_Qty,
-        short: d?.Short_Qty,
-        over: d?.Over_Qty,
-        refused: d?.Refused_Qty,
-        customerOrderNum: d?.Customer_Order_Num,
-        stampExists: d?.Stamp_Exists,
-        finalStatus: "valid",
-        reviewStatus: "unConfirmed",
-        recognitionStatus: {
-          failed: "failure",
-          valid: "valid",
-          "partially valid": "partiallyValid",
-        }[d?.Status] || "null",
-        breakdownReason: "none",
-        reviewedBy: "OCR Engine",
-        uptd_Usr_Cd: "OCR",
-        cargoDescription: "Processed from OCR API.",
-        none: "N",
-        sealIntact: d?.Seal_Intact === "yes" ? "Y" : "N",
-      };
+        const processed = {
+          _id: fileId,
+          jobId: job._id,
+          fileId: fileId,
+          pdfUrl: decodeURIComponent(
+            new URL(filePath).searchParams.get("filename") || ""
+          ),
+          deliveryDate: new Date().toISOString().split("T")[0],
+          noOfPages: 1,
+          blNumber: String(d?.B_L_Number || ""),
+          podDate: d?.POD_Date || "",
+          podSignature: d?.Signature_Exists || "unknown",
+          totalQty: Number(d?.Issued_Qty) || 0,
+          received: Number(d?.Received_Qty) || 0,
+          damaged: d?.Damage_Qty,
+          short: d?.Short_Qty,
+          over: d?.Over_Qty,
+          refused: d?.Refused_Qty,
+          customerOrderNum: d?.Customer_Order_Num,
+          stampExists: d?.Stamp_Exists,
+          finalStatus: "valid",
+          reviewStatus: "unConfirmed",
+          recognitionStatus:
+            {
+              failed: "failure",
+              valid: "valid",
+              "partially valid": "partiallyValid",
+            }[d?.Status] || "null",
+          breakdownReason: "none",
+          reviewedBy: "OCR Engine",
+          uptd_Usr_Cd: "OCR",
+          cargoDescription: "Processed from OCR API.",
+          none: "N",
+          sealIntact: d?.Seal_Intact === "yes" ? "Y" : "N",
+        };
 
-      try {
-        const basicAuth = Buffer.from(`${userName}:${passWord}`).toString("base64");
-        const response = await fetchWithTimeout(wmsUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Basic ${basicAuth}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ BOLNo: [processed.blNumber] }),
-        }, 15000);
+        try {
+          const basicAuth = Buffer.from(`${userName}:${passWord}`).toString(
+            "base64"
+          );
+          const response = await fetchWithTimeout(
+            wmsUrl,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Basic ${basicAuth}`,
+                Accept: "application/json",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ BOLNo: [processed.blNumber] }),
+            },
+            15000
+          );
 
-        const sapData = await response.json();
-        processed.recognitionStatus = sapData[0]?.BOLNo?.trim() === processed.blNumber.trim() ? "valid" : "failure";
-      } catch (err) {
-        console.error("SAP check error:", err.message);
-      }
+          const sapData = await response.json();
+          processed.recognitionStatus =
+            sapData[0]?.BOLNo?.trim() === processed.blNumber.trim()
+              ? "valid"
+              : "failure";
+        } catch (err) {
+          console.error("SAP check error:", err.message);
+        }
 
-      processedBatch.push(processed);
-    }));
+        processedBatch.push(processed);
+      })
+    );
 
-    const confirmRes = await fetchWithTimeout("http://localhost:3000/api/settings/auto-confirmation", {}, 5000);
+    const confirmRes = await fetchWithTimeout(
+      `${baseURL}/settings/auto-confirmation`,
+      {},
+      5000
+    );
     const confirmJson = await confirmRes.json();
 
     if (confirmJson.isAutoConfirmationOpen && processedBatch.length > 0) {
-      await fetchWithTimeout("http://localhost:3000/api/pod/update", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ocrDataList: processedBatch }),
-      }, 5000);
+      await fetchWithTimeout(
+        `${baseURL}/pod/update`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ocrDataList: processedBatch }),
+        },
+        5000
+      );
     }
 
     if (processedBatch.length > 0) {
-      await fetchWithTimeout("http://localhost:3000/api/process-data/save-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(processedBatch),
-      }, 5000);
+      await fetchWithTimeout(
+        `${baseURL}/process-data/save-data`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(processedBatch),
+        },
+        5000
+      );
 
       for (const entry of processedBatch) {
         console.log(`File ${entry.fileId} processed.`);
@@ -182,14 +233,24 @@ async function processBatch(batch, job, ocrUrl, baseUrl, wmsUrl, userName, passW
   }
 }
 
-async function runOcrForJob(job, ocrUrl, baseUrl, wmsUrl, userName, passWord, dayOffset, fetchLimit) {
+async function runOcrForJob(
+  job,
+  ocrUrl,
+  baseUrl,
+  wmsUrl,
+  userName,
+  passWord,
+  dayOffset,
+  fetchLimit
+) {
   console.log("ocr script started.");
   const dbConnectionType = getDBConnectionType();
   console.log("db connection-> ", dbConnectionType);
   try {
     const retrieveRes = await fetchWithTimeout(
-      `http://localhost:3000/api/pod/retrieve?dayOffset=${dayOffset}&fetchLimit=${fetchLimit}`,
-      {}, 5000
+      `${baseURL}/pod/retrieve?dayOffset=${dayOffset}&fetchLimit=${fetchLimit}`,
+      {},
+      5000
     );
     const fileList = await retrieveRes.json();
     console.log("file list-> ", fileList);
@@ -199,9 +260,11 @@ async function runOcrForJob(job, ocrUrl, baseUrl, wmsUrl, userName, passWord, da
 
     for (let i = 0; i < fileList.length; i += batchSize) {
       const batch = fileList.slice(i, i + batchSize);
-      console.log('batch-> ', batch);
+      console.log("batch-> ", batch);
 
-      queue.add(() => processBatch(batch, job, ocrUrl, baseUrl, wmsUrl, userName, passWord));
+      queue.add(() =>
+        processBatch(batch, job, ocrUrl, baseUrl, wmsUrl, userName, passWord)
+      );
       console.log(`Added batch to queue.`, queue);
     }
   } catch (err) {
@@ -229,7 +292,11 @@ function getCronExpressionFromTime(timeStr) {
 
 async function scheduleJobs() {
   try {
-    const dbResponse = await fetchWithTimeout("http://localhost:3000/api/auth/public-db", {}, 5000);
+    const dbResponse = await fetchWithTimeout(
+      `${baseURL}/auth/public-db`,
+      {},
+      5000
+    );
     const dbData = await dbResponse.json();
 
     if (dbData?.database !== "remote") {
@@ -237,19 +304,24 @@ async function scheduleJobs() {
       return;
     }
 
-    const ipRes = await fetchWithTimeout("http://localhost:3000/api/ipAddress/ip-address", {}, 5000);
+    const ipRes = await fetchWithTimeout(
+      `${baseURL}/ipAddress/ip-address`,
+      {},
+      5000
+    );
     const ipData = await ipRes.json();
     const baseUrl = `http://${ipData.secondaryIp}:3000`;
-    const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
+    // const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
+    const ocrUrl = `https://zydfs3qh4hkuh9-8080.proxy.runpod.net/run-ocr`;
 
-    const wmsRes = await fetchWithTimeout("http://localhost:3000/api/save-wms-url", {}, 5000);
+    const wmsRes = await fetchWithTimeout(`${baseURL}/save-wms-url`, {}, 5000);
     const {
       wmsUrl,
       username: userName,
       password: passWord,
     } = await wmsRes.json();
 
-    const jobRes = await fetchWithTimeout("http://localhost:3000/api/jobs/get-job", {}, 5000);
+    const jobRes = await fetchWithTimeout(`${baseURL}/jobs/get-job`, {}, 5000);
     const jobJson = await jobRes.json();
     const jobs = jobJson.activeJobs;
 
@@ -313,7 +385,7 @@ async function scheduleJobs() {
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 async function waitForAPI(retries = 10, interval = 2000) {
-  const url = "http://localhost:3000/api/auth/public-db";
+  const url = `${baseURL}/auth/public-db`;
   while (retries--) {
     try {
       const res = await fetchWithTimeout(url);

@@ -437,8 +437,8 @@ const MasterPage = () => {
         const data = await res.json();
 
         if (data.ip) {
-          setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
-          // setOcrApiUrl(`https://pj7kx03k4bklhr-8080.proxy.runpod.net/docs`);
+          // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
+          setOcrApiUrl(`https://zydfs3qh4hkuh9-8080.proxy.runpod.net/run-ocr`);
           setBaseUrl(`http://${data.secondaryIp}:3000`);
         }
       } catch (error) {
