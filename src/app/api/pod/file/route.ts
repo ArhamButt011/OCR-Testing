@@ -5,9 +5,11 @@ import oracledb from "oracledb";
 import fs from "fs";
 import path from "path";
 
-// const PUBLIC_DIR = path.join(process.cwd(), "public", "file");
+// Use absolute path for production server
 const PUBLIC_DIR =
-  process.env.FILE_STORAGE_PATH || path.join(process.cwd(), "public", "file");
+  process.env.NODE_ENV === "production"
+    ? "/workspace/var/www/POD-OCR/public/file"
+    : path.join(process.cwd(), "public", "file");
 
 interface FileRow {
   FILE_ID: string;
@@ -60,18 +62,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // const tableCheckQuery = `SELECT TABLE_NAME FROM USER_TABLES WHERE TABLE_NAME = :fileTable`;
-    // const tableCheckResult = await connection.execute(tableCheckQuery, [
-    //   fileTable.toUpperCase(),
-    // ]);
-
-    // if (!tableCheckResult.rows || tableCheckResult.rows.length === 0) {
-    //   return NextResponse.json(
-    //     { message: "Invalid fileTable name" },
-    //     { status: 400 }
-    //   );
-    // }
-
     const result = await connection.execute<FileRow>(
       `SELECT FILE_ID, FILE_DATA FROM ${process.env.ORACLE_DB_USER_NAME}.${fileTable} WHERE FILE_ID = :fileId`,
       { fileId },
@@ -102,19 +92,51 @@ export async function GET(req: NextRequest) {
 
     lob.destroy();
 
+    // Debug logging
+    console.log("PUBLIC_DIR:", PUBLIC_DIR);
+    console.log("Directory exists before creation:", fs.existsSync(PUBLIC_DIR));
+
+    // Create directory with full permissions
     if (!fs.existsSync(PUBLIC_DIR)) {
-      fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+      try {
+        fs.mkdirSync(PUBLIC_DIR, {
+          recursive: true,
+          mode: 0o755, // Ensure proper permissions
+        });
+        console.log("Directory created successfully");
+      } catch (dirError) {
+        console.error("Error creating directory:", dirError);
+        throw dirError;
+      }
     }
 
     const filePath = path.join(PUBLIC_DIR, `${fileId}.pdf`);
+    console.log("Full file path:", filePath);
 
-    fs.writeFileSync(filePath, Buffer.concat(chunks));
+    try {
+      // Write file with proper error handling
+      fs.writeFileSync(filePath, Buffer.concat(chunks), { mode: 0o644 });
+      console.log("File written successfully to:", filePath);
 
+      // Verify file was created
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        console.log("File size:", stats.size, "bytes");
+      } else {
+        console.error("File was not created despite no error");
+      }
+    } catch (writeError) {
+      console.error("Error writing file:", writeError);
+      throw writeError;
+    }
+
+    // Return the public URL path (assuming your web server serves from /workspace/var/www/POD-OCR/public)
     return NextResponse.json({
       FILE_PATH: `/file/${fileId}.pdf`,
       FILE_NAME: `${fileId}.pdf`,
       FILE_ID: row.FILE_ID,
       FILE_DATA: fileDataBase64,
+      FULL_PATH: filePath, // Include full path for debugging
     });
   } catch (err) {
     console.error("Error retrieving file data:", err);
