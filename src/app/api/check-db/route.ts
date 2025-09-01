@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function POST(req: NextRequest) {
   const dbConfig = {
-    user: "JDATM_PROD",
-    password: "StrongPass123",
-    connectString: "192.168.100.50:1521/ORCLPDB1",
+    user: `${process.env.ORACLE_DB_USER_NAME}`,
+    password: `${process.env.ORACLE_DB_PASS}`,
+    connectString: `${process.env.ORACLE_DB_HOST}:${process.env.ORACLE_DB_PORT}/${process.env.ORACLE_DB_SERVICE_NAME}`,
   };
 
   let connection;
