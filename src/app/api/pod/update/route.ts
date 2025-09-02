@@ -3,6 +3,14 @@ import { getOracleConnection } from "@/lib/oracle";
 import clientPromise from "@/lib/mongodb";
 // import oracledb from "oracledb";
 
+function numOrNull(v: any): number | null {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim().toLowerCase();
+  if (s === "" || s === "null" || s === "empty") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function PUT(req: Request) {
   try {
     const { ocrDataList } = await req.json();
@@ -19,17 +27,33 @@ export async function PUT(req: Request) {
     const db = client.db("my-next-app");
     const connectionsCollection = db.collection("db_connections");
 
-    const userDBCredentials = await connectionsCollection.findOne({}, { sort: { _id: -1 } });
+    const userDBCredentials = await connectionsCollection.findOne(
+      {},
+      { sort: { _id: -1 } }
+    );
 
     if (!userDBCredentials) {
-      return NextResponse.json({ message: "OracleDB credentials not found" }, { status: 404 });
+      return NextResponse.json(
+        { message: "OracleDB credentials not found" },
+        { status: 404 }
+      );
     }
 
-    const { userName, password, ipAddress, portNumber, serviceName } = userDBCredentials;
-    const connection = await getOracleConnection(userName, password, ipAddress, portNumber, serviceName);
+    const { userName, password, ipAddress, portNumber, serviceName } =
+      userDBCredentials;
+    const connection = await getOracleConnection(
+      userName,
+      password,
+      ipAddress,
+      portNumber,
+      serviceName
+    );
 
     if (!connection) {
-      return NextResponse.json({ message: "Connection failed or skipped" }, { status: 500 });
+      return NextResponse.json(
+        { message: "Connection failed or skipped" },
+        { status: 500 }
+      );
     }
 
     for (const ocrData of ocrDataList) {
@@ -40,30 +64,30 @@ export async function PUT(req: Request) {
 
       await connection.execute(
         `UPDATE ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T
-         SET OCR_BOLNO = :bolNo, 
-             OCR_ISSQTY = :issQty, 
-             OCR_RCVQTY = :rcvQty,
-             OCR_STMP_POD_DTT = :podDate, 
-             OCR_STMP_SIGN = :sign, 
-             OCR_SYMT_DAMG = :symtDamg, 
-             OCR_SYMT_SHRT = :symtShrt, 
-             OCR_SYMT_ORVG = :symtOrvg, 
-             OCR_SYMT_REFS = :symtRefs, 
-             OCR_SYMT_SEAL = :symtSeal,
-             RECV_DATA_DTT = SYSDATE,
-             UPTD_USR_CD = 'OCR',
-             UPTD_DTT = SYSDATE
-         WHERE FILE_ID = :fileId`,
+     SET OCR_BOLNO = :bolNo, 
+         OCR_ISSQTY = :issQty, 
+         OCR_RCVQTY = :rcvQty,
+         OCR_STMP_POD_DTT = :podDate, 
+         OCR_STMP_SIGN = :sign, 
+         OCR_SYMT_DAMG = :symtDamg, 
+         OCR_SYMT_SHRT = :symtShrt, 
+         OCR_SYMT_ORVG = :symtOrvg, 
+         OCR_SYMT_REFS = :symtRefs, 
+         OCR_SYMT_SEAL = :symtSeal,
+         RECV_DATA_DTT = SYSDATE,
+         UPTD_USR_CD = 'OCR',
+         UPTD_DTT = SYSDATE
+     WHERE FILE_ID = :fileId`,
         {
           bolNo: ocrData.blNumber,
-          issQty: ocrData.totalQty,
-          rcvQty: ocrData.received,
+          issQty: numOrNull(ocrData.totalQty),
+          rcvQty: numOrNull(ocrData.received),
           podDate: ocrData.podDate,
           sign: ocrData.podSignature === "yes" ? "Y" : "N",
-          symtDamg: ocrData.damaged,
-          symtShrt: ocrData.short,
-          symtOrvg: ocrData.over,
-          symtRefs: ocrData.refused,
+          symtDamg: numOrNull(ocrData.damaged),
+          symtShrt: numOrNull(ocrData.short),
+          symtOrvg: numOrNull(ocrData.over),
+          symtRefs: numOrNull(ocrData.refused),
           symtSeal: ocrData.sealIntact,
           fileId: fileId,
         }
@@ -73,7 +97,9 @@ export async function PUT(req: Request) {
     await connection.commit();
     await connection.close();
 
-    return NextResponse.json({ message: "OCR data updated successfully for all entries" });
+    return NextResponse.json({
+      message: "OCR data updated successfully for all entries",
+    });
   } catch (err: unknown) {
     if (err instanceof Error) {
       console.error("Error updating OCR data:", err);
