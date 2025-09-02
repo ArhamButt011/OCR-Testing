@@ -310,7 +310,7 @@ async function scheduleJobs() {
       5000
     );
     const ipData = await ipRes.json();
-    // const baseUrl = `https://h0palyajms52cn-8080.proxy.runpod.net/api`;
+    // const baseUrl = `http://${ipData.secondaryIp}:3000`;
     // const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
     const ocrUrl = `https://zydfs3qh4hkuh9-8080.proxy.runpod.net/run-ocr`;
 
@@ -364,7 +364,7 @@ async function scheduleJobs() {
           runOcrForJob(
             job,
             ocrUrl,
-            baseUrl,
+            baseURL,
             wmsUrl,
             userName,
             passWord,
