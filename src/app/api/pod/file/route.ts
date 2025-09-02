@@ -6,10 +6,12 @@ import fs from "fs";
 import path from "path";
 
 // Use absolute path for production server
-const PUBLIC_DIR =
-  process.env.NODE_ENV === "production"
-    ? "/workspace/var/www/POD-OCR/public/file"
-    : path.join(process.cwd(), "public", "file");
+// const PUBLIC_DIR =
+//   process.env.NODE_ENV === "production"
+//     ? "/workspace/var/www/POD-OCR/public/file"
+//     : path.join(process.cwd(), "public", "file");
+
+const PUBLIC_DIR = "/workspace/var/www/POD-OCR/public/file";
 
 interface FileRow {
   FILE_ID: string;
