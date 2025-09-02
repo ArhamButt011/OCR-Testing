@@ -3,7 +3,7 @@ import { getOracleConnection } from "@/lib/oracle";
 import clientPromise from "@/lib/mongodb";
 // import oracledb from "oracledb";
 
-function numOrNull(v: any): number | null {
+function numOrNull(v: unknown): number | null {
   if (v === undefined || v === null) return null;
   const s = String(v).trim().toLowerCase();
   if (s === "" || s === "null" || s === "empty") return null;
