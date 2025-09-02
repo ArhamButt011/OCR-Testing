@@ -55,7 +55,7 @@ async function processBatch(
   batch,
   job,
   ocrUrl,
-  baseUrl,
+  base_url,
   wmsUrl,
   userName,
   passWord
@@ -70,7 +70,7 @@ async function processBatch(
         const fileTable = item.FILE_TABLE || item.file_table;
 
         const fileRes = await fetchWithTimeout(
-          `${baseURL}/pod/file?fileId=${fileId}&fileTable=${fileTable}`,
+          `${base_url}/pod/file?fileId=${fileId}&fileTable=${fileTable}`,
           {},
           5000
         );
@@ -80,7 +80,7 @@ async function processBatch(
         fileMetaDataMap.set(fileId, fileData);
 
         await fetchWithTimeout(
-          `${baseURL}/pod/store`,
+          `${base_url}/pod/store`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -89,7 +89,7 @@ async function processBatch(
           5000
         );
 
-        const filePath = `${baseUrl}/api/access-file?filename=${encodeURIComponent(
+        const filePath = `${base_url}/api/access-file?filename=${encodeURIComponent(
           fileData.FILE_NAME
         )}`;
         payload.push({ _id: fileId, file_url_or_path: filePath });
@@ -123,7 +123,7 @@ async function processBatch(
         const fileData = fileMetaDataMap.get(fileId);
         if (!fileData) return;
 
-        const filePath = `${baseUrl}/api/access-file?filename=${encodeURIComponent(
+        const filePath = `${base_url}/api/access-file?filename=${encodeURIComponent(
           fileData.FILE_NAME
         )}`;
 
@@ -195,7 +195,7 @@ async function processBatch(
     );
 
     const confirmRes = await fetchWithTimeout(
-      `${baseURL}/settings/auto-confirmation`,
+      `${base_url}/settings/auto-confirmation`,
       {},
       5000
     );
@@ -203,7 +203,7 @@ async function processBatch(
 
     if (confirmJson.isAutoConfirmationOpen && processedBatch.length > 0) {
       await fetchWithTimeout(
-        `${baseURL}/pod/update`,
+        `${base_url}/pod/update`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -215,7 +215,7 @@ async function processBatch(
 
     if (processedBatch.length > 0) {
       await fetchWithTimeout(
-        `${baseURL}/process-data/save-data`,
+        `${base_url}/process-data/save-data`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -236,7 +236,7 @@ async function processBatch(
 async function runOcrForJob(
   job,
   ocrUrl,
-  baseUrl,
+  base_url,
   wmsUrl,
   userName,
   passWord,
@@ -248,7 +248,7 @@ async function runOcrForJob(
   console.log("db connection-> ", dbConnectionType);
   try {
     const retrieveRes = await fetchWithTimeout(
-      `${baseURL}/pod/retrieve?dayOffset=${dayOffset}&fetchLimit=${fetchLimit}`,
+      `${base_url}/pod/retrieve?dayOffset=${dayOffset}&fetchLimit=${fetchLimit}`,
       {},
       5000
     );
@@ -263,7 +263,7 @@ async function runOcrForJob(
       console.log("batch-> ", batch);
 
       queue.add(() =>
-        processBatch(batch, job, ocrUrl, baseUrl, wmsUrl, userName, passWord)
+        processBatch(batch, job, ocrUrl, base_url, wmsUrl, userName, passWord)
       );
       console.log(`Added batch to queue.`, queue);
     }
@@ -311,17 +311,19 @@ async function scheduleJobs() {
     );
     const ipData = await ipRes.json();
     // const baseUrl = `http://${ipData.secondaryIp}:3000`;
+    const base_url = `https://h0palyajms52cn-8080.proxy.runpod.net/api`;
+
     // const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
     const ocrUrl = `https://zydfs3qh4hkuh9-8080.proxy.runpod.net/run-ocr`;
 
-    const wmsRes = await fetchWithTimeout(`${baseURL}/save-wms-url`, {}, 5000);
+    const wmsRes = await fetchWithTimeout(`${base_url}/save-wms-url`, {}, 5000);
     const {
       wmsUrl,
       username: userName,
       password: passWord,
     } = await wmsRes.json();
 
-    const jobRes = await fetchWithTimeout(`${baseURL}/jobs/get-job`, {}, 5000);
+    const jobRes = await fetchWithTimeout(`${base_url}/jobs/get-job`, {}, 5000);
     const jobJson = await jobRes.json();
     const jobs = jobJson.activeJobs;
 
@@ -364,7 +366,7 @@ async function scheduleJobs() {
           runOcrForJob(
             job,
             ocrUrl,
-            baseURL,
+            base_url,
             wmsUrl,
             userName,
             passWord,
