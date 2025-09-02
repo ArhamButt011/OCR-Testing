@@ -79,7 +79,7 @@ async function processBatch(
 
         const fileData = await fileRes.json();
         fileMetaDataMap.set(fileId, fileData);
-        console.log("fileData is-> ", fileData);
+        // console.log("fileData is-> ", fileData);
         await fetchWithTimeout(
           `${base_url}/pod/store`,
           {
@@ -123,7 +123,7 @@ async function processBatch(
       ocrData.map(async (d) => {
         const fileId = d._id;
         const fileData = fileMetaDataMap.get(fileId);
-        console.log("filedata is-> ", fileData);
+        // console.log("filedata is-> ", fileData);
         if (!fileData) return;
 
         const filePath = `${base_url}/access-file?filename=${encodeURIComponent(
