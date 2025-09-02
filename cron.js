@@ -63,22 +63,23 @@ async function processBatch(
   try {
     const payload = [];
     const fileMetaDataMap = new Map();
-
+    console.log("batch is-> ", batch);
     await Promise.all(
       batch.map(async (item) => {
         const fileId = item.FILE_ID || item.file_id;
         const fileTable = item.FILE_TABLE || item.file_table;
-
+        console.log("fileId is-> ", fileId, "fileTable is-> ", fileTable);
         const fileRes = await fetchWithTimeout(
           `${base_url}/pod/file?fileId=${fileId}&fileTable=${fileTable}`,
           {},
           5000
         );
+        console.log("fileRes is-> ", fileRes);
         if (!fileRes.ok) return;
 
         const fileData = await fileRes.json();
         fileMetaDataMap.set(fileId, fileData);
-
+        console.log("fileData is-> ", fileData);
         await fetchWithTimeout(
           `${base_url}/pod/store`,
           {
@@ -88,14 +89,14 @@ async function processBatch(
           },
           5000
         );
-
-        const filePath = `${base_url}/api/access-file?filename=${encodeURIComponent(
+        console.log("file data stored successfully...");
+        const filePath = `${base_url}/access-file?filename=${encodeURIComponent(
           fileData.FILE_NAME
         )}`;
         payload.push({ _id: fileId, file_url_or_path: filePath });
       })
     );
-
+    console.log("payload is-> ", payload);
     if (payload.length === 0) return;
 
     const ocrRes = await fetchWithTimeout(
@@ -107,13 +108,14 @@ async function processBatch(
       },
       60000
     );
-
+    console.log("ocr response is-> ", ocrRes);
     if (!ocrRes.ok) {
       const errJson = await ocrRes.json().catch(() => null);
       throw new Error(errJson?.error || "OCR Failed");
     }
 
     const ocrData = await ocrRes.json();
+    console.log("ocrData is-> ", ocrData);
     if (!Array.isArray(ocrData)) return;
     const processedBatch = [];
 
@@ -121,12 +123,13 @@ async function processBatch(
       ocrData.map(async (d) => {
         const fileId = d._id;
         const fileData = fileMetaDataMap.get(fileId);
+        console.log("filedata is-> ", fileData);
         if (!fileData) return;
 
-        const filePath = `${base_url}/api/access-file?filename=${encodeURIComponent(
+        const filePath = `${base_url}/access-file?filename=${encodeURIComponent(
           fileData.FILE_NAME
         )}`;
-
+        console.log("filePath inside process data-> ", filePath);
         const processed = {
           _id: fileId,
           jobId: job._id,
