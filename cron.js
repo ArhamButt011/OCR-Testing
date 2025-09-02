@@ -166,32 +166,32 @@ async function processBatch(
           sealIntact: d?.Seal_Intact === "yes" ? "Y" : "N",
         };
 
-        try {
-          const basicAuth = Buffer.from(`${userName}:${passWord}`).toString(
-            "base64"
-          );
-          const response = await fetchWithTimeout(
-            wmsUrl,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Basic ${basicAuth}`,
-                Accept: "application/json",
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ BOLNo: [processed.blNumber] }),
-            },
-            15000
-          );
+        // try {
+        //   const basicAuth = Buffer.from(`${userName}:${passWord}`).toString(
+        //     "base64"
+        //   );
+        //   const response = await fetchWithTimeout(
+        //     wmsUrl,
+        //     {
+        //       method: "POST",
+        //       headers: {
+        //         Authorization: `Basic ${basicAuth}`,
+        //         Accept: "application/json",
+        //         "Content-Type": "application/json",
+        //       },
+        //       body: JSON.stringify({ BOLNo: [processed.blNumber] }),
+        //     },
+        //     15000
+        //   );
 
-          const sapData = await response.json();
-          processed.recognitionStatus =
-            sapData[0]?.BOLNo?.trim() === processed.blNumber.trim()
-              ? "valid"
-              : "failure";
-        } catch (err) {
-          console.error("SAP check error:", err.message);
-        }
+        //   const sapData = await response.json();
+        //   processed.recognitionStatus =
+        //     sapData[0]?.BOLNo?.trim() === processed.blNumber.trim()
+        //       ? "valid"
+        //       : "failure";
+        // } catch (err) {
+        //   console.error("SAP check error:", err.message);
+        // }
 
         processedBatch.push(processed);
       })
