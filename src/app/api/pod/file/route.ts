@@ -19,13 +19,22 @@ interface FileRow {
 }
 
 export async function GET(req: NextRequest) {
+  // Add immediate logging to see if route is called
+  console.log("=== POD FILE ROUTE CALLED ===");
+  console.log("Request URL:", req.url);
+  console.log("Timestamp:", new Date().toISOString());
+
   let connection;
   try {
     const { searchParams } = new URL(req.url);
     const fileId = searchParams.get("fileId");
     const fileTable = searchParams.get("fileTable");
 
+    console.log("fileId:", fileId);
+    console.log("fileTable:", fileTable);
+
     if (!fileId || !fileTable) {
+      console.log("ERROR: Missing fileId or fileTable");
       return NextResponse.json(
         { message: "Missing fileId or fileTable" },
         { status: 400 }
@@ -36,17 +45,20 @@ export async function GET(req: NextRequest) {
     const db = client.db("my-next-app");
     const connectionsCollection = db.collection("db_connections");
 
+    console.log("Fetching DB credentials from MongoDB...");
     const userDBCredentials = await connectionsCollection.findOne(
       {},
       { sort: { _id: -1 } }
     );
 
     if (!userDBCredentials) {
+      console.log("ERROR: OracleDB credentials not found");
       return NextResponse.json(
         { message: "OracleDB credentials not found" },
         { status: 404 }
       );
     }
+    console.log("DB credentials found, connecting to Oracle...");
 
     const { userName, password, ipAddress, portNumber, serviceName } =
       userDBCredentials;
@@ -58,11 +70,13 @@ export async function GET(req: NextRequest) {
       serviceName
     );
     if (!connection) {
+      console.log("ERROR: Oracle connection failed");
       return NextResponse.json(
         { message: "Connection failed or skipped" },
         { status: 500 }
       );
     }
+    console.log("Oracle connection established successfully");
 
     const result = await connection.execute<FileRow>(
       `SELECT FILE_ID, FILE_DATA FROM ${process.env.ORACLE_DB_USER_NAME}.${fileTable} WHERE FILE_ID = :fileId`,
@@ -141,7 +155,12 @@ export async function GET(req: NextRequest) {
       FULL_PATH: filePath, // Include full path for debugging
     });
   } catch (err) {
+    console.error("=== ERROR in POD FILE ROUTE ===");
     console.error("Error retrieving file data:", err);
+    console.error(
+      "Error stack:",
+      err instanceof Error ? err.stack : "No stack trace"
+    );
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }
