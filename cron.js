@@ -412,4 +412,4 @@ waitForAPI();
 setInterval(() => {
   console.log("Checking for updated jobs...");
   scheduleJobs();
-}, 60000);
+}, 150000);
