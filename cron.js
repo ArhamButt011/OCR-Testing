@@ -13,17 +13,17 @@ dayjs.extend(isBetween);
 
 // ======== CONFIG (env-tunable) ========
 const BASE_URL = process.env.BASE_URL || "https://h0palyajms52cn-8080.proxy.runpod.net/api";
-const OCR_URL  = process.env.OCR_URL  || "https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr";
+const OCR_URL = process.env.OCR_URL || "https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr";
 
-const BATCH_SIZE             = Number(process.env.OCR_BATCH_SIZE || 4);   // primary pass batch size
-const FALLBACK_BATCH_SIZE    = Number(process.env.FALLBACK_BATCH_SIZE || 2);
-const PRIMARY_CONCURRENCY    = Number(process.env.PRIMARY_CONCURRENCY || 1);
-const OCR_TIMEOUT_MS         = Number(process.env.OCR_TIMEOUT_MS || 200000);
-const FETCH_TIMEOUT_MS       = Number(process.env.FETCH_TIMEOUT_MS || 5000);
-const OCR_RETRIES            = Number(process.env.OCR_RETRIES || 3);
+const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 4);   // primary pass batch size
+const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
+const PRIMARY_CONCURRENCY = Number(process.env.PRIMARY_CONCURRENCY || 1);
+const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS || 200000);
+const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 5000);
+const OCR_RETRIES = Number(process.env.OCR_RETRIES || 3);
 const OCR_RETRY_BASE_BACKOFF = Number(process.env.OCR_RETRY_BASE_BACKOFF || 1000);
-const PREFLIGHT_URL_CHECK    = (process.env.PREFLIGHT_URL_CHECK || "true") === "true";
-const SAVE_CHUNK_SIZE        = Number(process.env.SAVE_CHUNK_SIZE || 50);
+const PREFLIGHT_URL_CHECK = (process.env.PREFLIGHT_URL_CHECK || "true") === "true";
+const SAVE_CHUNK_SIZE = Number(process.env.SAVE_CHUNK_SIZE || 50);
 
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
 
@@ -99,9 +99,12 @@ const getDBConnectionType = () => {
 
 function chunk(arr, size) {
   const out = [];
-  for (let i = 0; i < arr.length; i++) out.push(arr.slice(i, i += size) && arr.slice(i - size, i));
-  return out.filter(Boolean);
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
 }
+
 
 // ======== FIELD NORMALIZATION (prevents nulls) ========
 // Safely get first non-empty field from aliases
@@ -137,17 +140,17 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
   const podDate = firstOf(d, ["POD_Date", "PODDate", "Proof_Of_Delivery_Date", "Delivery_Date"], "");
   const podSignature = firstOf(d, ["Signature_Exists", "Signature", "Sign_Exists"], "unknown");
 
-  const issuedQty   = toInt(firstOf(d, ["Issued_Qty", "IssuedQty", "Shipped_Qty", "Total_Issued"], 0));
+  const issuedQty = toInt(firstOf(d, ["Issued_Qty", "IssuedQty", "Shipped_Qty", "Total_Issued"], 0));
   const receivedQty = toInt(firstOf(d, ["Received_Qty", "ReceivedQty", "Total_Received", "TOTAL_CARTONS_RECEIVED"], 0));
-  const damageQty   = toInt(firstOf(d, ["Damage_Qty", "Damaged_Qty", "DamageQty"], 0));
-  const shortQty    = toInt(firstOf(d, ["Short_Qty", "ShortQty"], 0));
-  const overQty     = toInt(firstOf(d, ["Over_Qty", "OverQty"], 0));
-  const refusedQty  = toInt(firstOf(d, ["Refused_Qty", "RefusedQty"], 0));
+  const damageQty = toInt(firstOf(d, ["Damage_Qty", "Damaged_Qty", "DamageQty"], 0));
+  const shortQty = toInt(firstOf(d, ["Short_Qty", "ShortQty"], 0));
+  const overQty = toInt(firstOf(d, ["Over_Qty", "OverQty"], 0));
+  const refusedQty = toInt(firstOf(d, ["Refused_Qty", "RefusedQty"], 0));
 
   const customerOrderNum = firstOf(d, ["Customer_Order_Num", "CustomerOrderNum", "Order_No"], "");
   const stampExists = firstOf(d, ["Stamp_Exists", "StampExists"], "");
-  const statusRaw   = firstOf(d, ["Status", "OCR_Status"], "");
-  const statusMap   = { failed: "failure", valid: "valid", "partially valid": "partiallyValid", partial: "partiallyValid" };
+  const statusRaw = firstOf(d, ["Status", "OCR_Status"], "");
+  const statusMap = { failed: "failure", valid: "valid", "partially valid": "partiallyValid", partial: "partiallyValid" };
   const recognitionStatus = statusMap[String(statusRaw).toLowerCase()] || "null";
   const sealIntact = toYesNoY(firstOf(d, ["Seal_Intact", "SealIntact", "Seal_Status"], "no"));
 
@@ -219,7 +222,7 @@ function compareJobs(newJobs, scheduledMap, prevHash) {
 
 function clearScheduledJobs() {
   for (const [jobId, task] of scheduledTasks.entries()) {
-    try { task.stop(); task.destroy?.(); } catch {}
+    try { task.stop(); task.destroy?.(); } catch { }
     scheduledTasks.delete(jobId);
   }
 }
@@ -365,7 +368,7 @@ async function saveProcessedRecords(base_url, records) {
           { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ocrDataList: part }) }
         );
         const text = await res.text();
-        if (!res.ok) console.error(`/pod/update HTTP_${res.status}: ${text.slice(0,300)}`);
+        if (!res.ok) console.error(`/pod/update HTTP_${res.status}: ${text.slice(0, 300)}`);
       }
     }
   } catch (e) {
@@ -379,7 +382,7 @@ async function saveProcessedRecords(base_url, records) {
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(part) }
     );
     const text = await res.text();
-    if (!res.ok) console.error(`/process-data/save-data HTTP_${res.status}: ${text.slice(0,300)}`);
+    if (!res.ok) console.error(`/process-data/save-data HTTP_${res.status}: ${text.slice(0, 300)}`);
     for (const entry of part) console.log(`File ${entry.fileId} processed (saved).`);
   }
 }
@@ -406,19 +409,23 @@ async function runOcrForJob(job, base_url) {
     console.log(`Total files: ${fileList.length}`);
 
     const batches = chunk(fileList, BATCH_SIZE);
+    console.log(`Chunked into ${batches.length} batches, last batch size = ${batches[batches.length - 1]?.length || 0}`);
     const primaryQueue = new PQueue({ concurrency: PRIMARY_CONCURRENCY });
 
     let totalProcessed = 0;
+    let totalDeferred = 0;
     const fallbackBucket = [];
 
     // STREAM-SAVE PER BATCH
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
+
       primaryQueue.add(async () => {
         console.log(`Primary batch ${i + 1}/${batches.length} (size=${batch.length})`);
+
         const { processed, failedForFallback } = await processPrimaryBatch(batch, job, base_url);
 
-        // Save successes from this batch immediately so they appear in DB now
+        // Save successes from this batch immediately
         if (processed && processed.length) {
           await saveProcessedRecords(base_url, processed);
           totalProcessed += processed.length;
@@ -427,9 +434,16 @@ async function runOcrForJob(job, base_url) {
         // Accumulate fallback candidates
         if (failedForFallback && failedForFallback.length) {
           fallbackBucket.push(...failedForFallback);
+          totalDeferred += failedForFallback.length;
         }
+
+        // Progress heartbeat
+        console.log(
+          `Progress so far → processed=${totalProcessed}, deferred=${totalDeferred}, batch=${i + 1}/${batches.length}`
+        );
       });
     }
+
 
     // Wait until ALL primary batches finish
     await primaryQueue.onIdle();
@@ -489,9 +503,9 @@ function scheduleOne(job, base_url, wmsUrl, userName, passWord) {
         const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
         const fromTime = new Date(job.pdfCriteria.fromTime);
-        const toTime   = new Date(job.pdfCriteria.toTime);
+        const toTime = new Date(job.pdfCriteria.toTime);
         const fromTimeStr = `${String(fromTime.getUTCHours()).padStart(2, "0")}:${String(fromTime.getUTCMinutes()).padStart(2, "0")}`;
-        const toTimeStr   = `${String(toTime.getUTCHours()).padStart(2, "0")}:${String(toTime.getUTCMinutes()).padStart(2, "0")}`;
+        const toTimeStr = `${String(toTime.getUTCHours()).padStart(2, "0")}:${String(toTime.getUTCMinutes()).padStart(2, "0")}`;
 
         const isDaySelected = job.selectedDays.includes(currentDay);
         const inWindow =
@@ -553,14 +567,14 @@ async function scheduleJobs() {
 
     for (const id of removed) {
       const task = scheduledTasks.get(id);
-      if (task) { try { task.stop(); task.destroy?.(); } catch {} }
+      if (task) { try { task.stop(); task.destroy?.(); } catch { } }
       scheduledTasks.delete(id);
       console.log(`✗ Removed job ${id}`);
     }
     for (const job of changed) {
       const id = String(job._id);
       const task = scheduledTasks.get(id);
-      if (task) { try { task.stop(); task.destroy?.(); } catch {} }
+      if (task) { try { task.stop(); task.destroy?.(); } catch { } }
       scheduledTasks.delete(id);
       console.log(`↻ Will reschedule changed job ${id}`);
     }
@@ -590,7 +604,7 @@ async function waitForAPI(retries = 10, interval = 2000) {
         if (success) console.log("✓ Initial scheduling completed");
         return;
       }
-    } catch {}
+    } catch { }
     if (retries > 0) {
       console.log(`⏳ API not ready, ${retries} retries left...`);
       await delay(interval);
