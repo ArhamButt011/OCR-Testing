@@ -55,7 +55,7 @@ const JobDetail = () => {
     sealIntact: "",
   });
   const [isEditMode, setIsEditMode] = useState(false);
-  const [accessUrl, setAccessUrl] = useState("");
+  // const [accessUrl, setAccessUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
   const [userRole, setUserRole] = useState("");
@@ -282,24 +282,14 @@ const JobDetail = () => {
     refused: "Refused Qty",
   };
 
-  useEffect(() => {
-    const fileName = job?.pdfUrl.split("/").pop();
-    if (!fileName) {
-      setAccessUrl("");
-      return;
-    }
-
-    const fileLink = `/api/access-file?filename=${encodeURIComponent(
-      fileName
-    )}&t=${Date.now()}`;
-    setAccessUrl(fileLink);
-  }, []);
-
   if (!job) return <>{error}</>;
 
-  const fileName = job.pdfUrl.split("/").pop();
-  console.log("fileName-> ", fileName);
 
+  const fileName = job.pdfUrl.split("/").pop();
+
+    const accessUrl = fileName
+      ? `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`
+      : "";
   return (
     <div className="flex flex-row h-screen bg-white">
       <Sidebar onStateChange={handleSidebarStateChange} />
