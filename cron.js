@@ -99,8 +99,8 @@ const getDBConnectionType = () => {
 
 function chunk(arr, size) {
   const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
+  for (let i = 0; i < arr.length; i++) out.push(arr.slice(i, i += size) && arr.slice(i - size, i));
+  return out.filter(Boolean);
 }
 
 // ======== FIELD NORMALIZATION (prevents nulls) ========
@@ -133,12 +133,8 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
   const filePath = `${base_url}/access-file?filename=${encodeURIComponent(fileData.FILE_NAME)}`;
 
   // Normalize common aliases to avoid nulls
-  const blNumber = String(
-    firstOf(d, ["B_L_Number", "BL_Number", "BOLNo", "BOL_No", "B_LNo", "B_L"], "")
-  );
-
+  const blNumber = String(firstOf(d, ["B_L_Number", "BL_Number", "BOLNo", "BOL_No", "B_LNo", "B_L"], ""));
   const podDate = firstOf(d, ["POD_Date", "PODDate", "Proof_Of_Delivery_Date", "Delivery_Date"], "");
-
   const podSignature = firstOf(d, ["Signature_Exists", "Signature", "Sign_Exists"], "unknown");
 
   const issuedQty   = toInt(firstOf(d, ["Issued_Qty", "IssuedQty", "Shipped_Qty", "Total_Issued"], 0));
@@ -149,15 +145,12 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
   const refusedQty  = toInt(firstOf(d, ["Refused_Qty", "RefusedQty"], 0));
 
   const customerOrderNum = firstOf(d, ["Customer_Order_Num", "CustomerOrderNum", "Order_No"], "");
-
   const stampExists = firstOf(d, ["Stamp_Exists", "StampExists"], "");
   const statusRaw   = firstOf(d, ["Status", "OCR_Status"], "");
   const statusMap   = { failed: "failure", valid: "valid", "partially valid": "partiallyValid", partial: "partiallyValid" };
   const recognitionStatus = statusMap[String(statusRaw).toLowerCase()] || "null";
-
   const sealIntact = toYesNoY(firstOf(d, ["Seal_Intact", "SealIntact", "Seal_Status"], "no"));
 
-  // If we can't get at least file name + structure, skip to avoid null-written rows
   return {
     _id: fileId,
     jobId: job._id,
@@ -282,6 +275,8 @@ async function processPrimaryBatch(batch, job, base_url) {
     return { processed: [], failedForFallback: [...forFallback, ...payload] };
   }
 
+  console.log(`OCR returned ${ocrData.length} item(s) for this batch`);
+
   const byId = new Map(ocrData.map(x => [x._id, x]));
   const processed = [];
   const failedForFallback = [...forFallback];
@@ -365,10 +360,12 @@ async function saveProcessedRecords(base_url, records) {
     const confirmJson = await confirmRes.json().catch(() => ({}));
     if (confirmJson?.isAutoConfirmationOpen) {
       for (const part of chunk(records, SAVE_CHUNK_SIZE)) {
-        await fetchWithTimeout(
+        const res = await fetchWithTimeout(
           `${base_url}/pod/update`,
           { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ocrDataList: part }) }
         );
+        const text = await res.text();
+        if (!res.ok) console.error(`/pod/update HTTP_${res.status}: ${text.slice(0,300)}`);
       }
     }
   } catch (e) {
@@ -377,10 +374,12 @@ async function saveProcessedRecords(base_url, records) {
 
   // 2) Persist processed data
   for (const part of chunk(records, SAVE_CHUNK_SIZE)) {
-    await fetchWithTimeout(
+    const res = await fetchWithTimeout(
       `${base_url}/process-data/save-data`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(part) }
     );
+    const text = await res.text();
+    if (!res.ok) console.error(`/process-data/save-data HTTP_${res.status}: ${text.slice(0,300)}`);
     for (const entry of part) console.log(`File ${entry.fileId} processed (saved).`);
   }
 }
@@ -409,25 +408,32 @@ async function runOcrForJob(job, base_url) {
     const batches = chunk(fileList, BATCH_SIZE);
     const primaryQueue = new PQueue({ concurrency: PRIMARY_CONCURRENCY });
 
-    const allProcessed = [];
+    let totalProcessed = 0;
     const fallbackBucket = [];
 
+    // STREAM-SAVE PER BATCH
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
       primaryQueue.add(async () => {
         console.log(`Primary batch ${i + 1}/${batches.length} (size=${batch.length})`);
         const { processed, failedForFallback } = await processPrimaryBatch(batch, job, base_url);
-        allProcessed.push(...processed);
-        fallbackBucket.push(...failedForFallback);
+
+        // Save successes from this batch immediately so they appear in DB now
+        if (processed && processed.length) {
+          await saveProcessedRecords(base_url, processed);
+          totalProcessed += processed.length;
+        }
+
+        // Accumulate fallback candidates
+        if (failedForFallback && failedForFallback.length) {
+          fallbackBucket.push(...failedForFallback);
+        }
       });
     }
 
     // Wait until ALL primary batches finish
     await primaryQueue.onIdle();
-    console.log(`Primary pass complete. Processed: ${allProcessed.length}, Deferred: ${fallbackBucket.length}`);
-
-    // Save primary successes first
-    await saveProcessedRecords(base_url, allProcessed);
+    console.log(`Primary pass complete. Processed (saved): ${totalProcessed}, Deferred: ${fallbackBucket.length}`);
 
     // Fallback pass on accumulated failures
     if (fallbackBucket.length > 0) {
@@ -436,7 +442,7 @@ async function runOcrForJob(job, base_url) {
       console.log(`Fallback complete. Recovered: ${fbProcessed.length}, Still failed: ${stillFailed.length}`);
 
       // Save fallback recoveries
-      await saveProcessedRecords(base_url, fbProcessed);
+      if (fbProcessed.length) await saveProcessedRecords(base_url, fbProcessed);
 
       // Optional: persist stillFailed somewhere
       if (stillFailed.length) {
