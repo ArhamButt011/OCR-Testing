@@ -70,7 +70,7 @@ const JobDetail = () => {
   };
 
   console.log(isLoading)
-  
+
 
   const isSupportedFormat = (fileName: string) => {
     const ext = fileName.toLowerCase().split(".").pop();
@@ -283,14 +283,16 @@ const JobDetail = () => {
 
 
   const fileName = job.pdfUrl.split("/").pop();
+  const accessUrl = fileName
+    ? `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`
+    : "";
 
   return (
     <div className="flex flex-row h-screen bg-white">
       <Sidebar onStateChange={handleSidebarStateChange} />
       <div
-        className={`flex-1 flex flex-col transition-all bg-white duration-300 ${
-          isExpanded ? "ml-64" : "ml-24"
-        }`}
+        className={`flex-1 flex flex-col transition-all bg-white duration-300 ${isExpanded ? "ml-64" : "ml-24"
+          }`}
       >
         <div className="bg-gray-100 py-4 flex justify-between items-center my-10 mx-5 rounded-lg px-8">
           <div className="flex items-center gap-5">
@@ -322,10 +324,10 @@ const JobDetail = () => {
           <>
             <div className="mx-5 flex bg-white pt-3 h-5/6">
               <div className="flex-auto xl:h-[calc(143vh-6rem)] 2xl:h-screen bg-white relative">
-              
+
                 {db === "local" ? (
                   <>
-                 
+
                     {fileName && isSupportedFormat(fileName) ? (
                       <iframe
                         src={`${job.pdfUrl}#toolbar=0`}
@@ -340,12 +342,14 @@ const JobDetail = () => {
                       </div>
                     )}
                   </>
-                ) : db === "remote" ? (
+                ) : db === "remote" && accessUrl ? (
                   <>
                     <iframe
-                      src={`data:${mimeType};base64,${base64Data}`}
-                      className="w-full h-screen"
-                      title="PDF Preview"
+                      src={`${accessUrl}#toolbar=0`}
+                      className="w-11/12 h-full bg-white"
+                      loading="lazy"
+                      title="Document Preview"
+                      onLoad={handleIframeLoad}
                     />
                   </>
                 ) : (
@@ -364,9 +368,8 @@ const JobDetail = () => {
                   <span>
                     {(userRole === "admin" || userRole === "standarduser") && (
                       <button
-                        className={`text-[#005B97] underline ${
-                          isEditMode ? "text-blue-300" : ""
-                        }`}
+                        className={`text-[#005B97] underline ${isEditMode ? "text-blue-300" : ""
+                          }`}
                         onClick={handleEditClick}
                         disabled={isEditMode}
                       >
