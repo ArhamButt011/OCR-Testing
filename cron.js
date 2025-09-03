@@ -14,12 +14,19 @@ let baseURL = "https://h0palyajms52cn-8080.proxy.runpod.net/api";
 
 console.log("OCR Cron Job Script Initialized");
 const scheduledTasks = new Map();
+let currentJobsHash = null; // Track changes in jobs
 
 function clearScheduledJobs() {
+  console.log(`Clearing ${scheduledTasks.size} scheduled jobs...`);
   for (const [jobId, task] of scheduledTasks.entries()) {
-    task.stop();
-    scheduledTasks.delete(jobId);
+    try {
+      task.destroy(); // Use destroy() instead of stop() for complete cleanup
+      console.log(`Cleared job: ${jobId}`);
+    } catch (err) {
+      console.error(`Error clearing job ${jobId}:`, err.message);
+    }
   }
+  scheduledTasks.clear();
 }
 
 function fetchWithTimeout(url, options = {}, timeout = 30000) {
@@ -246,7 +253,7 @@ async function runOcrForJob(
   dayOffset,
   fetchLimit
 ) {
-  console.log("ocr script started.");
+  console.log(`OCR script started for job: ${job._id}`);
   const dbConnectionType = getDBConnectionType();
   console.log("db connection-> ", dbConnectionType);
   try {
@@ -268,8 +275,11 @@ async function runOcrForJob(
       queue.add(() =>
         processBatch(batch, job, ocrUrl, base_url, wmsUrl, userName, passWord)
       );
-      console.log(`Added batch to queue.`, queue);
+      console.log(`Added batch to queue.`, queue.size);
     }
+
+    await queue.onIdle();
+    console.log(`All batches processed for job: ${job._id}`);
   } catch (err) {
     console.error("OCR job error:", err.message);
   }
@@ -278,23 +288,50 @@ async function runOcrForJob(
 function getCronExpressionFromTime(timeStr) {
   const [hours, minutes] = timeStr.split(":").map(Number);
 
+  // Every X minutes (if hours is 0 and minutes > 0)
   if (hours === 0 && minutes > 0) {
     return `*/${minutes} * * * *`;
   }
 
+  // Every X hours (if minutes is 0 and hours > 0)
   if (minutes === 0 && hours > 0) {
     return `0 */${hours} * * *`;
   }
 
+  // Every X hours at Y minutes past the hour
   if (hours > 0 && minutes > 0) {
     return `${minutes} */${hours} * * *`;
   }
 
+  // Default: every minute
   return "* * * * *";
+}
+
+function isTimeInRange(currentTime, fromTime, toTime) {
+  // Handle case where time range crosses midnight
+  if (fromTime > toTime) {
+    return currentTime >= fromTime || currentTime <= toTime;
+  }
+  return currentTime >= fromTime && currentTime <= toTime;
+}
+
+function createJobHash(jobs) {
+  // Create a hash of job configurations to detect changes
+  const jobData = jobs.map((job) => ({
+    id: job._id,
+    everyTime: job.everyTime,
+    selectedDays: job.selectedDays,
+    fromTime: job.pdfCriteria.fromTime,
+    toTime: job.pdfCriteria.toTime,
+    dayOffset: job.dayOffset,
+    fetchLimit: job.fetchLimit,
+  }));
+  return JSON.stringify(jobData);
 }
 
 async function scheduleJobs() {
   try {
+    console.log("Fetching database configuration...");
     const dbResponse = await fetchWithTimeout(
       `${baseURL}/auth/public-db`,
       {},
@@ -304,9 +341,10 @@ async function scheduleJobs() {
 
     if (dbData?.database !== "remote") {
       console.log("Database is not remote. Skipping job scheduling.");
-      return;
+      return false;
     }
 
+    console.log("Fetching IP configuration...");
     const ipRes = await fetchWithTimeout(
       `${baseURL}/ipAddress/ip-address`,
       {},
@@ -319,6 +357,7 @@ async function scheduleJobs() {
     // const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
     const ocrUrl = `https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr`;
 
+    console.log("Fetching WMS configuration...");
     const wmsRes = await fetchWithTimeout(`${base_url}/save-wms-url`, {}, 5000);
     const {
       wmsUrl,
@@ -326,64 +365,209 @@ async function scheduleJobs() {
       password: passWord,
     } = await wmsRes.json();
 
+    console.log("Fetching active jobs...");
     const jobRes = await fetchWithTimeout(`${base_url}/jobs/get-job`, {}, 5000);
     const jobJson = await jobRes.json();
     const jobs = jobJson.activeJobs;
 
-    clearScheduledJobs();
+    // On initial load, always schedule all jobs
+    if (isInitialLoad) {
+      console.log("Initial load: Scheduling all jobs...");
+      clearScheduledJobs();
+      currentJobsHash = createJobHash(jobs);
+      isInitialLoad = false;
+    } else {
+      // For subsequent loads, check for changes
+      const newJobsHash = createJobHash(jobs);
+      if (newJobsHash === currentJobsHash) {
+        console.log("No job changes detected, keeping existing schedules.");
+        return false;
+      }
 
-    for (const job of jobs) {
-      const intervalStr = job.everyTime;
-      const cronExp = getCronExpressionFromTime(intervalStr);
+      console.log("Job changes detected, analyzing differences...");
 
-      const task = cron.schedule(cronExp, async () => {
-        const now = new Date();
-        const currentDay = now.toLocaleString("en-US", { weekday: "long" });
-        const currentTimeStr = `${String(now.getHours()).padStart(
-          2,
-          "0"
-        )}:${String(now.getMinutes()).padStart(2, "0")}`;
+      // Compare jobs to see what changed
+      const currentJobIds = Array.from(scheduledTasks.keys());
+      const { added, removed, common } = compareJobs(jobs, currentJobIds);
 
-        const fromTime = new Date(job.pdfCriteria.fromTime);
-        const toTime = new Date(job.pdfCriteria.toTime);
-        const fromTimeStr = `${String(fromTime.getUTCHours()).padStart(
-          2,
-          "0"
-        )}:${String(fromTime.getUTCMinutes()).padStart(2, "0")}`;
-        const toTimeStr = `${String(toTime.getUTCHours()).padStart(
-          2,
-          "0"
-        )}:${String(toTime.getUTCMinutes()).padStart(2, "0")}`;
-        console.log("currentday-> ", currentDay);
-        console.log("currentTimeStr-> ", currentTimeStr);
-        console.log("fromTime-> ", fromTime);
-        console.log("toTime-> ", toTime);
-        console.log("fromTimeStr-> ", fromTimeStr);
+      console.log(
+        `Jobs added: ${added.length}, removed: ${removed.length}, unchanged: ${common.length}`
+      );
+
+      // Remove only the jobs that are no longer active
+      if (removed.length > 0) {
+        console.log(`Removing deleted jobs: ${removed.join(", ")}`);
+        for (const jobId of removed) {
+          const task = scheduledTasks.get(jobId);
+          if (task) {
+            try {
+              task.destroy();
+              scheduledTasks.delete(jobId);
+              console.log(`✓ Removed job: ${jobId}`);
+            } catch (err) {
+              console.error(`Error removing job ${jobId}:`, err.message);
+            }
+          }
+        }
+      }
+
+      // Check if existing jobs have configuration changes
+      const jobsToReschedule = [];
+      const existingJobs = jobs.filter((job) => common.includes(job._id));
+
+      for (const job of existingJobs) {
+        const existingJobHash = createJobHash([job]);
+        const previousJob = currentJobsHash
+          ? JSON.parse(currentJobsHash).find((j) => j.id === job._id)
+          : null;
 
         if (
-          job.selectedDays.includes(currentDay) &&
-          currentTimeStr >= fromTimeStr &&
-          currentTimeStr <= toTimeStr
+          previousJob &&
+          JSON.stringify(previousJob) !==
+            JSON.stringify({
+              id: job._id,
+              everyTime: job.everyTime,
+              selectedDays: job.selectedDays,
+              fromTime: job.pdfCriteria.fromTime,
+              toTime: job.pdfCriteria.toTime,
+              dayOffset: job.dayOffset,
+              fetchLimit: job.fetchLimit,
+            })
         ) {
-          console.log(`Running OCR Job: ${job._id}`);
-          runOcrForJob(
-            job,
-            ocrUrl,
-            base_url,
-            wmsUrl,
-            userName,
-            passWord,
-            job.dayOffset,
-            job.fetchLimit
-          );
+          jobsToReschedule.push(job);
+          console.log(`Job ${job._id} configuration changed, will reschedule`);
         }
-      });
+      }
 
-      scheduledTasks.set(job._id, task);
-      console.log(`Scheduled job ${job._id} with cron: ${cronExp}`);
+      // Remove jobs that need rescheduling
+      for (const job of jobsToReschedule) {
+        const task = scheduledTasks.get(job._id);
+        if (task) {
+          try {
+            task.destroy();
+            scheduledTasks.delete(job._id);
+            console.log(`✓ Removed job for rescheduling: ${job._id}`);
+          } catch (err) {
+            console.error(
+              `Error removing job ${job._id} for rescheduling:`,
+              err.message
+            );
+          }
+        }
+      }
+
+      // Only schedule new jobs and jobs that need rescheduling
+      const jobsToSchedule = [
+        ...jobs.filter((job) => added.includes(job._id)),
+        ...jobsToReschedule,
+      ];
+
+      if (jobsToSchedule.length === 0) {
+        console.log("No jobs need scheduling, keeping existing schedules.");
+        return false;
+      }
+
+      console.log(
+        `Scheduling ${jobsToSchedule.length} jobs (${added.length} new, ${jobsToReschedule.length} rescheduled)`
+      );
+      jobs.splice(0, jobs.length, ...jobsToSchedule); // Replace jobs array with only jobs to schedule
+
+      currentJobsHash = newJobsHash;
     }
+
+    let scheduledCount = 0;
+    for (const job of jobs) {
+      try {
+        const intervalStr = job.everyTime;
+        const cronExp = getCronExpressionFromTime(intervalStr);
+
+        // Validate cron expression
+        if (!cron.validate(cronExp)) {
+          console.error(
+            `Invalid cron expression for job ${job._id}: ${cronExp}`
+          );
+          continue;
+        }
+
+        const task = cron.schedule(
+          cronExp,
+          async () => {
+            try {
+              const now = new Date();
+              const currentDay = now.toLocaleString("en-US", {
+                weekday: "long",
+              });
+              const currentTime = `${String(now.getHours()).padStart(
+                2,
+                "0"
+              )}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+              const fromTime = new Date(job.pdfCriteria.fromTime);
+              const toTime = new Date(job.pdfCriteria.toTime);
+              const fromTimeStr = `${String(fromTime.getUTCHours()).padStart(
+                2,
+                "0"
+              )}:${String(fromTime.getUTCMinutes()).padStart(2, "0")}`;
+              const toTimeStr = `${String(toTime.getUTCHours()).padStart(
+                2,
+                "0"
+              )}:${String(toTime.getUTCMinutes()).padStart(2, "0")}`;
+
+              console.log(
+                `Job ${job._id} - Current: ${currentDay} ${currentTime}, Range: ${fromTimeStr}-${toTimeStr}`
+              );
+
+              const isDaySelected = job.selectedDays.includes(currentDay);
+              const isTimeInWindow = isTimeInRange(
+                currentTime,
+                fromTimeStr,
+                toTimeStr
+              );
+
+              if (isDaySelected && isTimeInWindow) {
+                console.log(`✓ Running OCR Job: ${job._id}`);
+                await runOcrForJob(
+                  job,
+                  ocrUrl,
+                  base_url,
+                  wmsUrl,
+                  userName,
+                  passWord,
+                  job.dayOffset,
+                  job.fetchLimit
+                );
+              } else {
+                console.log(
+                  `⏳ Job ${job._id} conditions not met - Day: ${isDaySelected}, Time: ${isTimeInWindow}`
+                );
+              }
+            } catch (taskError) {
+              console.error(`Error running job ${job._id}:`, taskError.message);
+            }
+          },
+          {
+            scheduled: false, // Don't start immediately
+          }
+        );
+
+        // Start the task
+        task.start();
+        scheduledTasks.set(job._id, task);
+        scheduledCount++;
+        console.log(`✓ Scheduled job ${job._id} with cron: ${cronExp}`);
+      } catch (jobError) {
+        console.error(`Error scheduling job ${job._id}:`, jobError.message);
+      }
+    }
+
+    const totalScheduled = scheduledTasks.size;
+    console.log(
+      `Successfully scheduled ${scheduledCount} jobs. Total active jobs: ${totalScheduled}`
+    );
+    return true;
   } catch (err) {
     console.error("Scheduling failed:", err.message);
+    return false;
   }
 }
 
@@ -391,25 +575,59 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 async function waitForAPI(retries = 10, interval = 2000) {
   const url = `${baseURL}/auth/public-db`;
+  console.log("Waiting for API to be ready...");
+
   while (retries--) {
     try {
-      const res = await fetchWithTimeout(url);
+      const res = await fetchWithTimeout(url, {}, 5000);
       if (res.ok) {
-        console.log("API is up, starting scheduler...");
-        await scheduleJobs();
+        console.log("✓ API is up, starting scheduler...");
+        const success = await scheduleJobs();
+        if (success) {
+          console.log("✓ Initial scheduling completed");
+        }
         return;
       }
     } catch (err) {
-      console.log("Waiting for API to be ready...");
-      await delay(interval);
+      console.log(`⏳ API not ready, ${retries} retries left...`);
+      if (retries > 0) {
+        await delay(interval);
+      }
     }
   }
-  console.error("API failed to respond after multiple retries.");
+  console.error("❌ API failed to respond after multiple retries.");
 }
 
+// Graceful shutdown handler
+process.on("SIGINT", () => {
+  console.log("Received SIGINT, gracefully shutting down...");
+  clearScheduledJobs();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  console.log("Received SIGTERM, gracefully shutting down...");
+  clearScheduledJobs();
+  process.exit(0);
+});
+
+// Start the application
 waitForAPI();
 
-setInterval(() => {
-  console.log("Checking for updated jobs...");
-  scheduleJobs();
+// Check for job updates every 2.5 minutes
+const jobCheckInterval = setInterval(async () => {
+  console.log("⏰ Checking for updated jobs...");
+  try {
+    const success = await scheduleJobs();
+    if (success) {
+      console.log("✓ Job check completed");
+    }
+  } catch (err) {
+    console.error("Error during job check:", err.message);
+  }
 }, 150000);
+
+// Clean up interval on exit
+process.on("exit", () => {
+  clearInterval(jobCheckInterval);
+});
