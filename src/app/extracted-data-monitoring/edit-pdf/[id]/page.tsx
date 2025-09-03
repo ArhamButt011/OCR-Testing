@@ -10,7 +10,6 @@ import Link from "next/link";
 import { ObjectId } from "mongodb";
 import { useDBConnection } from "@/app/context/DBConnectionContext";
 
-
 interface Job {
   _id: ObjectId;
   pdfUrl: string;
@@ -71,8 +70,7 @@ const JobDetail = () => {
     return newState;
   };
 
-  console.log(isLoading)
-
+  console.log(isLoading);
 
   const isSupportedFormat = (fileName: string) => {
     const ext = fileName.toLowerCase().split(".").pop();
@@ -246,14 +244,17 @@ const JobDetail = () => {
         podDate: formatDateForDB(formData.podDate),
       };
 
-      const response = await fetch(`/api/process-data/detail-data/${id}?dbType=${db}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-name": formattedReviewedBy,
-        },
-        body: JSON.stringify(formattedData),
-      });
+      const response = await fetch(
+        `/api/process-data/detail-data/${id}?dbType=${db}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-name": formattedReviewedBy,
+          },
+          body: JSON.stringify(formattedData),
+        }
+      );
 
       if (response.ok) {
         setIsEditMode(false);
@@ -280,30 +281,32 @@ const JobDetail = () => {
     over: "Over Qty",
     refused: "Refused Qty",
   };
-  let fileName: string | undefined = "";
+
   useEffect(() => {
+    const fileName = job?.pdfUrl.split("/").pop();
     if (!fileName) {
       setAccessUrl("");
       return;
     }
 
-    const fileLink = `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`;
+    const fileLink = `/api/access-file?filename=${encodeURIComponent(
+      fileName
+    )}&t=${Date.now()}`;
     setAccessUrl(fileLink);
   }, []);
+
   if (!job) return <>{error}</>;
 
-  fileName = job.pdfUrl.split("/").pop();
-
-
-
-
+  const fileName = job.pdfUrl.split("/").pop();
+  console.log("fileName-> ", fileName);
 
   return (
     <div className="flex flex-row h-screen bg-white">
       <Sidebar onStateChange={handleSidebarStateChange} />
       <div
-        className={`flex-1 flex flex-col transition-all bg-white duration-300 ${isExpanded ? "ml-64" : "ml-24"
-          }`}
+        className={`flex-1 flex flex-col transition-all bg-white duration-300 ${
+          isExpanded ? "ml-64" : "ml-24"
+        }`}
       >
         <div className="bg-gray-100 py-4 flex justify-between items-center my-10 mx-5 rounded-lg px-8">
           <div className="flex items-center gap-5">
@@ -335,10 +338,8 @@ const JobDetail = () => {
           <>
             <div className="mx-5 flex bg-white pt-3 h-5/6">
               <div className="flex-auto xl:h-[calc(143vh-6rem)] 2xl:h-screen bg-white relative">
-
                 {db === "local" ? (
                   <>
-
                     {fileName && isSupportedFormat(fileName) ? (
                       <iframe
                         src={`${job.pdfUrl}#toolbar=0`}
@@ -379,8 +380,9 @@ const JobDetail = () => {
                   <span>
                     {(userRole === "admin" || userRole === "standarduser") && (
                       <button
-                        className={`text-[#005B97] underline ${isEditMode ? "text-blue-300" : ""
-                          }`}
+                        className={`text-[#005B97] underline ${
+                          isEditMode ? "text-blue-300" : ""
+                        }`}
                         onClick={handleEditClick}
                         disabled={isEditMode}
                       >
