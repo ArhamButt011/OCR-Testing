@@ -16,6 +16,23 @@ function connString() {
   return `${host}:${port}/${service}`;
 }
 
+// Type for result structure
+interface UploadResult {
+  status: "success" | "error";
+  message: string;
+  fileName?: string;
+  fileId?: string;
+  ldLegId?: number;
+  error?: string;
+}
+
+// Type for Oracle result with out binds
+interface OracleResult {
+  outBinds?: {
+    blob: oracledb.Lob[];
+  };
+}
+
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
@@ -46,14 +63,7 @@ export async function POST(req: NextRequest) {
     // Ensure we manually control transactions
     await connection.execute(`ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS'`);
 
-    const results: Array<{
-      status: "success" | "error";
-      message: string;
-      fileName?: string;
-      fileId?: string;
-      ldLegId?: number;
-      error?: string;
-    }> = [];
+    const results: UploadResult[] = [];
 
     // Process sequentially to avoid LOB concurrency headaches
     for (let i = 0; i < files.length; i++) {
@@ -95,17 +105,17 @@ export async function POST(req: NextRequest) {
             blob: { dir: oracledb.BIND_OUT, type: oracledb.BLOB },
           },
           { autoCommit: false }
-        );
+        ) as OracleResult;
 
         // If unique violation, fall back to UPDATE
         // ORA-00001: unique constraint (handle by code)
-        if (!result.outBinds || !(result.outBinds as any).blob?.[0]) {
+        if (!result.outBinds?.blob?.[0]) {
           // This should not happen, but guard anyway
           throw new Error("LOB locator missing after INSERT.");
         }
 
         // 2) Stream buffer into BLOB
-        const lob: oracledb.Lob = (result.outBinds as any).blob[0];
+        const lob: oracledb.Lob = result.outBinds.blob[0];
         await new Promise<void>((resolve, reject) => {
           lob.on("error", (e) => reject(e));
           lob.on("finish", () => resolve());
@@ -165,31 +175,33 @@ export async function POST(req: NextRequest) {
           fileId,
           ldLegId: thisLdLegId,
         });
-      } catch (fileErr: any) {
+      } catch (fileErr) {
         // Roll back only this file
         try {
           await connection.execute(`ROLLBACK TO ${spName}`);
-        } catch (_) {
+        } catch {
           // If savepoint rollback fails, fall back to full rollback (keeps loop resilient)
           await connection.rollback();
         }
 
+        const errorMessage = fileErr instanceof Error ? fileErr.message : String(fileErr);
         results.push({
           status: "error",
           message: "Upload failed",
           fileName,
           fileId,
           ldLegId: thisLdLegId,
-          error: fileErr?.message || String(fileErr),
+          error: errorMessage,
         });
         // continue to next file
       }
     }
 
     return NextResponse.json({ results }, { status: 200 });
-  } catch (err: any) {
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      { error: err?.message || "Unknown error" },
+      { error: errorMessage },
       { status: 500 }
     );
   } finally {
