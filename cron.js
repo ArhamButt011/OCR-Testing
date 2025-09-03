@@ -18,6 +18,7 @@ console.log("OCR Cron Job Script Initialized");
 const scheduledTasks = new Map(); // jobId -> cron task
 let isInitialLoad = true;
 let currentJobsHash = "[]"; // JSON string of job configs
+const jobRunning = new Map(); // jobId -> boolean (avoid overlapping runs)
 
 // --- helpers: hashing & comparison ---
 function jobConfigOf(job) {
@@ -89,6 +90,67 @@ function fetchWithTimeout(url, options = {}, timeout = 30000) {
   );
 }
 
+// --- retry helpers & URL preflight ---
+async function sleep(ms) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
+async function postJsonWithRetry(
+  url,
+  jsonBody,
+  { tries = 3, timeout = 200000 } = {}
+) {
+  let lastErr;
+  for (let i = 1; i <= tries; i++) {
+    try {
+      const res = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(jsonBody),
+        },
+        timeout
+      );
+      const text = await res.text(); // don't assume JSON
+      if (!res.ok) {
+        console.error(
+          `OCR HTTP ${res.status} ${res.statusText}: ${text.slice(0, 1000)}`
+        );
+        throw new Error(`HTTP_${res.status}`);
+      }
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.error("OCR response not JSON:", text.slice(0, 200));
+        throw new Error("NON_JSON_RESPONSE");
+      }
+    } catch (e) {
+      lastErr = e;
+      const backoff = 1000 * i;
+      console.warn(
+        `postJsonWithRetry attempt ${i} failed: ${e.message}. Retrying in ${backoff}ms...`
+      );
+      await sleep(backoff);
+    }
+  }
+  throw lastErr;
+}
+
+async function isUrlOk(u) {
+  try {
+    // HEAD can be blocked; GET a byte instead
+    const res = await fetchWithTimeout(
+      u,
+      { headers: { Range: "bytes=0-0" } },
+      5000
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 const getDBConnectionType = () => {
   try {
     const filePath = path.join(__dirname, "db-config.json");
@@ -118,6 +180,7 @@ async function processBatch(
   try {
     const payload = [];
     const fileMetaDataMap = new Map();
+
     await Promise.all(
       batch.map(async (item) => {
         const fileId = item.FILE_ID || item.file_id;
@@ -151,21 +214,48 @@ async function processBatch(
 
     if (payload.length === 0) return;
 
-    const ocrRes = await fetchWithTimeout(
-      ocrUrl,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-      200000
-    );
-    if (!ocrRes.ok) {
-      const errJson = await ocrRes.json().catch(() => null);
-      throw new Error(errJson?.error || "OCR Failed");
+    // Preflight each file URL to avoid poisoning whole batch
+    const verifiedPayload = [];
+    for (const rec of payload) {
+      const ok = await isUrlOk(rec.file_url_or_path);
+      if (!ok) {
+        console.warn(
+          `Skipping file ${rec._id}: URL not accessible -> ${rec.file_url_or_path}`
+        );
+        continue;
+      }
+      verifiedPayload.push(rec);
+    }
+    if (verifiedPayload.length === 0) {
+      console.warn("No valid files to OCR in this batch.");
+      return;
     }
 
-    const ocrData = await ocrRes.json();
+    // Try batch OCR with retries
+    let ocrData;
+    try {
+      ocrData = await postJsonWithRetry(ocrUrl, verifiedPayload, {
+        tries: 3,
+        timeout: 200000,
+      });
+    } catch (e) {
+      console.warn(
+        `Batch OCR failed (${e.message}). Falling back to single-file processing...`
+      );
+      ocrData = [];
+      for (const rec of verifiedPayload) {
+        try {
+          const single = await postJsonWithRetry(ocrUrl, [rec], {
+            tries: 2,
+            timeout: 200000,
+          });
+          if (Array.isArray(single)) ocrData.push(...single);
+        } catch (e2) {
+          console.error(`Single OCR failed for ${rec._id}: ${e2.message}`);
+        }
+      }
+    }
+
     if (!Array.isArray(ocrData)) return;
 
     const processedBatch = [];
@@ -279,7 +369,7 @@ async function runOcrForJob(
     );
     const fileList = await retrieveRes.json();
 
-    const batchSize = 4;
+    const batchSize = Number(process.env.OCR_BATCH_SIZE || 2); // tuned down for stability
     const queue = new PQueue({ concurrency: 1 });
 
     for (let i = 0; i < fileList.length; i += batchSize) {
@@ -314,6 +404,13 @@ function scheduleOne(job, ocrUrl, base_url, wmsUrl, userName, passWord) {
 
   const task = cron.schedule(cronExp, async () => {
     try {
+      // Prevent overlapping runs for this job
+      if (jobRunning.get(job._id)) {
+        console.log(`↺ Skip run: previous run still active for job ${job._id}`);
+        return;
+      }
+      jobRunning.set(job._id, true);
+
       const now = new Date();
       const currentDay = now.toLocaleString("en-US", { weekday: "long" });
       const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(
@@ -354,6 +451,8 @@ function scheduleOne(job, ocrUrl, base_url, wmsUrl, userName, passWord) {
       }
     } catch (e) {
       console.error(`Error running job ${job._id}:`, e.message);
+    } finally {
+      jobRunning.set(job._id, false);
     }
   });
 
