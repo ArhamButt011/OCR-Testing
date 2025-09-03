@@ -9,6 +9,7 @@ import { useSidebar } from "../../../context/SidebarContext";
 import Link from "next/link";
 import { ObjectId } from "mongodb";
 import { useDBConnection } from "@/app/context/DBConnectionContext";
+import { set } from "date-fns";
 
 interface Job {
   _id: ObjectId;
@@ -55,6 +56,7 @@ const JobDetail = () => {
     sealIntact: "",
   });
   const [isEditMode, setIsEditMode] = useState(false);
+  const [accessUrl, setAccessUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
   const [userRole, setUserRole] = useState("");
@@ -244,7 +246,7 @@ const JobDetail = () => {
         podDate: formatDateForDB(formData.podDate),
       };
 
-      const response = await fetch(`/api/process-data/detail-data/${id}`, {
+      const response = await fetch(`/api/process-data/detail-data/${id}?dbType=${db}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -283,9 +285,12 @@ const JobDetail = () => {
 
 
   const fileName = job.pdfUrl.split("/").pop();
-  const accessUrl = fileName
+  useEffect(() => {
+  const fileLink = fileName
     ? `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`
     : "";
+    setAccessUrl(fileLink);
+  },[])
 
   return (
     <div className="flex flex-row h-screen bg-white">
