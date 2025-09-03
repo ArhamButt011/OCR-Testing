@@ -9,7 +9,7 @@ import { useSidebar } from "../../../context/SidebarContext";
 import Link from "next/link";
 import { ObjectId } from "mongodb";
 import { useDBConnection } from "@/app/context/DBConnectionContext";
-import { set } from "date-fns";
+
 
 interface Job {
   _id: ObjectId;
@@ -280,17 +280,23 @@ const JobDetail = () => {
     over: "Over Qty",
     refused: "Refused Qty",
   };
+  let fileName: string | undefined = "";
+  useEffect(() => {
+    if (!fileName) {
+      setAccessUrl("");
+      return;
+    }
 
+    const fileLink = `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`;
+    setAccessUrl(fileLink);
+  }, []);
   if (!job) return <>{error}</>;
 
+  fileName = job.pdfUrl.split("/").pop();
 
-  const fileName = job.pdfUrl.split("/").pop();
-  useEffect(() => {
-  const fileLink = fileName
-    ? `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`
-    : "";
-    setAccessUrl(fileLink);
-  },[])
+
+
+
 
   return (
     <div className="flex flex-row h-screen bg-white">
