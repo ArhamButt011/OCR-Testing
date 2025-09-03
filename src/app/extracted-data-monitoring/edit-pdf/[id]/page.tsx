@@ -62,8 +62,8 @@ const JobDetail = () => {
   const [name, setName] = useState("");
   const { db } = useDBConnection();
   const { isExpanded } = useSidebar();
-  const [base64Data, setBase64Data] = useState("");
-  const [mimeType, setMimeType] = useState();
+  // const [base64Data, setBase64Data] = useState("");
+  // const [mimeType, setMimeType] = useState();
   const handleSidebarStateChange = (newState: boolean) => {
     // setIsSidebarExpanded(newState);
     return newState;
@@ -142,9 +142,9 @@ const JobDetail = () => {
           } else {
             console.log("data.job-> ", data.job);
             setJob(data.job);
-            setBase64Data(data.base64Data);
+            // setBase64Data(data.base64Data);
 
-            setMimeType(data.mimeType);
+            // setMimeType(data.mimeType);
             setFormData({
               blNumber: data.job.blNumber || "",
               podDate: formatDateForInput(data.job.podDate || ""),
