@@ -15,6 +15,18 @@ let baseURL = "https://h0palyajms52cn-8080.proxy.runpod.net/api";
 console.log("OCR Cron Job Script Initialized");
 const scheduledTasks = new Map();
 let currentJobsHash = null; // Track changes in jobs
+let isInitialLoad = true;
+
+function compareJobs(newJobs, existingJobIds) {
+  const newJobIds = new Set(newJobs.map((job) => job._id));
+  const existing = new Set(existingJobIds);
+
+  const added = [...newJobIds].filter((id) => !existing.has(id));
+  const removed = [...existing].filter((id) => !newJobIds.has(id));
+  const common = [...newJobIds].filter((id) => existing.has(id));
+
+  return { added, removed, common, newJobIds };
+}
 
 function clearScheduledJobs() {
   console.log(`Clearing ${scheduledTasks.size} scheduled jobs...`);
