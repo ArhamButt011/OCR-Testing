@@ -317,7 +317,7 @@ async function scheduleJobs() {
     const base_url = `https://h0palyajms52cn-8080.proxy.runpod.net/api`;
 
     // const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
-    const ocrUrl = `https://zydfs3qh4hkuh9-8080.proxy.runpod.net/run-ocr`;
+    const ocrUrl = `https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr`;
 
     const wmsRes = await fetchWithTimeout(`${base_url}/save-wms-url`, {}, 5000);
     const {
