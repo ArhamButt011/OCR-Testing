@@ -14,8 +14,9 @@ dayjs.extend(isBetween);
 // ======== CONFIG (env-tunable) ========
 const BASE_URL = process.env.BASE_URL || "https://h0palyajms52cn-8080.proxy.runpod.net/api";
 const OCR_URL = process.env.OCR_URL || "https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr";
+const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 95000);
 
-const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3);   // primary pass batch size
+const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 2);   // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
 const PRIMARY_CONCURRENCY = Number(process.env.PRIMARY_CONCURRENCY || 1);
 const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS || 130000);
@@ -26,7 +27,7 @@ const PREFLIGHT_URL_CHECK = (process.env.PREFLIGHT_URL_CHECK || "true") === "tru
 const SAVE_CHUNK_SIZE = Number(process.env.SAVE_CHUNK_SIZE || 50);
 
 // --- added: GPU cooldown/GC knobs (safe no-ops if unset) ---
-const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 5000); // pause between OCR calls (ms)
+const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000); // pause between OCR calls (ms)
 const OCR_GC_URL = process.env.OCR_GC_URL || ""; // optional POST endpoint on OCR server to free VRAM
 
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
@@ -50,10 +51,13 @@ async function postJsonWithRetry(url, jsonBody, { tries = OCR_RETRIES, timeout =
   let lastErr;
   for (let i = 1; i <= tries; i++) {
     try {
+      // NEW: honor the earlier of OCR timeout and proxy deadline
+      const requestTimeout = Math.min(timeout, PROXY_DEADLINE_MS);
+
       const res = await fetchWithTimeout(
         url,
-        { method: "POST", headers: { "Content-Type": "application/json", "Connection": "close" }, body: JSON.stringify(jsonBody) }, // <-- added Connection: close
-        timeout
+        { method: "POST", headers: { "Content-Type": "application/json", "Connection": "close" }, body: JSON.stringify(jsonBody) },
+        requestTimeout
       );
       const text = await res.text();
       if (!res.ok) {
@@ -75,6 +79,7 @@ async function postJsonWithRetry(url, jsonBody, { tries = OCR_RETRIES, timeout =
   }
   throw lastErr;
 }
+
 
 async function isUrlOk(u) {
   if (!PREFLIGHT_URL_CHECK) return true;
