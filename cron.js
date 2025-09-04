@@ -25,6 +25,10 @@ const OCR_RETRY_BASE_BACKOFF = Number(process.env.OCR_RETRY_BASE_BACKOFF || 1000
 const PREFLIGHT_URL_CHECK = (process.env.PREFLIGHT_URL_CHECK || "true") === "true";
 const SAVE_CHUNK_SIZE = Number(process.env.SAVE_CHUNK_SIZE || 50);
 
+// --- added: GPU cooldown/GC knobs (safe no-ops if unset) ---
+const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000); // pause between OCR calls (ms)
+const OCR_GC_URL = process.env.OCR_GC_URL || ""; // optional POST endpoint on OCR server to free VRAM
+
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
 
 // --- scheduler state ---
@@ -48,7 +52,7 @@ async function postJsonWithRetry(url, jsonBody, { tries = OCR_RETRIES, timeout =
     try {
       const res = await fetchWithTimeout(
         url,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(jsonBody) },
+        { method: "POST", headers: { "Content-Type": "application/json", "Connection": "close" }, body: JSON.stringify(jsonBody) }, // <-- added Connection: close
         timeout
       );
       const text = await res.text();
@@ -105,6 +109,20 @@ function chunk(arr, size) {
   return out;
 }
 
+// --- added: tiny helper to let OCR server free VRAM between batches ---
+async function cooldownAndGc() {
+  if (OCR_GC_URL) {
+    try {
+      await fetchWithTimeout(OCR_GC_URL, { method: "POST", headers: { "Connection": "close" } }, 5000);
+      console.log("• Invoked OCR GC endpoint.");
+    } catch (e) {
+      console.warn("OCR GC endpoint failed:", e.message);
+    }
+  }
+  if (OCR_COOLDOWN_MS > 0) {
+    await sleep(OCR_COOLDOWN_MS);
+  }
+}
 
 // ======== FIELD NORMALIZATION (prevents nulls) ========
 // Safely get first non-empty field from aliases
@@ -315,11 +333,14 @@ async function processFallbackBatches(failedList, job, base_url) {
     } catch (e) {
       console.warn(`Fallback OCR group ${gi + 1}/${groups.length} failed (${e.message}). Marking group failed.`);
       stillFailed.push(...group);
+      // --- added: cooldown/GC even on failure ---
+      await cooldownAndGc();
       continue;
     }
     if (!Array.isArray(ocrData)) {
       console.warn(`Fallback OCR group ${gi + 1} returned non-array. Marking failed.`);
       stillFailed.push(...group);
+      await cooldownAndGc();
       continue;
     }
 
@@ -348,6 +369,9 @@ async function processFallbackBatches(failedList, job, base_url) {
         stillFailed.push(rec);
       }
     }
+
+    // --- added: cooldown/GC between fallback groups ---
+    await cooldownAndGc();
   }
 
   return { processed, stillFailed };
@@ -441,9 +465,11 @@ async function runOcrForJob(job, base_url) {
         console.log(
           `Progress so far → processed=${totalProcessed}, deferred=${totalDeferred}, batch=${i + 1}/${batches.length}`
         );
+
+        // --- added: let OCR server free GPU memory between batches ---
+        await cooldownAndGc();
       });
     }
-
 
     // Wait until ALL primary batches finish
     await primaryQueue.onIdle();
