@@ -103,6 +103,7 @@ export async function PUT(req: Request) {
       const file_name = job.pdfUrl.split("/").pop() || "";
       const currentYear = new Date().getFullYear();
       const fileTable = `${process.env.ORACLE_DB_USER_NAME}.XTI_${currentYear}_T`;
+      const crtdDtt = job.createdAt ? new Date(job.createdAt) : new Date();
 
       if (!fileId) {
         const currentYear = new Date().getFullYear();
@@ -145,7 +146,7 @@ export async function PUT(req: Request) {
       }
 
       // handle podDate formatting...
-    
+
 
       // check for existing record in OCR table
       const existingCheck = await conn.execute(
@@ -171,7 +172,9 @@ export async function PUT(req: Request) {
              OCR_SYMT_SEAL = :symtSeal,
              RECV_DATA_DTT = SYSDATE,
              CRTD_USR_CD = 'OCR',
+             CRTD_DTT         = NVL(CRTD_DTT, :crtdDtt),
              UPTD_DTT = SYSDATE
+            UPTD_USR_CD = 'OCR',
          WHERE FILE_ID = :fileId`,
           {
             bolNo: job.blNumber?.toString(),
@@ -186,6 +189,7 @@ export async function PUT(req: Request) {
             symtRefs: job.refused,
             symtSeal: job.sealIntact ?? "N",
             fileId,
+            crtdDtt,
           }
         );
         logs.push({
@@ -200,11 +204,11 @@ export async function PUT(req: Request) {
           `INSERT INTO ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T 
           (FILE_ID, OCR_BOLNO, OCR_ISSQTY, OCR_RCVQTY, OCR_STMP_POD_DTT, OCR_STMP_SIGN, 
            OCR_SYMT_NONE, OCR_SYMT_DAMG, OCR_SYMT_SHRT, OCR_SYMT_ORVG, OCR_SYMT_REFS, OCR_SYMT_SEAL,
-           RECV_DATA_DTT, CRTD_USR_CD, UPTD_DTT)
+           RECV_DATA_DTT, CRTD_USR_CD, CRTD_DTT, UPTD_DTT)
        VALUES 
           (:fileId, :bolNo, :issQty, :rcvQty, :podDate, :sign, 
            :symtNone, :symtDamg, :symtShrt, :symtOrvg, :symtRefs, :symtSeal,
-           SYSDATE, 'OCR', SYSDATE)`,
+           SYSDATE, 'OCR', :crtdDtt, SYSDATE)`,
           {
             bolNo: job.blNumber?.toString(),
             issQty: job.totalQty,
