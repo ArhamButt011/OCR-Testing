@@ -159,23 +159,23 @@ export async function PUT(req: Request) {
       if (recordExists) {
         await conn.execute(
           `UPDATE ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T
-         SET OCR_BOLNO = :bolNo, 
-             OCR_ISSQTY = :issQty, 
-             OCR_RCVQTY = :rcvQty,
-             OCR_STMP_POD_DTT = :podDate, 
-             OCR_STMP_SIGN = :sign, 
-             OCR_SYMT_NONE = :symtNone, 
-             OCR_SYMT_DAMG = :symtDamg, 
-             OCR_SYMT_SHRT = :symtShrt, 
-             OCR_SYMT_ORVG = :symtOrvg, 
-             OCR_SYMT_REFS = :symtRefs, 
-             OCR_SYMT_SEAL = :symtSeal,
-             RECV_DATA_DTT = SYSDATE,
-             CRTD_USR_CD = 'OCR',
-             CRTD_DTT         = NVL(CRTD_DTT, :crtdDtt),
-             UPTD_DTT = SYSDATE
-            UPTD_USR_CD = 'OCR',
-         WHERE FILE_ID = :fileId`,
+     SET OCR_BOLNO      = :bolNo,
+         OCR_ISSQTY     = :issQty,
+         OCR_RCVQTY     = :rcvQty,
+         OCR_STMP_POD_DTT = :podDate,
+         OCR_STMP_SIGN  = :sign,
+         OCR_SYMT_NONE  = :symtNone,
+         OCR_SYMT_DAMG  = :symtDamg,
+         OCR_SYMT_SHRT  = :symtShrt,
+         OCR_SYMT_ORVG  = :symtOrvg,
+         OCR_SYMT_REFS  = :symtRefs,
+         OCR_SYMT_SEAL  = :symtSeal,
+         RECV_DATA_DTT  = SYSDATE,
+         CRTD_USR_CD    = 'OCR',
+         CRTD_DTT       = NVL(CRTD_DTT, :crtdDtt),
+         UPTD_DTT       = SYSDATE,
+         UPTD_USR_CD    = 'OCR'
+   WHERE FILE_ID        = :fileId`,
           {
             bolNo: job.blNumber?.toString(),
             issQty: job.totalQty,
@@ -192,6 +192,7 @@ export async function PUT(req: Request) {
             crtdDtt,
           }
         );
+
         logs.push({
           fileName: file_name,
           status: "updated",
@@ -202,13 +203,13 @@ export async function PUT(req: Request) {
       } else {
         await conn.execute(
           `INSERT INTO ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T 
-          (FILE_ID, OCR_BOLNO, OCR_ISSQTY, OCR_RCVQTY, OCR_STMP_POD_DTT, OCR_STMP_SIGN, 
-           OCR_SYMT_NONE, OCR_SYMT_DAMG, OCR_SYMT_SHRT, OCR_SYMT_ORVG, OCR_SYMT_REFS, OCR_SYMT_SEAL,
-           RECV_DATA_DTT, CRTD_USR_CD, CRTD_DTT, UPTD_DTT)
-       VALUES 
-          (:fileId, :bolNo, :issQty, :rcvQty, :podDate, :sign, 
-           :symtNone, :symtDamg, :symtShrt, :symtOrvg, :symtRefs, :symtSeal,
-           SYSDATE, 'OCR', :crtdDtt, SYSDATE)`,
+    (FILE_ID, OCR_BOLNO, OCR_ISSQTY, OCR_RCVQTY, OCR_STMP_POD_DTT, OCR_STMP_SIGN, 
+     OCR_SYMT_NONE, OCR_SYMT_DAMG, OCR_SYMT_SHRT, OCR_SYMT_ORVG, OCR_SYMT_REFS, OCR_SYMT_SEAL,
+     RECV_DATA_DTT, CRTD_USR_CD, CRTD_DTT, UPTD_DTT)
+   VALUES 
+    (:fileId, :bolNo, :issQty, :rcvQty, :podDate, :sign, 
+     :symtNone, :symtDamg, :symtShrt, :symtOrvg, :symtRefs, :symtSeal,
+     SYSDATE, 'OCR', :crtdDtt, SYSDATE)`,
           {
             bolNo: job.blNumber?.toString(),
             issQty: job.totalQty,
@@ -222,8 +223,10 @@ export async function PUT(req: Request) {
             symtRefs: job.refused,
             symtSeal: job.sealIntact ?? "N",
             fileId,
+            crtdDtt,   // ✅ added to match placeholder
           }
         );
+
         logs.push({
           fileName: file_name,
           status: "added",
