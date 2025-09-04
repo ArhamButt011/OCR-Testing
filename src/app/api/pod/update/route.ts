@@ -3,13 +3,6 @@ import { getOracleConnection } from "@/lib/oracle";
 import clientPromise from "@/lib/mongodb";
 // import oracledb from "oracledb";
 
-function numOrNull(v: unknown): number | null {
-  if (v === undefined || v === null) return null;
-  const s = String(v).trim().toLowerCase();
-  if (s === "" || s === "null" || s === "empty") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
 
 export async function PUT(req: Request) {
   try {
@@ -80,14 +73,14 @@ export async function PUT(req: Request) {
      WHERE FILE_ID = :fileId`,
         {
           bolNo: ocrData.blNumber,
-          issQty: numOrNull(ocrData.totalQty),
-          rcvQty: numOrNull(ocrData.received),
+          issQty: ocrData.totalQty,
+          rcvQty: ocrData.received,
           podDate: ocrData.podDate,
           sign: ocrData.podSignature === "yes" ? "Y" : "N",
-          symtDamg: numOrNull(ocrData.damaged),
-          symtShrt: numOrNull(ocrData.short),
-          symtOrvg: numOrNull(ocrData.over),
-          symtRefs: numOrNull(ocrData.refused),
+          symtDamg: ocrData.damaged,
+          symtShrt: ocrData.short,
+          symtOrvg: ocrData.over,
+          symtRefs: ocrData.refused,
           symtSeal: ocrData.sealIntact,
           fileId: fileId,
         }
