@@ -69,7 +69,7 @@ export async function PUT(req: Request) {
          OCR_SYMT_SEAL = :symtSeal,
          RECV_DATA_DTT = SYSDATE,
          UPTD_USR_CD = 'OCR',
-         UPTD_DTT = SYSDATE,
+         UPTD_DTT = SYSDATE
      WHERE FILE_ID = :fileId`,
         {
           bolNo: ocrData.blNumber,
