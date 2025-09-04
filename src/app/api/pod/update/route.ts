@@ -63,7 +63,7 @@ export async function PUT(req: Request) {
          OCR_STMP_POD_DTT = :podDate, 
          OCR_STMP_SIGN = :sign, 
          OCR_SYMT_DAMG = :symtDamg, 
-         OCR_SYMT_SHRT = :symtShrt, 
+         OCR_SYMT_SHRT = :symtShrt,
          OCR_SYMT_ORVG = :symtOrvg, 
          OCR_SYMT_REFS = :symtRefs, 
          OCR_SYMT_SEAL = :symtSeal,
