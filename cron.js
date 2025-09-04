@@ -15,10 +15,10 @@ dayjs.extend(isBetween);
 const BASE_URL = process.env.BASE_URL || "https://h0palyajms52cn-8080.proxy.runpod.net/api";
 const OCR_URL = process.env.OCR_URL || "https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr";
 
-const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 4);   // primary pass batch size
+const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3);   // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
 const PRIMARY_CONCURRENCY = Number(process.env.PRIMARY_CONCURRENCY || 1);
-const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS || 20000);
+const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS || 130000);
 const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 5000);
 const OCR_RETRIES = Number(process.env.OCR_RETRIES || 3);
 const OCR_RETRY_BASE_BACKOFF = Number(process.env.OCR_RETRY_BASE_BACKOFF || 1000);
@@ -26,7 +26,7 @@ const PREFLIGHT_URL_CHECK = (process.env.PREFLIGHT_URL_CHECK || "true") === "tru
 const SAVE_CHUNK_SIZE = Number(process.env.SAVE_CHUNK_SIZE || 50);
 
 // --- added: GPU cooldown/GC knobs (safe no-ops if unset) ---
-const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000); // pause between OCR calls (ms)
+const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 5000); // pause between OCR calls (ms)
 const OCR_GC_URL = process.env.OCR_GC_URL || ""; // optional POST endpoint on OCR server to free VRAM
 
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
