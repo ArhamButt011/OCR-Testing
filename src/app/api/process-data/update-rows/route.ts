@@ -170,7 +170,7 @@ export async function PUT(req: Request) {
              OCR_SYMT_REFS = :symtRefs, 
              OCR_SYMT_SEAL = :symtSeal,
              RECV_DATA_DTT = SYSDATE,
-             UPTD_USR_CD = 'OCR',
+             CRTD_USR_CD = 'OCR',
              UPTD_DTT = SYSDATE
          WHERE FILE_ID = :fileId`,
           {
@@ -200,22 +200,22 @@ export async function PUT(req: Request) {
           `INSERT INTO ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T 
           (FILE_ID, OCR_BOLNO, OCR_ISSQTY, OCR_RCVQTY, OCR_STMP_POD_DTT, OCR_STMP_SIGN, 
            OCR_SYMT_NONE, OCR_SYMT_DAMG, OCR_SYMT_SHRT, OCR_SYMT_ORVG, OCR_SYMT_REFS, OCR_SYMT_SEAL,
-           RECV_DATA_DTT, UPTD_USR_CD, UPTD_DTT)
+           RECV_DATA_DTT, CRTD_USR_CD, UPTD_DTT)
        VALUES 
           (:fileId, :bolNo, :issQty, :rcvQty, :podDate, :sign, 
            :symtNone, :symtDamg, :symtShrt, :symtOrvg, :symtRefs, :symtSeal,
            SYSDATE, 'OCR', SYSDATE)`,
           {
             bolNo: job.blNumber?.toString(),
-            issQty: Number(job.totalQty),
-            rcvQty: Number(job.received),
+            issQty: job.totalQty,
+            rcvQty: job.received,
             podDate: job?.podDate,
             sign: job.podSignature === "yes" ? "Y" : "N",
             symtNone: 0,
-            symtDamg: Number(job.damaged),
-            symtShrt: Number(job.short),
-            symtOrvg: Number(job.over),
-            symtRefs: Number(job.refused),
+            symtDamg: job.damaged,
+            symtShrt: job.short,
+            symtOrvg: job.over,
+            symtRefs: job.refused,
             symtSeal: job.sealIntact ?? "N",
             fileId,
           }
