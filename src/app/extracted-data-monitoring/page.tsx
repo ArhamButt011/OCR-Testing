@@ -833,7 +833,7 @@ const MasterPage = () => {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(processedDataArray),
             });
-
+console.log("Save response:", saveResponse);
             if (!saveResponse.ok) {
               console.error("Error saving data:", await saveResponse.json());
             }

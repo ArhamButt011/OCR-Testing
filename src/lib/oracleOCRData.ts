@@ -88,14 +88,13 @@ function persistToPublic(fileId: string, buffer: Buffer, ext: string) {
   return `/file/${fileId}${ext}`;
 }
 
-
 export async function getOracleOCRData(
   url: URL,
   skip: number,
   limit: number,
   page: number
 ) {
-let connection: oracledb.Connection | null = null;
+  let connection: oracledb.Connection | null = null;
 
   try {
     const client = await clientPromise;
@@ -242,8 +241,8 @@ let connection: oracledb.Connection | null = null;
           let fileUrl: string | null = null;
 
           if (!connection) {
-  throw new Error("No Oracle connection established");
-}
+            throw new Error("No Oracle connection established");
+          }
 
           try {
             const found = await fetchBlobFromYearTables(connection, schema, fileId);
@@ -263,6 +262,55 @@ let connection: oracledb.Connection | null = null;
         })
       );
 
+  
+      try {
+        const mockCol = db.collection("mockData");
+
+        const docs = jobs.map((j) => ({
+          // required by you:
+          fileId: j._id,
+          pdfUrl: j.fileNameFromUrl ?? "",
+          blNumber: null,
+          jobId: "",
+          podDate: null,
+          podSignature: null,
+          totalQty: null,
+          received: null,
+          damaged: 0,
+          short: 0,
+          over: 0,
+          refused: 0,
+          customerOrderNum: null,
+          stampExists: null,
+          finalStatus: null,
+          reviewStatus: null,
+          recognitionStatus: null,
+          breakdownReason: null,
+          reviewedBy: null,
+          uptd_Usr_Cd: uptd_Usr_Cd || "",
+          cargoDescription: null,
+        }));
+
+        // 2) Avoid duplicate inserts by skipping fileIds already present
+        const fileIds = docs.map((d) => d.fileId);
+        const existing = await mockCol
+          .find({ fileId: { $in: fileIds } })
+          .project({ _id: 0, fileId: 1 })
+          .toArray();
+        const existingSet = new Set(existing.map((e) => e.fileId));
+
+        const newDocs = docs.filter((d) => !existingSet.has(d.fileId));
+
+        // 3) Insert only new docs
+        if (newDocs.length) {
+          await mockCol.insertMany(newDocs, { ordered: false });
+        }
+      } catch (e) {
+        console.error("mockData insert failed:", e);
+      }
+      /* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+         END: Upsert into MongoDB 'mockData'
+         <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
 
       return NextResponse.json(
         {

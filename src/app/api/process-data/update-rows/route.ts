@@ -206,11 +206,11 @@ export async function PUT(req: Request) {
           `INSERT INTO ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T 
     (FILE_ID, OCR_BOLNO, OCR_ISSQTY, OCR_RCVQTY, OCR_STMP_POD_DTT, OCR_STMP_SIGN, 
      OCR_SYMT_NONE, OCR_SYMT_DAMG, OCR_SYMT_SHRT, OCR_SYMT_ORVG, OCR_SYMT_REFS, OCR_SYMT_SEAL,
-     RECV_DATA_DTT, CRTD_USR_CD, CRTD_DTT, UPTD_DTT)
+     RECV_DATA_DTT, CRTD_USR_CD, CRTD_DTT, UPTD_DTT,UPTD_USR_CD)
    VALUES 
     (:fileId, :bolNo, :issQty, :rcvQty, :podDate, :sign, 
      :symtNone, :symtDamg, :symtShrt, :symtOrvg, :symtRefs, :symtSeal,
-     SYSDATE, 'OCR', :crtdDtt, SYSDATE)`,
+     SYSDATE, 'OCR', :crtdDtt, SYSDATE, 'OCR')`,
           {
             bolNo: job.blNumber?.toString(),
             issQty: job.totalQty,
