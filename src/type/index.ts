@@ -1,4 +1,5 @@
 export interface OracleRow {
+  _id?: string;
   OCR_BOLNO: string;
   FILE_NAME: string;
   FILE_ID: string;

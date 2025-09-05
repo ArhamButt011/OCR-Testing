@@ -12,6 +12,31 @@ interface MongoJob {
   pdfUrl: string;
 }
 
+interface MockData {
+  _id: string;                 // <- string _id
+  fileId: string;
+  pdfUrl: string;
+  blNumber: number | string | null;
+  jobId: string;
+  podDate: string | null;
+  podSignature: string | null;
+  totalQty: number | null;
+  received: number | null;
+  damaged: number;
+  short: number;
+  over: number;
+  refused: number;
+  customerOrderNum: string | null;
+  stampExists: string | null;
+  finalStatus: string | null;
+  reviewStatus: string | null;
+  recognitionStatus: string | null;
+  breakdownReason: string | null;
+  reviewedBy: string | null;
+  uptd_Usr_Cd: string;
+  cargoDescription: string | null;
+}
+
 const PUBLIC_DIR = path.join(process.cwd(), "public", "file");
 
 type YearTableRow = {
@@ -262,12 +287,12 @@ export async function getOracleOCRData(
         })
       );
 
-  
-      try {
-        const mockCol = db.collection("mockData");
 
-        const docs = jobs.map((j) => ({
-          // required by you:
+      try {
+        const mockCol = db.collection<MockData>("mockData");
+
+        const docs: MockData[] = jobs.map((j) => ({
+          _id: j._id,                         // string id
           fileId: j._id,
           pdfUrl: j.fileNameFromUrl ?? "",
           blNumber: null,
@@ -308,9 +333,7 @@ export async function getOracleOCRData(
       } catch (e) {
         console.error("mockData insert failed:", e);
       }
-      /* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-         END: Upsert into MongoDB 'mockData'
-         <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
+
 
       return NextResponse.json(
         {

@@ -13,6 +13,8 @@ export async function PUT(req: Request) {
 
     const body = await req.json();
 
+    console.log("Update body:", body);
+
     // 🔹 Case 1: array of updates
     if (Array.isArray(body)) {
       const bulkOps: AnyBulkWriteOperation<Document>[] = body

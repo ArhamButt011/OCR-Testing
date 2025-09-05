@@ -876,6 +876,7 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
               };
             });
    if (db === "remote") {
+    console.log("Performing bulk update for remote DB");
           await bulkUpdate(processedDataArray);
         }
             const saveResponse = await fetch("/api/process-data/save-data", {
