@@ -1,47 +1,84 @@
+// app/api/mock/update/route.ts
 import { NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
+import { ObjectId, AnyBulkWriteOperation, Document, Filter } from "mongodb";
 import clientPromise from "@/lib/mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-
 export async function PUT(req: Request) {
-    try {
-        const client = await clientPromise;
-        const db = client.db(DB_NAME);
-        const dataCollection = db.collection("mockData");
+  try {
+    const client = await clientPromise;
+    const db = client.db(DB_NAME);
+    const dataCollection = db.collection("mockData");
 
-        const body = await req.json();
-        const { _id, ...updatedData } = body;
+    const body = await req.json();
 
-        if (!_id || !ObjectId.isValid(_id)) {
-            return NextResponse.json(
-                { error: "Invalid or missing job ID" },
-                { status: 400 }
-            );
-        }
+    // 🔹 Case 1: array of updates
+    if (Array.isArray(body)) {
+      const bulkOps: AnyBulkWriteOperation<Document>[] = body
+        .map((doc) => {
+          const { _id, ...updatedData } = doc;
+          if (!_id) return null; // skip invalid
 
-        const result = await dataCollection.updateOne(
-            { _id: new ObjectId(_id) },
-            { $set: { ...updatedData, updatedAt: new Date() } }
+          let filter: Filter<Document> = { _id };
+          if (ObjectId.isValid(_id)) {
+            filter = { $or: [{ _id }, { _id: new ObjectId(_id) }] };
+          }
+
+          return {
+            updateOne: {
+              filter,
+              update: { $set: { ...updatedData, updatedAt: new Date() } },
+            },
+          } as AnyBulkWriteOperation<Document>;
+        })
+        .filter(
+          (op): op is AnyBulkWriteOperation<Document> => op !== null
         );
 
-        if (result.matchedCount === 0) {
-            return NextResponse.json(
-                { error: "Job not found" },
-                { status: 404 }
-            );
-        }
-
+      if (bulkOps.length === 0) {
         return NextResponse.json(
-            { message: "Job updated successfully", updatedData },
-            { status: 200 }
+          { error: "No valid updates" },
+          { status: 400 }
         );
-    } catch (error) {
-        console.log("Error updating job:", error);
-        return NextResponse.json(
-            { error: "Failed to update job" },
-            { status: 500 }
-        );
+      }
+
+      const result = await dataCollection.bulkWrite(bulkOps, { ordered: false });
+      return NextResponse.json(
+        { message: "Bulk update complete", result },
+        { status: 200 }
+      );
     }
+
+    // 🔹 Case 2: single update (old logic)
+    const { _id, ...updatedData } = body;
+    if (!_id) {
+      return NextResponse.json({ error: "Missing job ID" }, { status: 400 });
+    }
+
+    let filter: Filter<Document> = { _id };
+    if (ObjectId.isValid(_id)) {
+      filter = { $or: [{ _id }, { _id: new ObjectId(_id) }] };
+    }
+
+    const result = await dataCollection.updateOne(
+      filter,
+      { $set: { ...updatedData, updatedAt: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(
+      { message: "Job updated successfully", updatedData },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error updating job:", error);
+    return NextResponse.json(
+      { error: "Failed to update job" },
+      { status: 500 }
+    );
+  }
 }
