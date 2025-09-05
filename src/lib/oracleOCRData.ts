@@ -4,11 +4,90 @@ import clientPromise from "./mongodb";
 import { getOracleConnection } from "./oracle";
 import { OracleRow, PodFile } from "@/type";
 import { getJobsFromMongo } from "./getJobsFromMongo";
+import fs from "fs";
+import path from "path";
 
 interface MongoJob {
   _id: string;
   pdfUrl: string;
 }
+
+const PUBLIC_DIR = path.join(process.cwd(), "public", "file");
+
+type YearTableRow = {
+  FILE_ID: string;
+  FILE_NAME?: string | null;
+  FILE_TYPE?: string | null;
+  FILE_DATA: oracledb.Lob | null;
+};
+
+// derive file extension: prefer FILE_NAME, else FILE_TYPE, else .bin
+function deriveExtension(fileName?: string | null, fileType?: string | null) {
+  if (fileName && fileName.includes(".")) {
+    return fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+  }
+  const ft = (fileType || "").toLowerCase();
+  if (ft.includes("pdf")) return ".pdf";
+  if (ft.includes("jpeg") || ft.includes("jpg")) return ".jpg";
+  if (ft.includes("png")) return ".png";
+  if (ft.includes("tiff") || ft.includes("tif")) return ".tif";
+  return ".bin";
+}
+
+// read an Oracle LOB into a Buffer (base64 not needed for writing a file)
+function readLobToBuffer(lob: oracledb.Lob): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    lob.on("data", (chunk) => chunks.push(chunk));
+    lob.on("end", () => resolve(Buffer.concat(chunks)));
+    lob.on("error", (err) => reject(err));
+  });
+}
+
+// search current year table then previous year table; return first hit with FILE_DATA
+async function fetchBlobFromYearTables(
+  connection: oracledb.Connection,
+  schema: string,
+  fileId: string
+): Promise<{ buffer: Buffer; ext: string; fromTable: string } | null> {
+  const currentYear = new Date().getFullYear();
+  const candidates = [currentYear, currentYear - 1];
+
+  for (const year of candidates) {
+    const table = `${schema}.XTI_${year}_T`;
+    const sql = `
+      SELECT FILE_ID, FILE_NAME, FILE_TYPE, FILE_DATA
+      FROM ${table}
+      WHERE FILE_ID = :fileId
+    `;
+    const r = await connection.execute<YearTableRow>(
+      sql,
+      { fileId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+
+    const row = r.rows?.[0] as YearTableRow | undefined;
+    if (row && row.FILE_DATA) {
+      const ext = deriveExtension(row.FILE_NAME, row.FILE_TYPE);
+      const buffer = await readLobToBuffer(row.FILE_DATA);
+      try { row.FILE_DATA.destroy?.(); } catch { }
+
+      return { buffer, ext, fromTable: table };
+    }
+  }
+  return null; // not found in either table
+}
+
+// write the buffer to public/file/<FILE_ID><ext> and return the public URL
+function persistToPublic(fileId: string, buffer: Buffer, ext: string) {
+  if (!fs.existsSync(PUBLIC_DIR)) {
+    fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+  }
+  const filePath = path.join(PUBLIC_DIR, `${fileId}${ext}`);
+  fs.writeFileSync(filePath, buffer);
+  return `/file/${fileId}${ext}`;
+}
+
 
 export async function getOracleOCRData(
   url: URL,
@@ -16,7 +95,8 @@ export async function getOracleOCRData(
   limit: number,
   page: number
 ) {
-  let connection;
+let connection: oracledb.Connection | null = null;
+
   try {
     const client = await clientPromise;
     const db = client.db("my-next-app");
@@ -86,11 +166,10 @@ export async function getOracleOCRData(
       ON A.FILE_ID = C.FILE_ID
     WHERE 
       (C.FILE_ID IS NULL OR C.UPTD_DTT IS NULL)
-      ${
-        createdDate
+      ${createdDate
           ? "AND TO_CHAR(B.CRTD_DTT, 'YYYYMMDD') = TO_CHAR(TO_DATE(:createdDate, 'YYYY-MM-DD'), 'YYYYMMDD')"
           : ""
-      }
+        }
       ${fileName ? "AND LOWER(A.FILE_NAME) LIKE :fileName" : ""}
           ${fileId ? "AND LOWER(A.FILE_ID) LIKE :fileId" : ""}
 
@@ -124,10 +203,9 @@ export async function getOracleOCRData(
         ON A.FILE_ID = C.FILE_ID
       WHERE 
         (C.FILE_ID IS NULL OR C.UPTD_DTT IS NULL)
-        ${
-          createdDate
-            ? "AND TO_CHAR(B.CRTD_DTT, 'YYYYMMDD') = TO_CHAR(TO_DATE(:createdDate, 'YYYY-MM-DD'), 'YYYYMMDD')"
-            : ""
+        ${createdDate
+          ? "AND TO_CHAR(B.CRTD_DTT, 'YYYYMMDD') = TO_CHAR(TO_DATE(:createdDate, 'YYYY-MM-DD'), 'YYYYMMDD')"
+          : ""
         }
         ${fileName ? "AND LOWER(A.FILE_NAME) LIKE :fileName" : ""}
         ${fileId ? "AND LOWER(A.FILE_ID) LIKE :fileId" : ""}
@@ -151,10 +229,40 @@ export async function getOracleOCRData(
       const totalJobs =
         (countResult.rows?.[0] as { TOTAL: number })?.TOTAL || 0;
 
-      const jobs = filteredData.map((row: PodFile) => ({
-        fileName: row.FILE_NAME,
-        _id: row.FILE_ID,
-      }));
+      // const jobs = filteredData.map((row: PodFile) => ({
+      //   fileName: row.FILE_NAME,
+      //   _id: row.FILE_ID,
+      // }));
+
+      const schema = process.env.ORACLE_DB_USER_NAME as string;
+
+      const jobs = await Promise.all(
+        (filteredData as PodFile[]).map(async (row) => {
+          const fileId = row.FILE_ID;
+          let fileUrl: string | null = null;
+
+          if (!connection) {
+  throw new Error("No Oracle connection established");
+}
+
+          try {
+            const found = await fetchBlobFromYearTables(connection, schema, fileId);
+            if (found) {
+              fileUrl = persistToPublic(fileId, found.buffer, found.ext);
+            }
+          } catch (e) {
+            console.error(`Failed to fetch/persist blob for ${fileId}:`, e);
+          }
+
+          return {
+            fileName: row.FILE_NAME,
+            _id: fileId,
+            fileUrl,
+            fileNameFromUrl: fileUrl ? path.basename(fileUrl) : null,
+          };
+        })
+      );
+
 
       return NextResponse.json(
         {

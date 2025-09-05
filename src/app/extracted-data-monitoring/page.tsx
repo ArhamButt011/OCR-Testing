@@ -58,6 +58,7 @@ interface Job {
   _id: string;
   fileId?: string;
   fileName?: string;
+  fileNameFromUrl?:string;
   blNumber: string;
   pdfUrl?: string;
   jobName: string;
@@ -393,6 +394,7 @@ const MasterPage = () => {
   }, [router, userRole]);
 
   const handleRowSelection = (id: string) => {
+    console.log("selected row id-> ", id);
     setSelectedRows((prevSelectedRows) =>
       prevSelectedRows.includes(id)
         ? prevSelectedRows.filter((rowId) => rowId !== id)
@@ -449,6 +451,8 @@ const MasterPage = () => {
 
     fetchOcrApiUrl();
   }, []);
+
+ console.log('master data-> ', master)
   const pdfFiles = selectedRows
     .map((rowId) => {
       const job = master.find((job) => {
@@ -456,17 +460,17 @@ const MasterPage = () => {
       });
       console.log("job-> ", job);
       if (
-        (job && (!job.blNumber || !job.podSignature?.trim()) && job.pdfUrl) ||
-        job?.fileName
+        (job && (!job.blNumber || !job.podSignature?.trim()) && job.pdfUrl) || job?.fileNameFromUrl
       ) {
         let fileName: string | undefined | number;
 
         if (job.pdfUrl) {
           fileName = job.pdfUrl.split("/").pop() || "";
         } else {
-          fileName = job?.fileName;
+          fileName = job?.fileNameFromUrl;
         }
         if (!fileName) return null;
+        console.log("filename-> ", fileName);
         return {
           file_url_or_path: `https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api/access-file?filename=${encodeURIComponent(
             fileName
