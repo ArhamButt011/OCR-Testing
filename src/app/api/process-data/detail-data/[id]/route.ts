@@ -112,7 +112,7 @@ export async function GET(req: Request) {
       const fileTable = fileTableRow?.FILE_TABLE;
       const fileName = fileTableRow?.FILE_NAME;
 
-      if (!fileTable || !fileName) {
+      if (!fileTable) {
         return NextResponse.json(
           { error: "File table or fileName not found" },
           { status: 404 }
@@ -149,8 +149,9 @@ export async function GET(req: Request) {
         lob.on("end", () => resolve(Buffer.concat(chunks)));
         lob.on("error", reject);
       });
-
+if(fileName){
       mimeType = getFileExtension(fileName);
+}
       base64Data = buffer.toString("base64");
 
       job = await dataCollection.findOne({ fileId: id });
