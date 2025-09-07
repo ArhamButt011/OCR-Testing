@@ -53,7 +53,7 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
-  
+
 
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -149,9 +149,9 @@ export async function GET(req: Request) {
         lob.on("end", () => resolve(Buffer.concat(chunks)));
         lob.on("error", reject);
       });
-if(fileName){
-      mimeType = getFileExtension(fileName);
-}
+      if (fileName) {
+        mimeType = getFileExtension(fileName);
+      }
       base64Data = buffer.toString("base64");
 
       job = await dataCollection.findOne({ fileId: id });

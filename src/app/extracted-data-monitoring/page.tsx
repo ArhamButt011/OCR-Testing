@@ -86,7 +86,7 @@ interface Job {
 }
 
 interface ProcessedData {
-  _id: string;
+  _id?: string;
   pdfUrl: string;
   fileId: string;
   blNumber: string;
@@ -831,7 +831,7 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
               const decodedFilePath = `/file/${decodeURIComponent(filename)}`;
 
               return {
-                _id: data?._id, 
+                // _id: data?._id,
                 jobId: null,
                 pdfUrl: decodedFilePath,
                 fileId: data?._id,
