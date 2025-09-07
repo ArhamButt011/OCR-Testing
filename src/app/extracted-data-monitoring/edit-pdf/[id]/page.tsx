@@ -331,13 +331,20 @@ const JobDetail = () => {
                 {db === "local" ? (
                   <>
                     {fileName && isSupportedFormat(fileName) ? (
+                      // <iframe
+                      //   src={`${job.pdfUrl}#toolbar=0`}
+                      //   // src={`/api/access-file?filename=${fileName}#toolbar=0`}
+                      //   className="w-11/12 h-full bg-white"
+                      //   loading="lazy"
+                      //   onLoad={handleIframeLoad}
+                      // />
                       <iframe
-                        src={`${job.pdfUrl}#toolbar=0`}
-                        // src={`/api/access-file?filename=${fileName}#toolbar=0`}
-                        className="w-11/12 h-full bg-white"
-                        loading="lazy"
-                        onLoad={handleIframeLoad}
-                      />
+                      src={`${accessUrl}#toolbar=0`}
+                      className="w-11/12 h-full bg-white"
+                      loading="lazy"
+                      title="Document Preview"
+                      onLoad={handleIframeLoad}
+                    />
                     ) : (
                       <div className="text-center text-red-500">
                         Preview not available or unsupported file format.

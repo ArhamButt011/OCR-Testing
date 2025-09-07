@@ -515,22 +515,22 @@ const MasterPage = () => {
   console.log("pdfFiles-> ", pdfFiles);
 
 
-async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
-  try {
-    const response = await axios.put(
-      "/api/process-data/update-data",
-      processedDataArray,
-      { headers: { "Content-Type": "application/json" } }
-    );
-    console.log("Bulk update success:", response.data);
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Bulk update failed:", error.response?.data || error.message);
-    } else {
-      console.error("Bulk update error:", (error as Error).message);
+  async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
+    try {
+      const response = await axios.put(
+        "/api/process-data/update-data",
+        processedDataArray,
+        { headers: { "Content-Type": "application/json" } }
+      );
+      console.log("Bulk update success:", response.data);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error("Bulk update failed:", error.response?.data || error.message);
+      } else {
+        console.error("Bulk update error:", (error as Error).message);
+      }
     }
   }
-}
 
   const mergeOcrDataIntoMaster = (ocrData: OcrJob[]) => {
     setMaster((prevMaster) => {
@@ -875,10 +875,14 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                       : data?.Seal_Intact,
               };
             });
-   if (db === "remote") {
-    console.log("Performing bulk update for remote DB");
-          await bulkUpdate(processedDataArray);
-        }
+
+            const updatePayload: ProcessedData[] = processedDataArray
+              .filter(d => d.fileId)                   
+              .map(d => ({ ...d, _id: d.fileId }));
+            if (db === "remote") {
+              console.log("Performing bulk update for remote DB");
+              await bulkUpdate(updatePayload);
+            }
             const saveResponse = await fetch("/api/process-data/save-data", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -1802,8 +1806,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
               <div className="flex justify-end items-center gap-2 col-span-3">
                 <button
                   className={`text-[#005B97] underline ${!isAnyFilterApplied()
-                      ? "text-gray-400 underline cursor-not-allowed"
-                      : "cursor-pointer"
+                    ? "text-gray-400 underline cursor-not-allowed"
+                    : "cursor-pointer"
                     }`}
                   onClick={resetFiltersAndFetch}
                   disabled={!isAnyFilterApplied()}
@@ -1913,8 +1917,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
               >
                 <button
                   className={`rounded-lg px-6 py-2 w-full md:w-auto ${selectedRows.length === 0
-                      ? "cursor-not-allowed bg-gray-400 border border-gray-400"
-                      : "bg-[#005B971A] text-[#005B97] border border-[#005B971A]"
+                    ? "cursor-not-allowed bg-gray-400 border border-gray-400"
+                    : "bg-[#005B971A] text-[#005B97] border border-[#005B971A]"
                     }`}
                 >
                   History
@@ -2057,8 +2061,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                               <td className="px-4 py-2">
                                 <div
                                   className={`${jobProgress === 1
-                                      ? "bg-[rgba(252,197,197,0.1)]"
-                                      : "bg-gray-200"
+                                    ? "bg-[rgba(252,197,197,0.1)]"
+                                    : "bg-gray-200"
                                     } w-full rounded-full h-4 relative`}
                                 >
                                   <div
@@ -2067,8 +2071,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                   >
                                     <span
                                       className={`absolute top-1/2 right-[-1.01rem] transform -translate-y-1/2 translate-x-1/2 flex items-center px-2 h-6 text-[#005B97] ${jobProgress === 1
-                                          ? "bg-gray-300"
-                                          : "bg-gray-300"
+                                        ? "bg-gray-300"
+                                        : "bg-gray-300"
                                         }  font-semibold text-sm`}
                                     >
                                       {jobProgress === 1 ? 0 : jobProgress}%
@@ -2080,14 +2084,14 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                               <td className="px-4 py-2 text-center">
                                 <span
                                   className={`px-3 py-2 rounded-full text-base font-medium ${jobProgress === 100
-                                      ? "bg-[#28A4AD1A] text-[#28A4AD]"
-                                      : jobProgress > 1
-                                        ? "bg-[#FCB0401A] text-[#FCB040]"
-                                        : jobProgress === 0
-                                          ? "bg-[#005B971A] text-[#005B97]"
-                                          : jobProgress === 1
-                                            ? "bg-[rgba(252,197,197,0.1)] text-[#FF4D4D]"
-                                            : ""
+                                    ? "bg-[#28A4AD1A] text-[#28A4AD]"
+                                    : jobProgress > 1
+                                      ? "bg-[#FCB0401A] text-[#FCB040]"
+                                      : jobProgress === 0
+                                        ? "bg-[#005B971A] text-[#005B97]"
+                                        : jobProgress === 1
+                                          ? "bg-[rgba(252,197,197,0.1)] text-[#FF4D4D]"
+                                          : ""
                                     }`}
                                 >
                                   {jobProgress === 100
@@ -2139,8 +2143,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
             ) : (
               <div
                 className={`overflow-x-auto w-full relative ${isFilterDropDownOpen
-                    ? "2xl:h-[700px] md:h-[170px] sm:h-[150px]"
-                    : "2xl:h-[900px] md:h-[460px] sm:h-[450px]"
+                  ? "2xl:h-[700px] md:h-[170px] sm:h-[150px]"
+                  : "2xl:h-[900px] md:h-[460px] sm:h-[450px]"
                   }`}
               >
                 {/* <div className={`overflow-x-auto w-full relative`}> */}
@@ -2393,8 +2397,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                         <li
                                           key={status}
                                           className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${job.finalStatus === status
-                                              ? `${color} ${bgColor}`
-                                              : color
+                                            ? `${color} ${bgColor}`
+                                            : color
                                             }`}
                                           onClick={() => {
                                             updateStatus(
@@ -2428,8 +2432,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                               >
                                 <div
                                   className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${userRole !== "standarduser"
-                                      ? "cursor-pointer"
-                                      : ""
+                                    ? "cursor-pointer"
+                                    : ""
                                     } ${job.finalStatus === "new"
                                       ? "bg-blue-100 text-blue-600"
                                       : job.finalStatus === "inProgress"
@@ -2448,8 +2452,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                   <div>{job.finalStatus}</div>
                                   <RiArrowDropDownLine
                                     className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${dropdownStates === job._id
-                                        ? "rotate-180"
-                                        : ""
+                                      ? "rotate-180"
+                                      : ""
                                       }`}
                                   />
                                 </div>
@@ -2471,8 +2475,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                         <li
                                           key={status}
                                           className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${job.reviewStatus === status
-                                              ? `${color} ${bgColor}`
-                                              : color
+                                            ? `${color} ${bgColor}`
+                                            : color
                                             }`}
                                           onClick={() => {
                                             updateStatus(
@@ -2506,8 +2510,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                               >
                                 <div
                                   className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${userRole !== "standarduser"
-                                      ? "cursor-pointer"
-                                      : ""
+                                    ? "cursor-pointer"
+                                    : ""
                                     } ${job.reviewStatus === "unConfirmed"
                                       ? "bg-yellow-100 text-yellow-600"
                                       : job.reviewStatus === "confirmed"
@@ -2522,8 +2526,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                   <div>{job.reviewStatus}</div>
                                   <RiArrowDropDownLine
                                     className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${dropdownStatesFirst === job._id
-                                        ? "rotate-180"
-                                        : ""
+                                      ? "rotate-180"
+                                      : ""
                                       }`}
                                   />
                                 </div>
@@ -2545,8 +2549,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                         <li
                                           key={status}
                                           className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${job.recognitionStatus === status
-                                              ? `${color} ${bgColor}`
-                                              : color
+                                            ? `${color} ${bgColor}`
+                                            : color
                                             }`}
                                           onClick={() => {
                                             updateStatus(
@@ -2580,8 +2584,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                               >
                                 <div
                                   className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${userRole !== "standarduser"
-                                      ? "cursor-pointer"
-                                      : ""
+                                    ? "cursor-pointer"
+                                    : ""
                                     } ${job.recognitionStatus === "new"
                                       ? "bg-blue-100 text-blue-600"
                                       : job.recognitionStatus === "inProgress"
@@ -2601,8 +2605,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                   <div>{job.recognitionStatus}</div>
                                   <RiArrowDropDownLine
                                     className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${dropdownStatesSecond === job._id
-                                        ? "rotate-180"
-                                        : ""
+                                      ? "rotate-180"
+                                      : ""
                                       }`}
                                   />
                                 </div>
@@ -2624,8 +2628,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                         <li
                                           key={status}
                                           className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${job.breakdownReason === status
-                                              ? `${color} ${bgColor}`
-                                              : color
+                                            ? `${color} ${bgColor}`
+                                            : color
                                             }`}
                                           onClick={() => {
                                             updateStatus(
@@ -2659,8 +2663,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                               >
                                 <div
                                   className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${userRole !== "standarduser"
-                                      ? "cursor-pointer"
-                                      : ""
+                                    ? "cursor-pointer"
+                                    : ""
                                     } ${job.breakdownReason === "none"
                                       ? "bg-blue-100 text-blue-600"
                                       : job.breakdownReason === "damaged"
@@ -2677,8 +2681,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                                   <div>{job.breakdownReason}</div>
                                   <RiArrowDropDownLine
                                     className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${dropdownStatesThird === job._id
-                                        ? "rotate-180"
-                                        : ""
+                                      ? "rotate-180"
+                                      : ""
                                       }`}
                                   />
                                 </div>
@@ -2717,8 +2721,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
                   className={`px-4 py-2 rounded-md ${currentPage === 1
-                      ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-blue-500 text-white hover:bg-blue-600"
                     }`}
                 >
                   Previous
@@ -2730,8 +2734,8 @@ async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
                   className={`px-4 py-2 rounded-md ${currentPage === totalPages
-                      ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-blue-500 text-white hover:bg-blue-600"
                     }`}
                 >
                   Next
