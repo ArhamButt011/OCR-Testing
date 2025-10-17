@@ -210,7 +210,7 @@ const MasterPage = () => {
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [abortController, setAbortController] = useState(new AbortController());
   const [ocrApiUrl, setOcrApiUrl] = useState("");
-  // const [baseUrl, setBaseUrl] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -468,9 +468,9 @@ const MasterPage = () => {
         const data = await res.json();
 
         if (data.ip) {
-          // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
-          setOcrApiUrl(`https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr`);
-          // setBaseUrl(`http://${data.secondaryIp}:3000`);
+          setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
+          // setOcrApiUrl(`https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr`);
+          setBaseUrl(`http://${data.secondaryIp}:3000`);
           // setBaseUrl(`https://h0palyajms52cn-8080.proxy.runpod.net`);
         }
       } catch (error) {
@@ -481,13 +481,11 @@ const MasterPage = () => {
     fetchOcrApiUrl();
   }, []);
 
-  console.log('master data-> ', master)
   const pdfFiles = selectedRows
     .map((rowId) => {
       const job = master.find((job) => {
         return job._id === rowId;
       });
-      console.log("job-> ", job);
       if (
         (job && (!job.blNumber || !job.podSignature?.trim()) && job.pdfUrl) || job?.fileNameFromUrl
       ) {
@@ -501,7 +499,7 @@ const MasterPage = () => {
         if (!fileName) return null;
         console.log("filename-> ", fileName);
         return {
-          file_url_or_path: `https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api/access-file?filename=${encodeURIComponent(
+          file_url_or_path: `${baseUrl}/api/access-file?filename=${encodeURIComponent(
             fileName
           )}`,
           _id: job?._id,
@@ -2019,7 +2017,7 @@ const MasterPage = () => {
                               job.pdfUrl.split("/").pop()?.trim() ?? ""
                             )
                             : "";
-                          const progressKey = `https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api/access-file?filename=${pdfFilename}`;
+                          const progressKey = `${baseUrl}/api/access-file?filename=${pdfFilename}`;
                           const jobProgress = progress[progressKey] ?? 0;
                           // style={{ width: `${jobProgress}%` }}
                           // {jobProgress}%

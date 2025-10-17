@@ -9,7 +9,7 @@ export async function getOracleConnection(
 ) {
   try {
     const dbResponse = await fetch(
-      `${process.env.API_BASE_URL}/auth/public-db`
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/public-db`
     );
 
     if (!dbResponse.ok) {
