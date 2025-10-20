@@ -242,8 +242,8 @@ export default function DBConnectionPage() {
   }, [loadingComplete]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[url('/images/bg.jpg')] bg-cover bg-center">
-      <div className="w-full max-w-md bg-white rounded-sm shadow-lg px-6 pb-2 pt-1 mx-5 mb-5 mt-1">
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="w-full max-w-md bg-white rounded-lg border border-gray-300 shadow-lg px-6 pb-2 pt-1 mx-5 mb-5 mt-1">
         <h1 className="text-2xl font-bold text-center mb-0 text-black">
           DB Connection
         </h1>

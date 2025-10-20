@@ -18,7 +18,7 @@ services:
     image: gvenzl/oracle-xe
     container_name: oracle-db
     environment:
-      - ORACLE_PASSWORD=YourStrongPass123
+      - ORACLE_PASSWORD=StrongPass123
     ports:
       - "1521:1521" # SQL*Net
       - "5500:5500" # Enterprise Manager
