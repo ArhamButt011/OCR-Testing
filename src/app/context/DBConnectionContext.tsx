@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
-import { usePathname } from "next/navigation"; // 👈 to track route changes
+import { usePathname } from "next/navigation";
 
 interface DBConnectionContextType {
   db: string | null;
@@ -20,13 +20,12 @@ export const DBConnectionProvider = ({
   children: React.ReactNode;
 }) => {
   const [db, setDB] = useState<string | null>(null);
-  const pathname = usePathname(); // 👈 get current route
+  const pathname = usePathname();
 
   useEffect(() => {
     const fetchDBConnectionType = async () => {
       try {
         const response = await axios.get("/api/oracle/connection-status");
-        console.log('db type-> ', response.data.dataBase)
         if (response.data.dataBase) {
           setDB(response.data.dataBase);
         }

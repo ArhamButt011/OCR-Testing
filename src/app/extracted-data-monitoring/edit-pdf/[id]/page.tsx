@@ -42,6 +42,7 @@ const JobDetail = () => {
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  console.error(error);
   const [formData, setFormData] = useState({
     blNumber: "",
     podDate: "",
@@ -57,6 +58,8 @@ const JobDetail = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   // const [accessUrl, setAccessUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+
   const router = useRouter();
   const [userRole, setUserRole] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -282,14 +285,17 @@ const JobDetail = () => {
     refused: "Refused Qty",
   };
 
-  if (!job) return <>{error}</>;
-
-
-  const fileName = job.pdfUrl.split("/").pop();
-
+  useEffect(() => {
     const accessUrl = fileName
-      ? `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`
+      ? `/api/access-file?filename=${encodeURIComponent(
+          fileName
+        )}&t=${Date.now()}`
       : "";
+    setPdfUrl(accessUrl);
+  }, [job?.pdfUrl]);
+
+  const fileName = job?.pdfUrl.split("/").pop();
+
   return (
     <div className="flex flex-row h-screen bg-white">
       <Sidebar onStateChange={handleSidebarStateChange} />
@@ -307,7 +313,7 @@ const JobDetail = () => {
               <FaArrowLeftLong size={30} />
             </span>
             <span className="text-gray-800 text-xl font-[550]">
-              {job.blNumber}
+              {job?.blNumber}
             </span>
           </div>
           <div>
@@ -339,22 +345,22 @@ const JobDetail = () => {
                       //   onLoad={handleIframeLoad}
                       // />
                       <iframe
-                      src={`${accessUrl}#toolbar=0`}
-                      className="w-11/12 h-full bg-white"
-                      loading="lazy"
-                      title="Document Preview"
-                      onLoad={handleIframeLoad}
-                    />
+                        src={`${pdfUrl}#toolbar=0`}
+                        className="w-11/12 h-full bg-white"
+                        loading="lazy"
+                        title="Document Preview"
+                        onLoad={handleIframeLoad}
+                      />
                     ) : (
                       <div className="text-center text-red-500">
                         Preview not available or unsupported file format.
                       </div>
                     )}
                   </>
-                ) : db === "remote" && accessUrl ? (
+                ) : db === "remote" && pdfUrl ? (
                   <>
                     <iframe
-                      src={`${accessUrl}#toolbar=0`}
+                      src={`${pdfUrl}#toolbar=0`}
                       className="w-11/12 h-full bg-white"
                       loading="lazy"
                       title="Document Preview"

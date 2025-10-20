@@ -27,7 +27,6 @@ export default function LoginPage() {
       setLoading(true);
 
       try {
-        // Step 1: Login request
         const loginRes = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -35,30 +34,27 @@ export default function LoginPage() {
         });
 
         const loginData = await loginRes.json();
+        console.log("Login response data:", loginData);
         if (!loginRes.ok) throw new Error(loginData.message);
 
         const token = loginData.token;
 
-        // Save token to localStorage
         localStorage.setItem("token", token);
         storeToken(token, loginData.name, loginData.role);
 
-        // Step 2: Call /api/auth/db with the token
         const dbRes = await fetch("/api/auth/db", {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`, // assuming Bearer token
+            Authorization: `Bearer ${token}`,
           },
         });
 
         const dbData = await dbRes.json();
 
-        console.log("dbData-> ", dbData);
         if (!dbRes.ok)
           throw new Error(dbData.message || "Failed to fetch DB data");
 
-        // Step 3: Redirect based on checkbox value
         if (dbData.firstTimeLogin && dbData.data?.role === "admin") {
           router.push("/db-connection");
         } else if (dbData.data?.checkbox === true) {
@@ -77,20 +73,12 @@ export default function LoginPage() {
     [email, password, role, router]
   );
 
-  // useEffect(() => {
-  //     return () => {
-  //         Router.events.off("routeChangeComplete", () => setLoading(false));
-  //     };
-  // }, []);
-
   useEffect(() => {
     if (typeof window !== "undefined") {
       const fullUrl = window.location.href;
       const urlObj = new URL(fullUrl);
-      const baseUrl = `${urlObj.origin}`; // e.g., http://localhost:3000/admin-login
+      const baseUrl = `${urlObj.origin}`;
 
-      // Send baseUrl to the backend
-    
       fetch("/api/save-url", {
         method: "POST",
         headers: {
@@ -117,8 +105,8 @@ export default function LoginPage() {
   const closeResetPasswordModal = () => setIsResetPasswordVisible(false);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[url('/images/bg.jpg')] bg-cover bg-center">
-      <div className="w-full max-w-md bg-white rounded-sm shadow-lg p-6 mx-5">
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6 mx-5 border border-gray-300">
         <div className="flex justify-center items-center my-3">
           <Image
             src="/images/logo.svg"
