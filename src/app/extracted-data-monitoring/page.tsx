@@ -469,7 +469,7 @@ const MasterPage = () => {
 
         if (data.ip) {
           // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
-          setOcrApiUrl(`https://uuc5431z14ls7c-8080.proxy.runpod.net/run-ocr`);
+          setOcrApiUrl(`https://6yanbnsm0tc2sf-8080.proxy.runpod.net/run-ocr`);
           // setBaseUrl(`http://${data.secondaryIp}:3000`);
           // setBaseUrl(`https://h0palyajms52cn-8080.proxy.runpod.net`);
         }
@@ -499,7 +499,6 @@ const MasterPage = () => {
           fileName = job?.fileNameFromUrl;
         }
         if (!fileName) return null;
-        console.log("filename-> ", fileName);
         return {
           file_url_or_path: `https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api/access-file?filename=${encodeURIComponent(
             fileName
@@ -511,8 +510,6 @@ const MasterPage = () => {
       return null;
     })
     .filter(Boolean);
-
-  console.log("pdfFiles-> ", pdfFiles);
 
 
   async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
