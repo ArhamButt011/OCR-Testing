@@ -175,7 +175,7 @@ const MasterPage = () => {
   const [finalStatusFilter, setFinalStatusFilter] = useState("");
   const [reviewStatusFilter, setReviewStatusFilter] = useState("");
   const [reasonStatusFilter, setReasonStatusFilter] = useState("");
-  const [uptd_Usr_Cd, setUptd_Usr_Cd] = useState("OCR");
+  const [uptd_Usr_Cd, setUptd_Usr_Cd] = useState("");
   const [reviewByStatusFilter, setReviewByStatusFilter] = useState("");
   const [podDateFilter, setPodDateFilter] = useState("");
   const [createdDateFilter, setCreatedDateFilter] = useState("");
@@ -306,7 +306,7 @@ const MasterPage = () => {
         setReviewByStatusFilter(
           sessionStorage.getItem("reviewByStatusFilter") || ""
         );
-        setUptd_Usr_Cd(sessionStorage.getItem("uptd_Usr_Cd") || "OCR");
+        setUptd_Usr_Cd(sessionStorage.getItem("uptd_Usr_Cd") || "");
         setPodDateFilter(sessionStorage.getItem("podDateFilter") || "");
         setCreatedDateFilter(sessionStorage.getItem("createdDateFilter") || "");
         setUpdatedDateFilter(sessionStorage.getItem("updatedDateFilter") || "");
@@ -1231,7 +1231,7 @@ const MasterPage = () => {
         reviewStatusFilter,
         reasonStatusFilter,
         reviewByStatusFilter,
-        uptd_Usr_Cd,
+        // uptd_Usr_Cd,
         podDateFilter,
         createdDateFilter,
         updatedDateFilter,

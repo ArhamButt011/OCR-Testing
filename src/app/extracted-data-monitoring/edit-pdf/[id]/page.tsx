@@ -42,6 +42,9 @@ const JobDetail = () => {
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  console.log('error-> ', error)
+    const [pdfUrl, setPdfUrl] = useState("");
+
   const [formData, setFormData] = useState({
     blNumber: "",
     podDate: "",
@@ -281,15 +284,17 @@ const JobDetail = () => {
     over: "Over Qty",
     refused: "Refused Qty",
   };
+  const fileName = job?.pdfUrl.split("/").pop();
 
-  if (!job) return <>{error}</>;
-
-
-  const fileName = job.pdfUrl.split("/").pop();
-
+    useEffect(() => {
     const accessUrl = fileName
-      ? `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`
+      ? `/api/access-file?filename=${encodeURIComponent(
+          fileName
+        )}&t=${Date.now()}`
       : "";
+    setPdfUrl(accessUrl);
+  }, [job?.pdfUrl]);
+
   return (
     <div className="flex flex-row h-screen bg-white">
       <Sidebar onStateChange={handleSidebarStateChange} />
@@ -307,7 +312,7 @@ const JobDetail = () => {
               <FaArrowLeftLong size={30} />
             </span>
             <span className="text-gray-800 text-xl font-[550]">
-              {job.blNumber}
+              {job?.blNumber}
             </span>
           </div>
           <div>
@@ -339,7 +344,7 @@ const JobDetail = () => {
                       //   onLoad={handleIframeLoad}
                       // />
                       <iframe
-                      src={`${accessUrl}#toolbar=0`}
+                      src={`${pdfUrl}#toolbar=0`}
                       className="w-11/12 h-full bg-white"
                       loading="lazy"
                       title="Document Preview"
@@ -351,10 +356,10 @@ const JobDetail = () => {
                       </div>
                     )}
                   </>
-                ) : db === "remote" && accessUrl ? (
+                ) : db === "remote" && pdfUrl ? (
                   <>
                     <iframe
-                      src={`${accessUrl}#toolbar=0`}
+                      src={`${pdfUrl}#toolbar=0`}
                       className="w-11/12 h-full bg-white"
                       loading="lazy"
                       title="Document Preview"
@@ -394,9 +399,7 @@ const JobDetail = () => {
                       key={key}
                       className="flex items-center gap-3 bg-white px-2 border-l-8 border-[#005B97] rounded-lg py-[7px]"
                     >
-                      {/* <label className="font-medium text-gray-500 capitalize min-w-28">
-                                                {key.replace(/([A-Z])/g, " $1")} :
-                                            </label> */}
+               
                       <label className="font-medium text-gray-500 capitalize min-w-28">
                         {keyMappings[key] || key.replace(/([A-Z])/g, " $1")} :
                       </label>
