@@ -145,6 +145,45 @@ interface FileRow {
   FILE_DATA: oracledb.Lob | null;
 }
 
+
+function detectFileType(buffer: Buffer): { type: string; extension: string; mimeType: string } | null {
+
+  if (buffer.slice(0, 4).toString() === "%PDF") {
+    return { type: "PDF", extension: "pdf", mimeType: "application/pdf" };
+  }
+  
+
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+    return { type: "JPEG", extension: "jpg", mimeType: "image/jpeg" };
+  }
+  
+
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4E &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0D &&
+    buffer[5] === 0x0A &&
+    buffer[6] === 0x1A &&
+    buffer[7] === 0x0A
+  ) {
+    return { type: "PNG", extension: "png", mimeType: "image/png" };
+  }
+  
+
+  if (buffer[0] === 0x49 && buffer[1] === 0x49 && buffer[2] === 0x2A && buffer[3] === 0x00) {
+    return { type: "TIFF", extension: "tiff", mimeType: "image/tiff" };
+  }
+  
+
+  if (buffer[0] === 0x4D && buffer[1] === 0x4D && buffer[2] === 0x00 && buffer[3] === 0x2A) {
+    return { type: "TIFF", extension: "tiff", mimeType: "image/tiff" };
+  }
+  
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   let connection;
   let fileId: string | null = null;
@@ -240,18 +279,19 @@ export async function GET(req: NextRequest) {
             return;
           }
           
-          // Validate PDF signature (first 4 bytes should be "%PDF")
-          const signature = buffer.slice(0, 4).toString();
-          if (signature !== "%PDF") {
+          // Detect file type based on magic bytes (file signature)
+          const fileType = detectFileType(buffer);
+          
+          if (!fileType) {
             console.error(
-              `Invalid PDF signature for ${fileId}: ${signature} (hex: ${buffer.slice(0, 10).toString("hex")})`
+              `Unknown file format for ${fileId}: (hex: ${buffer.slice(0, 20).toString("hex")})`
             );
-            reject(new Error(`Invalid PDF format - signature is "${signature}" instead of "%PDF"`));
+            reject(new Error(`Unsupported file format - unable to detect valid PDF, JPEG, PNG, or TIFF signature`));
             return;
           }
           
           console.log(
-            `✓ Successfully read ${fileId}: ${buffer.length} bytes, valid PDF signature`
+            `✓ Successfully read ${fileId}: ${buffer.length} bytes, detected as ${fileType.type} (${fileType.extension})`
           );
           resolve(buffer);
         });
@@ -271,6 +311,16 @@ export async function GET(req: NextRequest) {
     // Destroy the LOB after reading
     lob.destroy();
 
+    // Detect file type from buffer
+    const detectedType = detectFileType(fileDataBuffer);
+    
+    if (!detectedType) {
+      throw new Error("Unable to detect file type after reading buffer");
+    }
+    
+    const fileExtension = detectedType.extension;
+    const mimeType = detectedType.mimeType;
+
     // Convert to base64 using the same buffer
     const fileDataBase64 = fileDataBuffer.toString("base64");
 
@@ -280,7 +330,7 @@ export async function GET(req: NextRequest) {
       console.log(`Created directory: ${PUBLIC_DIR}`);
     }
 
-    const filePath = path.join(PUBLIC_DIR, `${fileId}.pdf`);
+    const filePath = path.join(PUBLIC_DIR, `${fileId}.${fileExtension}`);
 
     // Check if file already exists and is valid
     if (fs.existsSync(filePath)) {
@@ -294,22 +344,24 @@ export async function GET(req: NextRequest) {
           existingBuffer.equals(fileDataBuffer)
         ) {
           console.log(
-            `File ${fileId}.pdf already exists and is valid (${existingStats.size} bytes), skipping write`
+            `File ${fileId}.${fileExtension} already exists and is valid (${existingStats.size} bytes), skipping write`
           );
           
           return NextResponse.json({
-            FILE_PATH: `/file/${fileId}.pdf`,
-            FILE_NAME: `${fileId}.pdf`,
+            FILE_PATH: `/file/${fileId}.${fileExtension}`,
+            FILE_NAME: `${fileId}.${fileExtension}`,
             FILE_ID: row.FILE_ID,
             FILE_DATA: fileDataBase64,
+            FILE_TYPE: detectedType.type,
+            MIME_TYPE: mimeType,
           });
         } else {
           console.log(
-            `File ${fileId}.pdf exists but differs, overwriting...`
+            `File ${fileId}.${fileExtension} exists but differs, overwriting...`
           );
         }
       } catch (readErr) {
-        console.warn(`Error reading existing file ${fileId}.pdf:`, readErr);
+        console.warn(`Error reading existing file ${fileId}.${fileExtension}:`, readErr);
       }
     }
 
@@ -331,32 +383,34 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Double-check the written file is still a valid PDF
+    // Double-check the written file still has valid signature
     const writtenBuffer = fs.readFileSync(filePath);
-    const writtenSignature = writtenBuffer.slice(0, 4).toString();
+    const writtenFileType = detectFileType(writtenBuffer);
     
-    if (writtenSignature !== "%PDF") {
+    if (!writtenFileType || writtenFileType.extension !== fileExtension) {
       console.error(
-        `Written file ${fileId}.pdf has invalid signature: ${writtenSignature}`
+        `Written file ${fileId}.${fileExtension} has invalid or changed signature`
       );
       
       // Clean up corrupted file
       fs.unlinkSync(filePath);
       
       throw new Error(
-        `Written file has invalid PDF signature: ${writtenSignature}`
+        `Written file has invalid signature (expected ${fileExtension}, got ${writtenFileType?.extension || "unknown"})`
       );
     }
 
     console.log(
-      `✓ Successfully saved ${fileId}.pdf: ${stats.size} bytes, verified valid PDF`
+      `✓ Successfully saved ${fileId}.${fileExtension}: ${stats.size} bytes, verified as ${detectedType.type}`
     );
 
     return NextResponse.json({
-      FILE_PATH: `/file/${fileId}.pdf`,
-      FILE_NAME: `${fileId}.pdf`,
+      FILE_PATH: `/file/${fileId}.${fileExtension}`,
+      FILE_NAME: `${fileId}.${fileExtension}`,
       FILE_ID: row.FILE_ID,
       FILE_DATA: fileDataBase64,
+      FILE_TYPE: detectedType.type,
+      MIME_TYPE: mimeType,
     });
     
   } catch (err) {
