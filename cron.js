@@ -249,7 +249,7 @@ function clearScheduledJobs() {
 async function processPrimaryBatch(batch, job, base_url) {
   const payload = [];
   const fileMetaDataMap = new Map();
-  const forFallback = []; // minimal records to retry later
+  const forFallback = [];
 
   await Promise.all(batch.map(async (item) => {
     const fileId = item.FILE_ID || item.file_id;
