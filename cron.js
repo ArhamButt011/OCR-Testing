@@ -16,13 +16,13 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
 const OCR_URL =
   process.env.OCR_URL || "https://rfwvxuqsbkx593-8080.proxy.runpod.net/run-ocr";
-const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 95000);
+const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 130000);
 
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3); // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
 const PRIMARY_CONCURRENCY = Number(process.env.PRIMARY_CONCURRENCY || 1);
 const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS || 130000);
-const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 5000);
+const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 10000);
 const OCR_RETRIES = Number(process.env.OCR_RETRIES || 3);
 const OCR_RETRY_BASE_BACKOFF = Number(
   process.env.OCR_RETRY_BASE_BACKOFF || 1000
@@ -31,19 +31,17 @@ const PREFLIGHT_URL_CHECK =
   (process.env.PREFLIGHT_URL_CHECK || "true") === "true";
 const SAVE_CHUNK_SIZE = Number(process.env.SAVE_CHUNK_SIZE || 50);
 
-// --- added: GPU cooldown/GC knobs (safe no-ops if unset) ---
-const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000); // pause between OCR calls (ms)
-const OCR_GC_URL = process.env.OCR_GC_URL || ""; // optional POST endpoint on OCR server to free VRAM
+const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000); 
+const OCR_GC_URL = process.env.OCR_GC_URL || "";
 
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
 
-// --- scheduler state ---
-const scheduledTasks = new Map(); // id -> cron task
-const jobRunning = new Map(); // id -> Promise<void> (overlap guard)
+const scheduledTasks = new Map(); 
+const jobRunning = new Map(); 
 let isInitialLoad = true;
-let currentJobsHash = "[]"; // JSON string of job configs
+let currentJobsHash = "[]"; 
 
-// ======== UTIL ========
+
 function sleep(ms) {
   return new Promise((res) => setTimeout(res, ms));
 }
@@ -64,7 +62,7 @@ async function postJsonWithRetry(
   let lastErr;
   for (let i = 1; i <= tries; i++) {
     try {
-      // NEW: honor the earlier of OCR timeout and proxy deadline
+
       const requestTimeout = Math.min(timeout, PROXY_DEADLINE_MS);
 
       const res = await fetchWithTimeout(
