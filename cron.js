@@ -13,7 +13,7 @@ dayjs.extend(isBetween);
 // ======== CONFIG (env-tunable) ========
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api";
 const OCR_URL = process.env.OCR_URL || "https://uygeoeqvd7iqpg-19123-8080.proxy.runpod.net/run-ocr";
-const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 130000);
+const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 95000);
 
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3);   
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
