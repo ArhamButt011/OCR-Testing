@@ -469,7 +469,7 @@ const MasterPage = () => {
 
         if (data.ip) {
           // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
-          setOcrApiUrl(`https://6yanbnsm0tc2sf-8080.proxy.runpod.net/run-ocr`);
+          setOcrApiUrl(`https://6yanbnsm0tc2sf-19123-8080.proxy.runpod.net/run-ocr`);
           // setBaseUrl(`http://${data.secondaryIp}:3000`);
           // setBaseUrl(`https://h0palyajms52cn-8080.proxy.runpod.net`);
         }
