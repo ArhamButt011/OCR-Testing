@@ -3,6 +3,32 @@ import { getOracleConnection } from "@/lib/oracle";
 import clientPromise from "@/lib/mongodb";
 // import oracledb from "oracledb";
 
+function normalizeQuantity(value: string | number | null | undefined): number | null {
+  // Handle null, undefined, or empty string
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  
+  // Convert to string and trim whitespace
+  const strValue = String(value).trim().toLowerCase();
+  
+  // Check for explicit "null" string or empty after trim
+  if (strValue === "" || strValue === "null") {
+    return null;
+  }
+  
+  // Remove commas and spaces, then parse
+  const cleanedValue = strValue.replace(/[, ]/g, "");
+  const numValue = parseInt(cleanedValue, 10);
+  
+  // Check if parsing was successful and if value is 0
+  if (!Number.isFinite(numValue) || numValue === 0) {
+    return null;
+  }
+  
+  // Return the valid non-zero integer
+  return numValue;
+}
 
 export async function PUT(req: Request) {
   try {
@@ -54,7 +80,7 @@ export async function PUT(req: Request) {
       if (!fileId) continue;
 
       console.log("Updating fileId:", fileId);
-
+   const normalizedReceivedQty = normalizeQuantity(ocrData.received);
       await connection.execute(
         `UPDATE ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T
      SET OCR_BOLNO = :bolNo, 
@@ -74,7 +100,7 @@ export async function PUT(req: Request) {
         {
           bolNo: ocrData.blNumber,
           issQty: ocrData.totalQty,
-          rcvQty: ocrData.received,
+          rcvQty: normalizedReceivedQty,
           podDate: ocrData.podDate,
           sign: ocrData.podSignature === "yes" ? "Y" : "N",
           symtDamg: ocrData.damaged,

@@ -58,11 +58,8 @@ export async function POST(req: Request) {
              FROM  ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_T B
              WHERE B.FILE_ID = :fileId
              AND NOT EXISTS (
-
         SELECT 1 FROM ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T C
-
          WHERE C.FILE_ID = B.FILE_ID
-
       )`,
       [fileId]
     );

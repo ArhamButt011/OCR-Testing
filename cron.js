@@ -9,6 +9,33 @@ const { default: PQueue } = require("p-queue");
 
 dayjs.extend(utc);
 dayjs.extend(isBetween);
+function normalizeQuantity(value) {
+  // Handle null, undefined, or empty string
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  
+  // Convert to string and trim whitespace
+  const strValue = String(value).trim().toLowerCase();
+  
+  // Check for explicit "null" string or empty after trim
+  if (strValue === "" || strValue === "null") {
+    return null;
+  }
+  
+  // Remove commas and spaces, then parse
+  const cleanedValue = strValue.replace(/[, ]/g, "");
+  const numValue = parseInt(cleanedValue, 10);
+  
+  // Check if parsing was successful and if value is 0
+  if (!Number.isFinite(numValue) || numValue === 0) {
+    return null;
+  }
+  
+  // Return the valid non-zero integer
+  return numValue;
+}
+
 
 // ======== CONFIG (env-tunable) ========
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api";
@@ -148,23 +175,77 @@ function toYesNoY(val) {
 }
 
 // Map OCR record -> processed record
+// function toProcessedRecord(d, fileId, job, fileData, base_url) {
+//   if (!fileData || !fileData.FILE_NAME) return null;
+
+//   const filePath = `${base_url}/access-file?filename=${encodeURIComponent(fileData.FILE_NAME)}`;
+
+//   const blNumber = String(firstOf(d, ["B_L_Number", "BL_Number", "BOLNo", "BOL_No", "B_LNo", "B_L"], ""));
+//   const podDate = firstOf(d, ["POD_Date", "PODDate", "Proof_Of_Delivery_Date", "Delivery_Date"], "");
+//   const podSignature = firstOf(d, ["Signature_Exists", "Signature", "Sign_Exists"], "unknown");
+
+//   const issuedQty = toInt(firstOf(d, ["Issued_Qty", "IssuedQty", "Shipped_Qty", "Total_Issued"], 0));
+//   const receivedQty = toInt(firstOf(d, ["Received_Qty", "ReceivedQty", "Total_Received", "TOTAL_CARTONS_RECEIVED"], 0));
+//   const damageQty = toInt(firstOf(d, ["Damage_Qty", "Damaged_Qty", "DamageQty"], 0));
+//   const shortQty = toInt(firstOf(d, ["Short_Qty", "ShortQty"], 0));
+//   const overQty = toInt(firstOf(d, ["Over_Qty", "OverQty"], 0));
+//   const refusedQty = toInt(firstOf(d, ["Refused_Qty", "RefusedQty"], 0));
+
+//   const customerOrderNum = firstOf(d, ["Customer_Order_Num", "CustomerOrderNum", "Order_No"], "");
+//   const stampExists = firstOf(d, ["Stamp_Exists", "StampExists"], "");
+//   const statusRaw = firstOf(d, ["Status", "OCR_Status"], "");
+//   const statusMap = { failed: "failure", valid: "valid", "partially valid": "partiallyValid", partial: "partiallyValid" };
+//   const recognitionStatus = statusMap[String(statusRaw).toLowerCase()] || "null";
+//   const sealIntact = toYesNoY(firstOf(d, ["Seal_Intact", "SealIntact", "Seal_Status"], "no"));
+
+//   return {
+//     _id: fileId,
+//     jobId: job._id,
+//     fileId: fileId,
+//     pdfUrl: decodeURIComponent(new URL(filePath).searchParams.get("filename") || ""),
+//     deliveryDate: new Date().toISOString().split("T")[0],
+//     noOfPages: 1,
+
+//     blNumber,
+//     podDate,
+//     podSignature,
+
+//     totalQty: issuedQty,
+//     received: receivedQty,
+//     damaged: damageQty,
+//     short: shortQty,
+//     over: overQty,
+//     refused: refusedQty,
+
+//     customerOrderNum,
+//     stampExists,
+//     finalStatus: "valid",
+//     reviewStatus: "unConfirmed",
+//     recognitionStatus,
+
+//     breakdownReason: "none",
+//     reviewedBy: "OCR Engine",
+//     uptd_Usr_Cd: "OCR",
+//     cargoDescription: "Processed from OCR API.",
+//     none: "N",
+//     sealIntact,
+//   };
+// }
+
 function toProcessedRecord(d, fileId, job, fileData, base_url) {
   if (!fileData || !fileData.FILE_NAME) return null;
 
   const filePath = `${base_url}/access-file?filename=${encodeURIComponent(fileData.FILE_NAME)}`;
 
-  // Normalize common aliases to avoid nulls
   const blNumber = String(firstOf(d, ["B_L_Number", "BL_Number", "BOLNo", "BOL_No", "B_LNo", "B_L"], ""));
   const podDate = firstOf(d, ["POD_Date", "PODDate", "Proof_Of_Delivery_Date", "Delivery_Date"], "");
   const podSignature = firstOf(d, ["Signature_Exists", "Signature", "Sign_Exists"], "unknown");
-
   const issuedQty = toInt(firstOf(d, ["Issued_Qty", "IssuedQty", "Shipped_Qty", "Total_Issued"], 0));
-  const receivedQty = toInt(firstOf(d, ["Received_Qty", "ReceivedQty", "Total_Received", "TOTAL_CARTONS_RECEIVED"], 0));
+  const receivedQty = normalizeQuantity(firstOf(d, ["Received_Qty", "ReceivedQty", "Total_Received", "TOTAL_CARTONS_RECEIVED"], null));
   const damageQty = toInt(firstOf(d, ["Damage_Qty", "Damaged_Qty", "DamageQty"], 0));
   const shortQty = toInt(firstOf(d, ["Short_Qty", "ShortQty"], 0));
   const overQty = toInt(firstOf(d, ["Over_Qty", "OverQty"], 0));
   const refusedQty = toInt(firstOf(d, ["Refused_Qty", "RefusedQty"], 0));
-
   const customerOrderNum = firstOf(d, ["Customer_Order_Num", "CustomerOrderNum", "Order_No"], "");
   const stampExists = firstOf(d, ["Stamp_Exists", "StampExists"], "");
   const statusRaw = firstOf(d, ["Status", "OCR_Status"], "");

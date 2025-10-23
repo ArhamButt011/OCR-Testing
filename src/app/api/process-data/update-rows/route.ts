@@ -10,6 +10,36 @@ interface FileRow {
   FILE_NAME: string;
   FILE_DATA: oracledb.Lob | null;
 }
+function normalizeQuantity(value: string | number | null | undefined): number | null {
+  // Handle null, undefined, or empty string
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  
+  // Convert to string and trim whitespace
+  const strValue = String(value).trim().toLowerCase();
+  
+  // Check for explicit "null" string or empty after trim
+  if (strValue === "" || strValue === "null") {
+    return null;
+  }
+  
+  // Remove commas and spaces, then parse
+  const cleanedValue = strValue.replace(/[, ]/g, "");
+  const numValue = parseInt(cleanedValue, 10);
+  
+  // Check if parsing was successful and if value is 0
+  if (!Number.isFinite(numValue) || numValue === 0) {
+    return null;
+  }
+  
+  // Return the valid non-zero integer
+  return numValue;
+}
+
+
+
+
 
 export async function PUT(req: Request) {
   //   const logs: { fileName: string; message: string }[] = []; // <-- added this
@@ -148,6 +178,7 @@ export async function PUT(req: Request) {
 
       // handle podDate formatting...
 
+      const normalizedReceivedQty = normalizeQuantity(job.received);
 
       // check for existing record in OCR table
       const existingCheck = await conn.execute(
@@ -180,7 +211,7 @@ export async function PUT(req: Request) {
           {
             bolNo: job.blNumber?.toString(),
             issQty: job.totalQty,
-            rcvQty: job.received,
+            rcvQty: normalizedReceivedQty,
             podDate: job?.podDate,
             sign: job.podSignature === "yes" ? "Y" : "N",
             symtNone: 0,
@@ -214,7 +245,7 @@ export async function PUT(req: Request) {
           {
             bolNo: job.blNumber?.toString(),
             issQty: job.totalQty,
-            rcvQty: job.received,
+            rcvQty: normalizedReceivedQty,
             podDate: job?.podDate,
             sign: job.podSignature === "yes" ? "Y" : "N",
             symtNone: 0,
