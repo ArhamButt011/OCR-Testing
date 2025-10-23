@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import fs from "fs/promises";
 import path from "path";
 import oracledb from "oracledb";
+
 interface FileTableRow {
   FILE_TABLE: string;
 }
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
   try {
     const { ids = [] } = await req.json();
     console.log("Received IDs for deletion:", ids);
+    
     if (!Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json(
         { error: "No valid IDs provided for deletion" },
@@ -51,26 +53,53 @@ export async function POST(req: Request) {
 
     if (connectionStatus.dataBase === "local") {
       // ========== DELETE FROM MONGO ==========
-      const objectIds = ids.map((id: string) => new ObjectId(id));
       const client = await clientPromise;
       const db = client.db(DB_NAME);
       const jobCollection = db.collection("mockData");
       const historyCollection = db.collection("jobHistory");
 
-      const jobsToDelete = await jobCollection
-        .find({ _id: { $in: objectIds } })
-        .toArray();
+      // Separate ObjectIds and string IDs
+      const objectIds: ObjectId[] = [];
+      const stringIds: string[] = [];
+
+      ids.forEach((id: string) => {
+        // Check if the ID is a valid MongoDB ObjectId (24 hex characters)
+        if (ObjectId.isValid(id) && /^[a-f\d]{24}$/i.test(id)) {
+          objectIds.push(new ObjectId(id));
+        } else {
+          // Otherwise, treat it as a string ID (e.g., "POD_1761128658475_532")
+          stringIds.push(id);
+        }
+      });
+
+      console.log("ObjectIds:", objectIds);
+      console.log("String IDs:", stringIds);
+
+      // Build query to match both types of IDs
+      // Combine both ObjectIds and string IDs into a single array
+      const allIds: (ObjectId | string)[] = [...objectIds, ...stringIds];
+
+      const query = allIds.length > 0 
+        ? { _id: { $in: allIds as unknown as ObjectId[] } } 
+        : { _id: { $in: [] } }; // Empty query if no valid IDs
+
+      // Find jobs to delete (to get file paths)
+      const jobsToDelete = await jobCollection.find(query).toArray();
       const filePaths = jobsToDelete.map((job) =>
         job.pdfUrl ? path.join(process.cwd(), "public", job.pdfUrl) : null
       );
 
-      const jobDeleteResult = await jobCollection.deleteMany({
-        _id: { $in: objectIds },
-      });
-      const historyDeleteResult = await historyCollection.deleteMany({
-        jobId: { $in: objectIds },
-      });
+      // Delete from job collection
+      const jobDeleteResult = await jobCollection.deleteMany(query);
 
+      // Delete from history collection (matching on jobId field)
+      const historyQuery = allIds.length > 0
+        ? { jobId: { $in: allIds as unknown as ObjectId[] } }
+        : { jobId: { $in: [] } }; // Empty query if no valid IDs
+
+      const historyDeleteResult = await historyCollection.deleteMany(historyQuery);
+
+      // Delete associated files
       for (const filePath of filePaths) {
         if (filePath) {
           try {
@@ -86,6 +115,8 @@ export async function POST(req: Request) {
           message: "MongoDB jobs deleted",
           deletedJobs: jobDeleteResult.deletedCount,
           deletedHistory: historyDeleteResult.deletedCount,
+          processedObjectIds: objectIds.length,
+          processedStringIds: stringIds.length,
         },
         { status: 200 }
       );
