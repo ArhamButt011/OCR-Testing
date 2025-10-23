@@ -397,7 +397,7 @@ export async function PUT(req: Request) {
 
       const file_name = job.pdfUrl.split("/").pop() || "";
       const currentYear = new Date().getFullYear();
-      const fileTable = `XTI_${currentYear}_T`;
+      const fileTable = `${process.env.ORACLE_DB_USER_NAME}.XTI_${currentYear}_T`;
       const crtdDtt = job.createdAt ? new Date(job.createdAt) : new Date();
 
       if (!fileId) {
