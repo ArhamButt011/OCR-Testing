@@ -796,7 +796,7 @@ const MasterPage = () => {
             // Check if it's a network/fetch error
             if (error.message === "Failed to fetch") {
               errorTitle = "Network Error";
-              errorMessage = `Unable to connect to OCR service. The server may be down or unreachable.\n\nEndpoint: ${ocrApiUrl}\n\nPlease check:\n• Server is running\n• Network connection\n• Firewall settings`;
+              errorMessage = `524 Request timeout`;
             }
           }
 
