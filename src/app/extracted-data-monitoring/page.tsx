@@ -113,7 +113,6 @@ interface ProcessedData {
   noOfPages: number;
 }
 
-
 interface OcrJob {
   _id: string;
   B_L_Number: string;
@@ -469,7 +468,10 @@ const MasterPage = () => {
 
         if (data.ip) {
           // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
-          setOcrApiUrl(`https://uygeoeqvd7iqpg-19123-8080.proxy.runpod.net/run-ocr`);
+
+          setOcrApiUrl(
+            `https://uygeoeqvd7iqpg-19123-8080.proxy.runpod.net/run-ocr`
+          );
           // setBaseUrl(`http://${data.secondaryIp}:3000`);
           // setBaseUrl(`https://h0palyajms52cn-8080.proxy.runpod.net`);
         }
@@ -481,15 +483,16 @@ const MasterPage = () => {
     fetchOcrApiUrl();
   }, []);
 
-  console.log('master data-> ', master)
+  console.log("master data-> ", master);
   const pdfFiles = selectedRows
     .map((rowId) => {
       const job = master.find((job) => {
         return job._id === rowId;
       });
-      console.log("job-> ", job);
+      // console.log("job-> ", job);
       if (
-        (job && (!job.blNumber || !job.podSignature?.trim()) && job.pdfUrl) || job?.fileNameFromUrl
+        (job && (!job.blNumber || !job.podSignature?.trim()) && job.pdfUrl) ||
+        job?.fileNameFromUrl
       ) {
         let fileName: string | undefined | number;
 
@@ -511,8 +514,9 @@ const MasterPage = () => {
     })
     .filter(Boolean);
 
-
-  async function bulkUpdate(processedDataArray: ProcessedData[]): Promise<void> {
+  async function bulkUpdate(
+    processedDataArray: ProcessedData[]
+  ): Promise<void> {
     try {
       const response = await axios.put(
         "/api/process-data/update-data",
@@ -522,7 +526,10 @@ const MasterPage = () => {
       console.log("Bulk update success:", response.data);
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error("Bulk update failed:", error.response?.data || error.message);
+        console.error(
+          "Bulk update failed:",
+          error.response?.data || error.message
+        );
       } else {
         console.error("Bulk update error:", (error as Error).message);
       }
@@ -772,7 +779,6 @@ const MasterPage = () => {
             (f): f is { file_url_or_path: string; _id: string } => f !== null
           );
         console.log("Processing batch:", batch);
-        // Set initial progress
         batch.forEach((pdfFile) => {
           if (!pdfFile || !pdfFile.file_url_or_path) return;
 
@@ -797,7 +803,19 @@ const MasterPage = () => {
 
           if (!ocrResponse.ok) {
             const errorData = await ocrResponse.json().catch(() => null);
-            throw new Error(errorData?.error || "Failed to process OCR");
+            const errorMessage = errorData?.error || "Failed to process OCR";
+
+            await Swal.fire({
+              icon: "error",
+              title: "Error occured while processing",
+              text: errorMessage,
+              showConfirmButton: true,
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+              allowEnterKey: true,
+            });
+
+            throw new Error(errorMessage);
           }
 
           const ocrData = await ocrResponse.json();
@@ -840,8 +858,8 @@ const MasterPage = () => {
                   data?.Signature_Exists === "yes"
                     ? "yes"
                     : data?.Signature_Exists === "no"
-                      ? "no"
-                      : data?.Signature_Exists,
+                    ? "no"
+                    : data?.Signature_Exists,
                 totalQty: isNaN(data?.Issued_Qty)
                   ? data?.Issued_Qty
                   : Number(data?.Issued_Qty),
@@ -855,8 +873,8 @@ const MasterPage = () => {
                   data?.Stamp_Exists === "yes"
                     ? "yes"
                     : data?.Stamp_Exists === "no"
-                      ? "no"
-                      : data?.Stamp_Exists,
+                    ? "no"
+                    : data?.Stamp_Exists,
                 uptd_Usr_Cd: "OCR",
                 finalStatus: "valid",
                 reviewStatus: "unConfirmed",
@@ -868,14 +886,14 @@ const MasterPage = () => {
                   data?.Seal_Intact === "yes"
                     ? "Y"
                     : data?.Seal_Intact === "no"
-                      ? "N"
-                      : data?.Seal_Intact,
+                    ? "N"
+                    : data?.Seal_Intact,
               };
             });
 
             const updatePayload: ProcessedData[] = processedDataArray
-              .filter(d => d.fileId)                   
-              .map(d => ({ ...d, _id: d.fileId }));
+              .filter((d) => d.fileId)
+              .map((d) => ({ ...d, _id: d.fileId }));
             if (db === "remote") {
               console.log("Performing bulk update for remote DB");
               await bulkUpdate(updatePayload);
@@ -1378,8 +1396,9 @@ const MasterPage = () => {
     <div className="h-screen bg-white overflow-x-hidden max-w-screen">
       <Sidebar onStateChange={handleSidebarStateChange} />
       <div
-        className={`flex-1 flex flex-col transition-all bg-white duration-300 ${!isExpanded ? "ml-24" : "ml-64"
-          }`}
+        className={`flex-1 flex flex-col transition-all bg-white duration-300 ${
+          !isExpanded ? "ml-24" : "ml-64"
+        }`}
       >
         <Header
           leftContent="Extracted Data Monitoring"
@@ -1429,8 +1448,9 @@ const MasterPage = () => {
         <div className="flex-1 px-2 bg-white">
           {/* sticky top-0 z-10 */}
           <div
-            className={`bg-gray-200 p-3 mb-0 transition-all duration-500 ease-in w-full sm:w-auto  ${isFilterDropDownOpen ? "rounded-t-lg" : "rounded-lg"
-              }`}
+            className={`bg-gray-200 p-3 mb-0 transition-all duration-500 ease-in w-full sm:w-auto  ${
+              isFilterDropDownOpen ? "rounded-t-lg" : "rounded-lg"
+            }`}
           >
             <div
               className="flex items-center gap-3 cursor-pointer"
@@ -1441,16 +1461,18 @@ const MasterPage = () => {
               </span>
               <span>
                 <IoIosArrowForward
-                  className={`text-xl p-0 text-[#005B97] transition-all duration-500 ease-in ${isFilterDropDownOpen ? "rotate-90" : ""
-                    }`}
+                  className={`text-xl p-0 text-[#005B97] transition-all duration-500 ease-in ${
+                    isFilterDropDownOpen ? "rotate-90" : ""
+                  }`}
                 />
               </span>
             </div>
           </div>
           {/* sticky top-0 z-40 */}
           <div
-            className={`overflow-hidden transition-all duration-500 ease-in w-auto  ${isFilterDropDownOpen ? "max-h-[1000px] p-3" : "max-h-0"
-              } flex flex-wrap gap-4 mt-0 bg-gray-200 rounded-b-lg`}
+            className={`overflow-hidden transition-all duration-500 ease-in w-auto  ${
+              isFilterDropDownOpen ? "max-h-[1000px] p-3" : "max-h-0"
+            } flex flex-wrap gap-4 mt-0 bg-gray-200 rounded-b-lg`}
           >
             <form
               onSubmit={handleFilterApply}
@@ -1801,10 +1823,11 @@ const MasterPage = () => {
 
               <div className="flex justify-end items-center gap-2 col-span-3">
                 <button
-                  className={`text-[#005B97] underline ${!isAnyFilterApplied()
-                    ? "text-gray-400 underline cursor-not-allowed"
-                    : "cursor-pointer"
-                    }`}
+                  className={`text-[#005B97] underline ${
+                    !isAnyFilterApplied()
+                      ? "text-gray-400 underline cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
                   onClick={resetFiltersAndFetch}
                   disabled={!isAnyFilterApplied()}
                 >
@@ -1912,10 +1935,11 @@ const MasterPage = () => {
                 }}
               >
                 <button
-                  className={`rounded-lg px-6 py-2 w-full md:w-auto ${selectedRows.length === 0
-                    ? "cursor-not-allowed bg-gray-400 border border-gray-400"
-                    : "bg-[#005B971A] text-[#005B97] border border-[#005B971A]"
-                    }`}
+                  className={`rounded-lg px-6 py-2 w-full md:w-auto ${
+                    selectedRows.length === 0
+                      ? "cursor-not-allowed bg-gray-400 border border-gray-400"
+                      : "bg-[#005B971A] text-[#005B97] border border-[#005B971A]"
+                  }`}
                 >
                   History
                 </button>
@@ -1937,10 +1961,11 @@ const MasterPage = () => {
                     : undefined
                 }
                 className={` ${buttonColor} flex justify-center items-center w-full md:w-auto px-4 py-2 rounded-lg text-white transition 
-                ${selectedRows.length === 0 && !isOcrRunning
+                ${
+                  selectedRows.length === 0 && !isOcrRunning
                     ? "bg-gray-400 cursor-not-allowed border border-gray-400"
                     : "cursor-pointer border border-[#005B97]"
-                  }
+                }
               `}
               >
                 {isOcrRunning ? "Stop" : "Process"}
@@ -1969,10 +1994,11 @@ const MasterPage = () => {
                           : undefined
                       }
                       className={` ${buttonColor} flex justify-center items-center w-fit px-4 py-2 rounded-lg text-white transition 
-                    ${selectedRows.length === 0 && !isOcrRunning
-                          ? "bg-gray-400 cursor-not-allowed border border-gray-400"
-                          : "cursor-pointer border border-[#005B97]"
-                        }
+                    ${
+                      selectedRows.length === 0 && !isOcrRunning
+                        ? "bg-gray-400 cursor-not-allowed border border-gray-400"
+                        : "cursor-pointer border border-[#005B97]"
+                    }
                   `}
                     >
                       {isOcrRunning ? "Stop Processing" : "Process"}
@@ -2012,8 +2038,8 @@ const MasterPage = () => {
                           // const pdfFilename = job.pdfUrl.split('/').pop();
                           const pdfFilename = job.pdfUrl
                             ? encodeURIComponent(
-                              job.pdfUrl.split("/").pop()?.trim() ?? ""
-                            )
+                                job.pdfUrl.split("/").pop()?.trim() ?? ""
+                              )
                             : "";
                           const progressKey = `https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api/access-file?filename=${pdfFilename}`;
                           const jobProgress = progress[progressKey] ?? 0;
@@ -2025,16 +2051,16 @@ const MasterPage = () => {
                                 {/* {job.pdfUrl ? job.pdfUrl.split('/').pop()?.replace('.pdf', '') || "No PDF Available" : "No PDF Available"} */}
                                 {job.pdfUrl
                                   ? (() => {
-                                    const fileName =
-                                      job.pdfUrl
-                                        .split("/")
-                                        .pop()
-                                        ?.replace(".pdf", ".pdf") ||
-                                      "No PDF Available";
-                                    return fileName.length > 15
-                                      ? fileName.substring(0, 19) + "..."
-                                      : fileName;
-                                  })()
+                                      const fileName =
+                                        job.pdfUrl
+                                          .split("/")
+                                          .pop()
+                                          ?.replace(".pdf", ".pdf") ||
+                                        "No PDF Available";
+                                      return fileName.length > 15
+                                        ? fileName.substring(0, 19) + "..."
+                                        : fileName;
+                                    })()
                                   : "No PDF Available"}
                               </td>
                               {/* <td className=" px-4 py-2">
@@ -2056,20 +2082,22 @@ const MasterPage = () => {
 
                               <td className="px-4 py-2">
                                 <div
-                                  className={`${jobProgress === 1
-                                    ? "bg-[rgba(252,197,197,0.1)]"
-                                    : "bg-gray-200"
-                                    } w-full rounded-full h-4 relative`}
+                                  className={`${
+                                    jobProgress === 1
+                                      ? "bg-[rgba(252,197,197,0.1)]"
+                                      : "bg-gray-200"
+                                  } w-full rounded-full h-4 relative`}
                                 >
                                   <div
                                     className={`bg-[#005B97] h-4 rounded-full relative transition-all duration-500 ease-in-out`}
                                     style={{ width: `${jobProgress}%` }}
                                   >
                                     <span
-                                      className={`absolute top-1/2 right-[-1.01rem] transform -translate-y-1/2 translate-x-1/2 flex items-center px-2 h-6 text-[#005B97] ${jobProgress === 1
-                                        ? "bg-gray-300"
-                                        : "bg-gray-300"
-                                        }  font-semibold text-sm`}
+                                      className={`absolute top-1/2 right-[-1.01rem] transform -translate-y-1/2 translate-x-1/2 flex items-center px-2 h-6 text-[#005B97] ${
+                                        jobProgress === 1
+                                          ? "bg-gray-300"
+                                          : "bg-gray-300"
+                                      }  font-semibold text-sm`}
                                     >
                                       {jobProgress === 1 ? 0 : jobProgress}%
                                     </span>
@@ -2079,26 +2107,27 @@ const MasterPage = () => {
 
                               <td className="px-4 py-2 text-center">
                                 <span
-                                  className={`px-3 py-2 rounded-full text-base font-medium ${jobProgress === 100
-                                    ? "bg-[#28A4AD1A] text-[#28A4AD]"
-                                    : jobProgress > 1
+                                  className={`px-3 py-2 rounded-full text-base font-medium ${
+                                    jobProgress === 100
+                                      ? "bg-[#28A4AD1A] text-[#28A4AD]"
+                                      : jobProgress > 1
                                       ? "bg-[#FCB0401A] text-[#FCB040]"
                                       : jobProgress === 0
-                                        ? "bg-[#005B971A] text-[#005B97]"
-                                        : jobProgress === 1
-                                          ? "bg-[rgba(252,197,197,0.1)] text-[#FF4D4D]"
-                                          : ""
-                                    }`}
+                                      ? "bg-[#005B971A] text-[#005B97]"
+                                      : jobProgress === 1
+                                      ? "bg-[rgba(252,197,197,0.1)] text-[#FF4D4D]"
+                                      : ""
+                                  }`}
                                 >
                                   {jobProgress === 100
                                     ? "Valid"
                                     : jobProgress > 1
-                                      ? "In Progress"
-                                      : jobProgress === 0
-                                        ? "New"
-                                        : jobProgress === 1
-                                          ? "Failed"
-                                          : ""}
+                                    ? "In Progress"
+                                    : jobProgress === 0
+                                    ? "New"
+                                    : jobProgress === 1
+                                    ? "Failed"
+                                    : ""}
                                 </span>
                               </td>
                             </tr>
@@ -2138,10 +2167,11 @@ const MasterPage = () => {
               </div>
             ) : (
               <div
-                className={`overflow-x-auto w-full relative ${isFilterDropDownOpen
-                  ? "2xl:h-[700px] md:h-[170px] sm:h-[150px]"
-                  : "2xl:h-[900px] md:h-[460px] sm:h-[450px]"
-                  }`}
+                className={`overflow-x-auto w-full relative ${
+                  isFilterDropDownOpen
+                    ? "2xl:h-[700px] md:h-[170px] sm:h-[150px]"
+                    : "2xl:h-[900px] md:h-[460px] sm:h-[450px]"
+                }`}
               >
                 {/* <div className={`overflow-x-auto w-full relative`}> */}
                 <table className="table-auto min-w-full w-full border-collapse">
@@ -2286,7 +2316,7 @@ const MasterPage = () => {
 
                             <td className="py-2 px-4 border-b text-center">
                               {job.stampExists === null ||
-                                job.stampExists === undefined ? (
+                              job.stampExists === undefined ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2296,7 +2326,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.podSignature === null ||
-                                job.podSignature === undefined ? (
+                              job.podSignature === undefined ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2306,7 +2336,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.sealIntact === null ||
-                                job.sealIntact === undefined ? (
+                              job.sealIntact === undefined ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2316,7 +2346,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.totalQty === null ||
-                                job.totalQty === undefined ? (
+                              job.totalQty === undefined ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2326,7 +2356,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.received === null ||
-                                job.received === undefined ? (
+                              job.received === undefined ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2336,7 +2366,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.damaged === null ||
-                                job.damaged === undefined ? (
+                              job.damaged === undefined ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2364,7 +2394,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.refused === null ||
-                                job.refused === undefined ? (
+                              job.refused === undefined ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2392,10 +2422,11 @@ const MasterPage = () => {
                                       ({ status, color, bgColor }) => (
                                         <li
                                           key={status}
-                                          className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${job.finalStatus === status
-                                            ? `${color} ${bgColor}`
-                                            : color
-                                            }`}
+                                          className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${
+                                            job.finalStatus === status
+                                              ? `${color} ${bgColor}`
+                                              : color
+                                          }`}
                                           onClick={() => {
                                             updateStatus(
                                               job._id,
@@ -2427,30 +2458,33 @@ const MasterPage = () => {
                                 appendTo={() => document.body}
                               >
                                 <div
-                                  className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${userRole !== "standarduser"
-                                    ? "cursor-pointer"
-                                    : ""
-                                    } ${job.finalStatus === "new"
+                                  className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${
+                                    userRole !== "standarduser"
+                                      ? "cursor-pointer"
+                                      : ""
+                                  } ${
+                                    job.finalStatus === "new"
                                       ? "bg-blue-100 text-blue-600"
                                       : job.finalStatus === "inProgress"
-                                        ? "bg-yellow-100 text-yellow-600"
-                                        : job.finalStatus === "valid"
-                                          ? "bg-green-100 text-green-600"
-                                          : job.finalStatus === "partiallyValid"
-                                            ? "bg-[#faf1be] text-[#AF9918]"
-                                            : job.finalStatus === "failure"
-                                              ? "bg-red-100 text-red-600"
-                                              : job.finalStatus === "sent"
-                                                ? "bg-green-100 text-green-600"
-                                                : "bg-gray-100 text-gray-600"
-                                    }`}
+                                      ? "bg-yellow-100 text-yellow-600"
+                                      : job.finalStatus === "valid"
+                                      ? "bg-green-100 text-green-600"
+                                      : job.finalStatus === "partiallyValid"
+                                      ? "bg-[#faf1be] text-[#AF9918]"
+                                      : job.finalStatus === "failure"
+                                      ? "bg-red-100 text-red-600"
+                                      : job.finalStatus === "sent"
+                                      ? "bg-green-100 text-green-600"
+                                      : "bg-gray-100 text-gray-600"
+                                  }`}
                                 >
                                   <div>{job.finalStatus}</div>
                                   <RiArrowDropDownLine
-                                    className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${dropdownStates === job._id
-                                      ? "rotate-180"
-                                      : ""
-                                      }`}
+                                    className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${
+                                      dropdownStates === job._id
+                                        ? "rotate-180"
+                                        : ""
+                                    }`}
                                   />
                                 </div>
                               </Tippy>
@@ -2470,10 +2504,11 @@ const MasterPage = () => {
                                       ({ status, color, bgColor }) => (
                                         <li
                                           key={status}
-                                          className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${job.reviewStatus === status
-                                            ? `${color} ${bgColor}`
-                                            : color
-                                            }`}
+                                          className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${
+                                            job.reviewStatus === status
+                                              ? `${color} ${bgColor}`
+                                              : color
+                                          }`}
                                           onClick={() => {
                                             updateStatus(
                                               job._id,
@@ -2505,26 +2540,29 @@ const MasterPage = () => {
                                 appendTo={() => document.body}
                               >
                                 <div
-                                  className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${userRole !== "standarduser"
-                                    ? "cursor-pointer"
-                                    : ""
-                                    } ${job.reviewStatus === "unConfirmed"
+                                  className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${
+                                    userRole !== "standarduser"
+                                      ? "cursor-pointer"
+                                      : ""
+                                  } ${
+                                    job.reviewStatus === "unConfirmed"
                                       ? "bg-yellow-100 text-yellow-600"
                                       : job.reviewStatus === "confirmed"
-                                        ? "bg-green-100 text-green-600"
-                                        : job.reviewStatus === "denied"
-                                          ? "bg-[#faf1be] text-[#AF9918]"
-                                          : job.reviewStatus === "deleted"
-                                            ? "bg-red-100 text-red-600"
-                                            : ""
-                                    }`}
+                                      ? "bg-green-100 text-green-600"
+                                      : job.reviewStatus === "denied"
+                                      ? "bg-[#faf1be] text-[#AF9918]"
+                                      : job.reviewStatus === "deleted"
+                                      ? "bg-red-100 text-red-600"
+                                      : ""
+                                  }`}
                                 >
                                   <div>{job.reviewStatus}</div>
                                   <RiArrowDropDownLine
-                                    className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${dropdownStatesFirst === job._id
-                                      ? "rotate-180"
-                                      : ""
-                                      }`}
+                                    className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${
+                                      dropdownStatesFirst === job._id
+                                        ? "rotate-180"
+                                        : ""
+                                    }`}
                                   />
                                 </div>
                               </Tippy>
@@ -2544,10 +2582,11 @@ const MasterPage = () => {
                                       ({ status, color, bgColor }) => (
                                         <li
                                           key={status}
-                                          className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${job.recognitionStatus === status
-                                            ? `${color} ${bgColor}`
-                                            : color
-                                            }`}
+                                          className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${
+                                            job.recognitionStatus === status
+                                              ? `${color} ${bgColor}`
+                                              : color
+                                          }`}
                                           onClick={() => {
                                             updateStatus(
                                               job._id,
@@ -2579,31 +2618,34 @@ const MasterPage = () => {
                                 appendTo={() => document.body}
                               >
                                 <div
-                                  className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${userRole !== "standarduser"
-                                    ? "cursor-pointer"
-                                    : ""
-                                    } ${job.recognitionStatus === "new"
+                                  className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${
+                                    userRole !== "standarduser"
+                                      ? "cursor-pointer"
+                                      : ""
+                                  } ${
+                                    job.recognitionStatus === "new"
                                       ? "bg-blue-100 text-blue-600"
                                       : job.recognitionStatus === "inProgress"
-                                        ? "bg-yellow-100 text-yellow-600"
-                                        : job.recognitionStatus === "valid"
-                                          ? "bg-green-100 text-green-600"
-                                          : job.recognitionStatus ===
-                                            "partiallyValid"
-                                            ? "bg-[#faf1be] text-[#AF9918]"
-                                            : job.recognitionStatus === "failure"
-                                              ? "bg-red-100 text-red-600"
-                                              : job.recognitionStatus === "sent"
-                                                ? "bg-green-100 text-green-600"
-                                                : ""
-                                    }`}
+                                      ? "bg-yellow-100 text-yellow-600"
+                                      : job.recognitionStatus === "valid"
+                                      ? "bg-green-100 text-green-600"
+                                      : job.recognitionStatus ===
+                                        "partiallyValid"
+                                      ? "bg-[#faf1be] text-[#AF9918]"
+                                      : job.recognitionStatus === "failure"
+                                      ? "bg-red-100 text-red-600"
+                                      : job.recognitionStatus === "sent"
+                                      ? "bg-green-100 text-green-600"
+                                      : ""
+                                  }`}
                                 >
                                   <div>{job.recognitionStatus}</div>
                                   <RiArrowDropDownLine
-                                    className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${dropdownStatesSecond === job._id
-                                      ? "rotate-180"
-                                      : ""
-                                      }`}
+                                    className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${
+                                      dropdownStatesSecond === job._id
+                                        ? "rotate-180"
+                                        : ""
+                                    }`}
                                   />
                                 </div>
                               </Tippy>
@@ -2623,10 +2665,11 @@ const MasterPage = () => {
                                       ({ status, color, bgColor }) => (
                                         <li
                                           key={status}
-                                          className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${job.breakdownReason === status
-                                            ? `${color} ${bgColor}`
-                                            : color
-                                            }`}
+                                          className={`cursor-pointer px-3 py-1 hover:bg-blue-100 hover:text-black ${
+                                            job.breakdownReason === status
+                                              ? `${color} ${bgColor}`
+                                              : color
+                                          }`}
                                           onClick={() => {
                                             updateStatus(
                                               job._id,
@@ -2658,28 +2701,31 @@ const MasterPage = () => {
                                 appendTo={() => document.body}
                               >
                                 <div
-                                  className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${userRole !== "standarduser"
-                                    ? "cursor-pointer"
-                                    : ""
-                                    } ${job.breakdownReason === "none"
+                                  className={`inline-flex items-center transition-all duration-500 ease-in-out justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium ${
+                                    userRole !== "standarduser"
+                                      ? "cursor-pointer"
+                                      : ""
+                                  } ${
+                                    job.breakdownReason === "none"
                                       ? "bg-blue-100 text-blue-600"
                                       : job.breakdownReason === "damaged"
-                                        ? "bg-yellow-100 text-yellow-600"
-                                        : job.breakdownReason === "shortage"
-                                          ? "bg-green-100 text-green-600"
-                                          : job.breakdownReason === "overage"
-                                            ? "bg-[#faf1be] text-[#AF9918]"
-                                            : job.breakdownReason === "refused"
-                                              ? "bg-red-100 text-red-600"
-                                              : ""
-                                    }`}
+                                      ? "bg-yellow-100 text-yellow-600"
+                                      : job.breakdownReason === "shortage"
+                                      ? "bg-green-100 text-green-600"
+                                      : job.breakdownReason === "overage"
+                                      ? "bg-[#faf1be] text-[#AF9918]"
+                                      : job.breakdownReason === "refused"
+                                      ? "bg-red-100 text-red-600"
+                                      : ""
+                                  }`}
                                 >
                                   <div>{job.breakdownReason}</div>
                                   <RiArrowDropDownLine
-                                    className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${dropdownStatesThird === job._id
-                                      ? "rotate-180"
-                                      : ""
-                                      }`}
+                                    className={`text-2xl p-0 transform transition-transform duration-300 ease-in-out ${
+                                      dropdownStatesThird === job._id
+                                        ? "rotate-180"
+                                        : ""
+                                    }`}
                                   />
                                 </div>
                               </Tippy>
@@ -2716,10 +2762,11 @@ const MasterPage = () => {
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className={`px-4 py-2 rounded-md ${currentPage === 1
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
-                    }`}
+                  className={`px-4 py-2 rounded-md ${
+                    currentPage === 1
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
                   Previous
                 </button>
@@ -2729,10 +2776,11 @@ const MasterPage = () => {
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className={`px-4 py-2 rounded-md ${currentPage === totalPages
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
-                    }`}
+                  className={`px-4 py-2 rounded-md ${
+                    currentPage === totalPages
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
                   Next
                 </button>
