@@ -614,161 +614,7 @@ const MasterPage = () => {
     setIsProcessModalOpen(true);
     setProgress({});
 
-    // async function processPdfsSequentially() {
-    //   for (const pdfFile of pdfFiles) {
-    //     if (!pdfFile?.file_url_or_path) continue;
-    //     const filePath = pdfFile.file_url_or_path;
-    //     const fileId = pdfFile._id;
 
-    //     setProgress((prev) => ({
-    //       ...prev,
-    //       [filePath]: 10,
-    //     }));
-
-    //     try {
-    //       const ocrResponse = await fetch(ocrApiUrl, {
-    //         method: "POST",
-    //         headers: { "Content-Type": "application/json" },
-    //         body: JSON.stringify({
-    //           _id: fileId,
-    //           file_url_or_path: filePath,
-    //         }),
-    //         signal: abortController.signal,
-    //       });
-
-    //       if (!ocrResponse.ok) {
-    //         const errorData = await ocrResponse.json().catch(() => null);
-    //         throw new Error(errorData?.error || "Failed to process OCR");
-    //       }
-    //       const ocrData = await ocrResponse.json();
-    //       console.log("ocr dtaa-> ", ocrData);
-
-    //       if (ocrData && Array.isArray(ocrData)) {
-    //         if (db === "remote") {
-    //           mergeOcrDataIntoMaster(ocrData);
-    //         }
-    //         const processedDataArray = ocrData.map((data) => {
-    //           const recognitionStatusMap: Record<
-    //             "failed" | "partially valid" | "valid" | "null",
-    //             string
-    //           > = {
-    //             failed: "failure",
-    //             "partially valid": "partiallyValid",
-    //             valid: "valid",
-    //             null: "null",
-    //           };
-    //           const status =
-    //             (data?.Status as keyof typeof recognitionStatusMap) || "null";
-    //           const recognitionStatus = recognitionStatusMap[status] || "null";
-
-    //           const urlObj = new URL(filePath);
-    //           const filename = urlObj.searchParams.get("filename") || "";
-    //           const decodedFilePath = `/file/${decodeURIComponent(filename)}`;
-
-    //           return {
-    //             jobId: null,
-    //             pdfUrl: decodedFilePath,
-    //             fileId: data?._id,
-    //             deliveryDate: new Date().toISOString().split("T")[0],
-    //             noOfPages: 1,
-    //             blNumber: data?.B_L_Number || "",
-    //             podDate: data?.POD_Date || "",
-    //             podSignature:
-    //               data?.Signature_Exists === "yes"
-    //                 ? "yes"
-    //                 : data?.Signature_Exists === "no"
-    //                 ? "no"
-    //                 : data?.Signature_Exists,
-    //             totalQty: isNaN(data?.Issued_Qty)
-    //               ? data?.Issued_Qty
-    //               : Number(data?.Issued_Qty),
-    //             received: data?.Received_Qty,
-    //             damaged: data?.Damage_Qty,
-    //             short: data?.Short_Qty,
-    //             over: data?.Over_Qty,
-    //             refused: data?.Refused_Qty,
-    //             customerOrderNum: data?.Customer_Order_Num,
-    //             stampExists:
-    //               data?.Stamp_Exists === "yes"
-    //                 ? "yes"
-    //                 : data?.Stamp_Exists === "no"
-    //                 ? "no"
-    //                 : data?.Stamp_Exists,
-    //             uptd_Usr_Cd: "OCR",
-    //             finalStatus: "valid",
-    //             reviewStatus: "unConfirmed",
-    //             recognitionStatus: recognitionStatus,
-    //             breakdownReason: "none",
-    //             reviewedBy: "OCR Engine",
-    //             cargoDescription: "Processed from OCR API.",
-    //             sealIntact:
-    //               data?.Seal_Intact === "yes"
-    //                 ? "Y"
-    //                 : data?.Seal_Intact === "no"
-    //                 ? "N"
-    //                 : data?.Seal_Intact,
-    //           };
-    //         });
-
-    //         const saveResponse = await fetch("/api/process-data/save-data", {
-    //           method: "POST",
-    //           headers: { "Content-Type": "application/json" },
-    //           body: JSON.stringify(processedDataArray),
-    //         });
-    //         // const data = await saveResponse.json();
-
-    //         if (!saveResponse.ok) {
-    //           console.error("Error saving data:", await saveResponse.json());
-    //         } else {
-    //           // console.log("OCR data saved successfully.");
-    //         }
-    //       }
-
-    //       let progressValue = 1;
-
-    //       while (progressValue < 100) {
-    //         await new Promise((resolve) => setTimeout(resolve, 1000));
-    //         progressValue += 25;
-    //         setProgress((prev) => ({
-    //           ...prev,
-    //           [filePath]: progressValue,
-    //         }));
-    //       }
-
-    //       setProgress((prev) => ({ ...prev, [filePath]: 100 }));
-    //     } catch (error: unknown) {
-    //       if (error instanceof Error) {
-    //         if (error.name === "AbortError") {
-    //           // console.log(`OCR request was aborted for: ${filePath}`);
-    //           return;
-    //         }
-    //         console.error(`Error processing ${filePath}:`, error);
-    //       } else {
-    //         console.error(`Unexpected error processing ${filePath}:`, error);
-    //       }
-
-    //       setProgress((prev) => ({
-    //         ...prev,
-    //         [filePath]: 1,
-    //       }));
-    //     }
-    //   }
-
-    //   const newStatus = "stop";
-    //   await fetch("/api/jobs/ocr", {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/json" },
-    //     body: JSON.stringify({ status: newStatus }),
-    //   });
-
-    //   setIsOcrRunning(false);
-    //   setIsProcessModalOpen(false);
-    //   setSelectedRows([]);
-    //   setProgress({});
-    //   if (db !== "remote") {
-    //     fetchJobs();
-    //   }
-    // }
     async function processPdfsSequentially() {
       const batchSize = 4;
 
@@ -805,14 +651,22 @@ const MasterPage = () => {
             const errorData = await ocrResponse.json().catch(() => null);
             const errorMessage = errorData?.error || "Failed to process OCR";
 
-            await Swal.fire({
+            Swal.fire({
               icon: "error",
-              title: "Error occured while processing",
+              title: "OCR Processing Error",
               text: errorMessage,
-              showConfirmButton: true,
+              confirmButtonText: "OK",
               allowOutsideClick: false,
               allowEscapeKey: false,
               allowEnterKey: true,
+              didOpen: () => {
+                const swalContainer = document.querySelector(
+                  ".swal2-container"
+                ) as HTMLElement;
+                if (swalContainer) {
+                  swalContainer.style.zIndex = "99999";
+                }
+              },
             });
 
             throw new Error(errorMessage);
@@ -931,7 +785,40 @@ const MasterPage = () => {
             return;
           }
 
+          // Show detailed error alert
+          let errorTitle = "OCR Processing Failed";
+          let errorMessage =
+            "An unexpected error occurred during OCR processing";
+
+          if (error instanceof Error) {
+            errorMessage = error.message;
+
+            // Check if it's a network/fetch error
+            if (error.message === "Failed to fetch") {
+              errorTitle = "Network Error";
+              errorMessage = `Unable to connect to OCR service. The server may be down or unreachable.\n\nEndpoint: ${ocrApiUrl}\n\nPlease check:\n• Server is running\n• Network connection\n• Firewall settings`;
+            }
+          }
+
+          Swal.fire({
+            icon: "error",
+            title: errorTitle,
+            text: errorMessage,
+            confirmButtonText: "OK",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            allowEnterKey: true,
+            didOpen: () => {
+              const swalContainer = document.querySelector(
+                ".swal2-container"
+              ) as HTMLElement;
+              if (swalContainer) {
+                swalContainer.style.zIndex = "99999";
+              }
+            },
+          });
           console.error("OCR batch error:", error);
+          // Continue processing next batch
         }
       }
 
@@ -950,6 +837,7 @@ const MasterPage = () => {
         fetchJobs();
       }
     }
+
 
     await processPdfsSequentially();
   };
