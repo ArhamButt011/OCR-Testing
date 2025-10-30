@@ -17,7 +17,6 @@ const BASE_URL =
 const OCR_URL =
   process.env.OCR_URL || "https://rfwvxuqsbkx593-8080.proxy.runpod.net/run-ocr";
 const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 95000);
-
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3); // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
 const PRIMARY_CONCURRENCY = Number(process.env.PRIMARY_CONCURRENCY || 1);
@@ -31,16 +30,40 @@ const PREFLIGHT_URL_CHECK =
   (process.env.PREFLIGHT_URL_CHECK || "true") === "true";
 const SAVE_CHUNK_SIZE = Number(process.env.SAVE_CHUNK_SIZE || 50);
 
-const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000); 
+const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000);
 const OCR_GC_URL = process.env.OCR_GC_URL || "";
 
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
+function normalizeQuantity(value) {
+  // Handle null, undefined, or empty string
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
 
-const scheduledTasks = new Map(); 
-const jobRunning = new Map(); 
+  // Convert to string and trim whitespace
+  const strValue = String(value).trim().toLowerCase();
+
+  // Check for explicit "null" string or empty after trim
+  if (strValue === "" || strValue === "null") {
+    return null;
+  }
+
+  // Remove commas and spaces, then parse
+  const cleanedValue = strValue.replace(/[, ]/g, "");
+  const numValue = parseInt(cleanedValue, 10);
+
+  // Check if parsing was successful and if value is 0
+  if (!Number.isFinite(numValue) || numValue === 0) {
+    return null;
+  }
+
+  // Return the valid non-zero integer
+  return numValue;
+}
+const scheduledTasks = new Map();
+const jobRunning = new Map();
 let isInitialLoad = true;
-let currentJobsHash = "[]"; 
-
+let currentJobsHash = "[]";
 
 function sleep(ms) {
   return new Promise((res) => setTimeout(res, ms));
@@ -62,7 +85,6 @@ async function postJsonWithRetry(
   let lastErr;
   for (let i = 1; i <= tries; i++) {
     try {
-
       const requestTimeout = Math.min(timeout, PROXY_DEADLINE_MS);
 
       const res = await fetchWithTimeout(
@@ -159,32 +181,40 @@ async function cooldownAndGc() {
 async function performSapCheck(processed, wmsUrl, userName, passWord) {
   try {
     const basicAuth = Buffer.from(`${userName}:${passWord}`).toString("base64");
-    const response = await fetchWithTimeout(wmsUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${basicAuth}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
+    const response = await fetchWithTimeout(
+      wmsUrl,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ BOLNo: [processed.blNumber] }),
       },
-      body: JSON.stringify({ BOLNo: [processed.blNumber] }),
-    }, 10000); // 10 second timeout for SAP API
+      10000
+    ); // 10 second timeout for SAP API
 
     if (!response.ok) {
-      console.warn(`SAP API HTTP ${response.status} for BL: ${processed.blNumber}`);
+      console.warn(
+        `SAP API HTTP ${response.status} for BL: ${processed.blNumber}`
+      );
       return processed; // Return original if SAP call fails
     }
 
     const sapData = await response.json();
-    
+
     // Update recognition status based on SAP validation
     if (Array.isArray(sapData) && sapData.length > 0) {
       processed.recognitionStatus =
         sapData[0]?.BOLNo?.trim() === processed.blNumber.trim()
           ? "valid"
           : "failure";
-      console.log(`SAP validation for ${processed.blNumber}: ${processed.recognitionStatus}`);
+      console.log(
+        `SAP validation for ${processed.blNumber}: ${processed.recognitionStatus}`
+      );
     }
-    
+
     return processed;
   } catch (err) {
     console.error(`SAP check error for ${processed.blNumber}:`, err.message);
@@ -250,7 +280,7 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
   const issuedQty = toInt(
     firstOf(d, ["Issued_Qty", "IssuedQty", "Shipped_Qty", "Total_Issued"], 0)
   );
-  const receivedQty = toInt(
+  const receivedQty = normalizeQuantity(
     firstOf(
       d,
       [
@@ -259,7 +289,7 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
         "Total_Received",
         "TOTAL_CARTONS_RECEIVED",
       ],
-      0
+      null
     )
   );
   const damageQty = toInt(
@@ -373,7 +403,15 @@ function clearScheduledJobs() {
 }
 
 // ======== PRIMARY PASS (no per-file fallback here) ========
-async function processPrimaryBatch(ocrUrl, batch, job, base_url, wmsUrl, userName, passWord) {
+async function processPrimaryBatch(
+  ocrUrl,
+  batch,
+  job,
+  base_url,
+  wmsUrl,
+  userName,
+  passWord
+) {
   const payload = [];
   const fileMetaDataMap = new Map();
   const forFallback = []; // minimal records to retry later
@@ -472,7 +510,12 @@ async function processPrimaryBatch(ocrUrl, batch, job, base_url, wmsUrl, userNam
       const pr = toProcessedRecord(d, rec._id, job, fileData, base_url);
       if (pr) {
         // ======== NEW: SAP API VALIDATION ========
-        const validatedRecord = await performSapCheck(pr, wmsUrl, userName, passWord);
+        const validatedRecord = await performSapCheck(
+          pr,
+          wmsUrl,
+          userName,
+          passWord
+        );
         processed.push(validatedRecord);
       } else {
         failedForFallback.push(rec); // keep for fallback if mapping failed
@@ -486,7 +529,15 @@ async function processPrimaryBatch(ocrUrl, batch, job, base_url, wmsUrl, userNam
 }
 
 // ======== FALLBACK PASS (after all primary batches complete) ========
-async function processFallbackBatches(ocrUrl, failedList, job, base_url, wmsUrl, userName, passWord) {
+async function processFallbackBatches(
+  ocrUrl,
+  failedList,
+  job,
+  base_url,
+  wmsUrl,
+  userName,
+  passWord
+) {
   const processed = [];
   const stillFailed = [];
   const groups = chunk(failedList, FALLBACK_BATCH_SIZE);
@@ -551,7 +602,12 @@ async function processFallbackBatches(ocrUrl, failedList, job, base_url, wmsUrl,
         const pr = toProcessedRecord(d, rec._id, job, fileData, base_url);
         if (pr) {
           // ======== NEW: SAP API VALIDATION IN FALLBACK ========
-          const validatedRecord = await performSapCheck(pr, wmsUrl, userName, passWord);
+          const validatedRecord = await performSapCheck(
+            pr,
+            wmsUrl,
+            userName,
+            passWord
+          );
           processed.push(validatedRecord);
         } else {
           stillFailed.push(rec);
@@ -701,7 +757,15 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
         `Starting fallback pass for ${fallbackBucket.length} file(s)...`
       );
       const { processed: fbProcessed, stillFailed } =
-        await processFallbackBatches(ocrUrl, fallbackBucket, job, base_url, wmsUrl, userName, passWord);
+        await processFallbackBatches(
+          ocrUrl,
+          fallbackBucket,
+          job,
+          base_url,
+          wmsUrl,
+          userName,
+          passWord
+        );
       console.log(
         `Fallback complete. Recovered: ${fbProcessed.length}, Still failed: ${stillFailed.length}`
       );

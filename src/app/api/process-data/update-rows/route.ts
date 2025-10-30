@@ -4,13 +4,32 @@ import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import oracledb from "oracledb";
 
-
 interface FileRow {
   FILE_ID: string;
   FILE_NAME: string;
   FILE_DATA: oracledb.Lob | null;
 }
+function normalizeQuantity(
+  value: string | number | null | undefined
+): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
 
+  const strValue = String(value).trim().toLowerCase();
+
+  if (strValue === "" || strValue === "null") {
+    return null;
+  }
+  const cleanedValue = strValue.replace(/[, ]/g, "");
+  const numValue = parseInt(cleanedValue, 10);
+
+  if (!Number.isFinite(numValue) || numValue === 0) {
+    return null;
+  }
+
+  return numValue;
+}
 export async function PUT(req: Request) {
   //   const logs: { fileName: string; message: string }[] = []; // <-- added this
   const logs: Array<{
@@ -147,7 +166,7 @@ export async function PUT(req: Request) {
       }
 
       // handle podDate formatting...
-
+      const normalizedReceivedQty = normalizeQuantity(job.received);
 
       // check for existing record in OCR table
       const existingCheck = await conn.execute(
@@ -180,7 +199,7 @@ export async function PUT(req: Request) {
           {
             bolNo: job.blNumber?.toString(),
             issQty: job.totalQty,
-            rcvQty: job.received,
+            rcvQty: normalizedReceivedQty,
             podDate: job?.podDate,
             sign: job.podSignature === "yes" ? "Y" : "N",
             symtNone: 0,
@@ -214,7 +233,7 @@ export async function PUT(req: Request) {
           {
             bolNo: job.blNumber?.toString(),
             issQty: job.totalQty,
-            rcvQty: job.received,
+            rcvQty: normalizedReceivedQty,
             podDate: job?.podDate,
             sign: job.podSignature === "yes" ? "Y" : "N",
             symtNone: 0,
@@ -224,7 +243,7 @@ export async function PUT(req: Request) {
             symtRefs: job.refused,
             symtSeal: job.sealIntact ?? "N",
             fileId,
-            crtdDtt,   // ✅ added to match placeholder
+            crtdDtt, // ✅ added to match placeholder
           }
         );
 

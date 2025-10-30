@@ -1,8 +1,25 @@
 import { NextResponse } from "next/server";
 import { getOracleConnection } from "@/lib/oracle";
 import clientPromise from "@/lib/mongodb";
-// import oracledb from "oracledb";
+function normalizeQuantity(
+  value: string | number | null | undefined
+): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const strValue = String(value).trim().toLowerCase();
+  if (strValue === "" || strValue === "null") {
+    return null;
+  }
 
+  const cleanedValue = strValue.replace(/[, ]/g, "");
+  const numValue = parseInt(cleanedValue, 10);
+  if (!Number.isFinite(numValue) || numValue === 0) {
+    return null;
+  }
+
+  return numValue;
+}
 
 export async function PUT(req: Request) {
   try {
@@ -54,7 +71,7 @@ export async function PUT(req: Request) {
       if (!fileId) continue;
 
       console.log("Updating fileId:", fileId);
-
+      const normalizedReceivedQty = normalizeQuantity(ocrData.received);
       await connection.execute(
         `UPDATE ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T
      SET OCR_BOLNO = :bolNo, 
@@ -74,7 +91,7 @@ export async function PUT(req: Request) {
         {
           bolNo: ocrData.blNumber,
           issQty: ocrData.totalQty,
-          rcvQty: ocrData.received,
+          rcvQty: normalizedReceivedQty,
           podDate: ocrData.podDate,
           sign: ocrData.podSignature === "yes" ? "Y" : "N",
           symtDamg: ocrData.damaged,
