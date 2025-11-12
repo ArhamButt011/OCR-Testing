@@ -46,7 +46,7 @@ const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3);
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
 const PRIMARY_CONCURRENCY = Number(process.env.PRIMARY_CONCURRENCY || 1);
 const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS || 130000);
-const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 5000);
+const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 20000);
 const OCR_RETRIES = Number(process.env.OCR_RETRIES || 3);
 const OCR_RETRY_BASE_BACKOFF = Number(process.env.OCR_RETRY_BASE_BACKOFF || 1000);
 const PREFLIGHT_URL_CHECK = (process.env.PREFLIGHT_URL_CHECK || "true") === "true";
