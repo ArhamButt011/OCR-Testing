@@ -10,9 +10,9 @@ function inferExtension(mime: string | undefined, name: string | undefined) {
 
 // Helper: safe Oracle string
 function connString() {
-  const host = process.env.ORACLE_DB_HOST || "127.0.0.1";
+  const host = process.env.ORACLE_DB_HOST || "192.168.1.16";
   const port = process.env.ORACLE_DB_PORT || "1521";
-  const service = process.env.ORACLE_DB_SERVICE_NAME || "ORCLCDB";
+  const service = process.env.ORACLE_DB_SERVICE_NAME || "orclpdb1";
   return `${host}:${port}/${service}`;
 }
 

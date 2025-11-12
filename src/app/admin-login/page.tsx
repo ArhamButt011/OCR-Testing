@@ -38,8 +38,6 @@ export default function LoginPage() {
         if (!loginRes.ok) throw new Error(loginData.message);
 
         const token = loginData.token;
-
-        // Save token to localStorage
         localStorage.setItem("token", token);
         storeToken(token, loginData.name, loginData.role);
 

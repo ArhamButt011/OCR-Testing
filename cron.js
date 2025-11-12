@@ -179,6 +179,7 @@ async function cooldownAndGc() {
 }
 
 async function performSapCheck(processed, wmsUrl, userName, passWord) {
+  console.log('wmsURL-> ', wmsUrl);
   try {
     const basicAuth = Buffer.from(`${userName}:${passWord}`).toString("base64");
     const response = await fetchWithTimeout(
@@ -223,7 +224,6 @@ async function performSapCheck(processed, wmsUrl, userName, passWord) {
 }
 
 // ======== FIELD NORMALIZATION (prevents nulls) ========
-// Safely get first non-empty field from aliases
 function firstOf(obj, aliases, def = "") {
   for (const key of aliases) {
     if (
@@ -422,14 +422,14 @@ async function processPrimaryBatch(
       const fileTable = item.FILE_TABLE || item.file_table;
       try {
         const fileRes = await fetchWithTimeout(
-          `${base_url}/pod/file?fileId=${fileId}&fileTable=${fileTable}`
+          `${BASE_URL}/pod/file?fileId=${fileId}&fileTable=${fileTable}`
         );
         if (!fileRes.ok)
           throw new Error(`file meta ${fileId} HTTP_${fileRes.status}`);
         const fileData = await fileRes.json();
         fileMetaDataMap.set(fileId, fileData);
 
-        await fetchWithTimeout(`${base_url}/pod/store`, {
+        await fetchWithTimeout(`${BASE_URL}/pod/store`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileId: fileData.FILE_ID }),
@@ -559,7 +559,6 @@ async function processFallbackBatches(
         }). Marking group failed.`
       );
       stillFailed.push(...group);
-      // --- added: cooldown/GC even on failure ---
       await cooldownAndGc();
       continue;
     }
@@ -572,13 +571,12 @@ async function processFallbackBatches(
       continue;
     }
 
-    // Rebuild metadata for each file to avoid nulls
     const fileMetaDataMap = new Map();
     await Promise.all(
       group.map(async (rec) => {
         try {
           const fileRes = await fetchWithTimeout(
-            `${base_url}/pod/file?fileId=${rec._id}&fileTable=${
+            `${BASE_URL}/pod/file?fileId=${rec._id}&fileTable=${
               rec.FILE_TABLE || "XTI_FILE_POD_T"
             }`
           );
@@ -616,8 +614,6 @@ async function processFallbackBatches(
         stillFailed.push(rec);
       }
     }
-
-    // --- added: cooldown/GC between fallback groups ---
     await cooldownAndGc();
   }
 
@@ -628,15 +624,14 @@ async function processFallbackBatches(
 async function saveProcessedRecords(base_url, records) {
   if (!records.length) return;
 
-  // 1) Auto-confirm step (optional)
   try {
     const confirmRes = await fetchWithTimeout(
-      `${base_url}/settings/auto-confirmation`
+      `${BASE_URL}/settings/auto-confirmation`
     );
     const confirmJson = await confirmRes.json().catch(() => ({}));
     if (confirmJson?.isAutoConfirmationOpen) {
       for (const part of chunk(records, SAVE_CHUNK_SIZE)) {
-        const res = await fetchWithTimeout(`${base_url}/pod/update`, {
+        const res = await fetchWithTimeout(`${BASE_URL}/pod/update`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ocrDataList: part }),
@@ -654,7 +649,7 @@ async function saveProcessedRecords(base_url, records) {
 
   // 2) Persist processed data
   for (const part of chunk(records, SAVE_CHUNK_SIZE)) {
-    const res = await fetchWithTimeout(`${base_url}/process-data/save-data`, {
+    const res = await fetchWithTimeout(`${BASE_URL}/process-data/save-data`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(part),
@@ -677,7 +672,7 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
 
   try {
     const retrieveRes = await fetchWithTimeout(
-      `${base_url}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
+      `${BASE_URL}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
     );
     if (!retrieveRes.ok) {
       console.error(`retrieve HTTP_${retrieveRes.status}`);
@@ -864,6 +859,7 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
 }
 
 async function scheduleJobs() {
+  
   try {
     const dbResponse = await fetchWithTimeout(`${BASE_URL}/auth/public-db`);
     const dbData = await dbResponse.json().catch(() => ({}));
@@ -878,16 +874,18 @@ async function scheduleJobs() {
     const ipData = await ipRes.json();
     const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
 
-    const base_url = BASE_URL;
+    let base_url = `http://${ipData.secondaryIp}:3000/api`;
 
-    const wmsRes = await fetchWithTimeout(`${base_url}/save-wms-url`);
+    
+    console.log("Using base_url:", base_url);
+    const wmsRes = await fetchWithTimeout(`${BASE_URL}/save-wms-url`);
     const {
       wmsUrl,
       username: userName,
       password: passWord,
     } = await wmsRes.json().catch(() => ({}));
 
-    const jobRes = await fetchWithTimeout(`${base_url}/jobs/get-job`);
+    const jobRes = await fetchWithTimeout(`${BASE_URL}/jobs/get-job`);
     const jobJson = await jobRes.json();
     const jobs = jobJson.activeJobs || [];
 
