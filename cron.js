@@ -62,8 +62,12 @@ function normalizeQuantity(value) {
 }
 const scheduledTasks = new Map();
 const jobRunning = new Map();
+const jobTimeouts = new Map(); // Track timeout handlers
 let isInitialLoad = true;
 let currentJobsHash = "[]";
+
+// Job timeout configuration (3 hours default)
+const JOB_TIMEOUT_MS = Number(process.env.JOB_TIMEOUT_MS || 3 * 60 * 60 * 1000);
 
 function sleep(ms) {
   return new Promise((res) => setTimeout(res, ms));
@@ -135,6 +139,49 @@ async function isUrlOk(u) {
   }
 }
 
+async function validatePdfStructure(fileUrl) {
+  try {
+    const res = await fetchWithTimeout(
+      fileUrl,
+      { headers: { Range: "bytes=0-1023" } },
+      5000
+    );
+
+    if (!res.ok) {
+      console.warn(`PDF validation failed: HTTP ${res.status} for ${fileUrl}`);
+      return { valid: false, reason: 'HTTP_ERROR', details: `Status ${res.status}` };
+    }
+
+    const buffer = await res.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    const pdfHeader = String.fromCharCode(...bytes.slice(0, 5));
+    if (!pdfHeader.startsWith('%PDF-')) {
+      console.warn(`Invalid PDF header: ${pdfHeader} for ${fileUrl}`);
+      return { valid: false, reason: 'INVALID_PDF_HEADER', details: `Header: ${pdfHeader}` };
+    }
+
+    const versionMatch = String.fromCharCode(...bytes.slice(0, 20)).match(/%PDF-(\d+\.\d+)/);
+    const pdfVersion = versionMatch ? parseFloat(versionMatch[1]) : 0;
+
+    if (pdfVersion >= 2.0) {
+      console.warn(`PDF version ${pdfVersion} may have compatibility issues: ${fileUrl}`);
+      return { valid: false, reason: 'UNSUPPORTED_PDF_VERSION', details: `Version ${pdfVersion}` };
+    }
+
+    const headerText = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+    if (headerText.includes('/Encrypt')) {
+      console.warn(`Encrypted PDF detected: ${fileUrl}`);
+      return { valid: false, reason: 'ENCRYPTED_PDF', details: 'Password protected' };
+    }
+
+    return { valid: true, version: pdfVersion };
+  } catch (err) {
+    console.error(`PDF validation exception for ${fileUrl}: ${err.message}`);
+    return { valid: false, reason: 'VALIDATION_ERROR', details: err.message };
+  }
+}
+
 const getDBConnectionType = () => {
   try {
     const filePath = path.join(__dirname, "db-config.json");
@@ -160,6 +207,49 @@ function chunk(arr, size) {
   return out;
 }
 
+// Error categorization function for better telemetry
+function categorizeOCRError(errorMessage) {
+  if (!errorMessage) return 'UNKNOWN';
+
+  const msg = String(errorMessage).toLowerCase();
+
+  // PDFium errors
+  if (msg.includes('pdfium') || msg.includes('data format error')) {
+    return 'PDF_FORMAT_ERROR';
+  }
+  if (msg.includes('failed to load page')) {
+    return 'PDF_PAGE_ERROR';
+  }
+
+  // Network/Protocol errors
+  if (msg.includes('missing') && (msg.includes('http://') || msg.includes('https://'))) {
+    return 'MISSING_PROTOCOL';
+  }
+  if (msg.includes('request url') || msg.includes('protocol')) {
+    return 'URL_ERROR';
+  }
+
+  // HTTP errors
+  if (msg.includes('http_5')) {
+    return 'HTTP_500_ERROR';
+  }
+  if (msg.includes('http_4')) {
+    return 'HTTP_400_ERROR';
+  }
+
+  // Timeout errors
+  if (msg.includes('timeout') || msg.includes('aborted')) {
+    return 'TIMEOUT';
+  }
+
+  // Network errors
+  if (msg.includes('fetch') || msg.includes('network')) {
+    return 'NETWORK_ERROR';
+  }
+
+  return 'UNKNOWN';
+}
+
 async function cooldownAndGc() {
   if (OCR_GC_URL) {
     try {
@@ -181,6 +271,12 @@ async function cooldownAndGc() {
 async function performSapCheck(processed, wmsUrl, userName, passWord) {
   console.log('wmsURL-> ', wmsUrl);
   try {
+    // Fix: Validate wmsUrl is an absolute URL
+    if (!wmsUrl || (!wmsUrl.startsWith('http://') && !wmsUrl.startsWith('https://'))) {
+      console.warn(`Invalid WMS URL (not absolute): ${wmsUrl}. Skipping SAP check for BL: ${processed.blNumber}`);
+      return processed;
+    }
+
     const basicAuth = Buffer.from(`${userName}:${passWord}`).toString("base64");
     const response = await fetchWithTimeout(
       wmsUrl,
@@ -255,9 +351,23 @@ function toYesNoY(val) {
 function toProcessedRecord(d, fileId, job, fileData, base_url) {
   if (!fileData || !fileData.FILE_NAME) return null;
 
-  const filePath = `${base_url}/access-file?filename=${encodeURIComponent(
-    fileData.FILE_NAME
-  )}`;
+  // Fix: Validate and sanitize FILE_NAME to prevent missing protocol errors
+  const fileName = fileData.FILE_NAME || "";
+  if (!fileName) {
+    console.warn(`Missing FILE_NAME for fileId: ${fileId}`);
+    return null;
+  }
+
+  // Ensure fileName is just the filename, not a path with slashes
+  const safeFileName = fileName.replace(/^.*[\\\/]/, '');
+
+  // Validate base_url has proper protocol
+  let validBaseUrl = base_url;
+  if (!validBaseUrl.startsWith('http://') && !validBaseUrl.startsWith('https://')) {
+    validBaseUrl = `http://${validBaseUrl}`;
+  }
+
+  const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
 
   const blNumber = String(
     firstOf(
@@ -435,31 +545,64 @@ async function processPrimaryBatch(
           body: JSON.stringify({ fileId: fileData.FILE_ID }),
         });
 
-        const filePath = `${base_url}/access-file?filename=${encodeURIComponent(
-          fileData.FILE_NAME
-        )}`;
-        if (await isUrlOk(filePath)) {
-          payload.push({
-            _id: fileId,
-            file_url_or_path: filePath,
-            FILE_TABLE: fileTable,
-          });
-        } else {
-          console.warn(`Preflight failed; defer to fallback: ${fileId}`);
+        // Fix: Validate and sanitize FILE_NAME to prevent missing protocol errors
+        const fileName = fileData.FILE_NAME || "";
+        if (!fileName) {
+          throw new Error(`Missing FILE_NAME for ${fileId}`);
+        }
+
+        // Ensure fileName is just the filename, not a path
+        const safeFileName = fileName.replace(/^.*[\\\/]/, '');
+
+        // Validate base_url has proper protocol
+        let validBaseUrl = base_url;
+        if (!validBaseUrl.startsWith('http://') && !validBaseUrl.startsWith('https://')) {
+          validBaseUrl = `http://${validBaseUrl}`;
+        }
+
+        const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+
+        // Pre-flight URL check
+        const urlOk = await isUrlOk(filePath);
+        if (!urlOk) {
+          console.warn(`Preflight URL check failed; defer to fallback: ${fileId}`);
           forFallback.push({
             _id: fileId,
             file_url_or_path: filePath,
             FILE_TABLE: fileTable,
+            errorCategory: 'URL_CHECK_FAILED'
           });
+        } else {
+          // PDF validation check
+          const pdfValidation = await validatePdfStructure(filePath);
+          if (!pdfValidation.valid) {
+            console.warn(`PDF validation failed for ${fileId}: ${pdfValidation.reason} - ${pdfValidation.details}`);
+            forFallback.push({
+              _id: fileId,
+              file_url_or_path: filePath,
+              FILE_TABLE: fileTable,
+              errorCategory: pdfValidation.reason,
+              errorDetails: pdfValidation.details
+            });
+          } else {
+            payload.push({
+              _id: fileId,
+              file_url_or_path: filePath,
+              FILE_TABLE: fileTable,
+            });
+          }
         }
       } catch (e) {
-        console.warn(
-          `Meta/store failed; defer to fallback: ${fileId} (${e.message})`
+        const errorCategory = categorizeOCRError(e.message);
+        console.error(
+          `[${errorCategory}] Meta/store failed; defer to fallback: ${fileId} (${e.message})`
         );
         forFallback.push({
           _id: fileId,
           file_url_or_path: "",
           FILE_TABLE: fileTable,
+          errorCategory,
+          errorMessage: e.message
         });
       }
     })
@@ -485,10 +628,17 @@ async function processPrimaryBatch(
       timeout: OCR_TIMEOUT_MS,
     });
   } catch (e) {
-    console.warn(
-      `Primary OCR failed for batch (${e.message}); deferring entire payload to fallback.`
+    const errorCategory = categorizeOCRError(e.message);
+    console.error(
+      `[${errorCategory}] Primary OCR failed for batch (${e.message}); deferring entire payload to fallback.`
     );
-    return { processed: [], failedForFallback: [...forFallback, ...payload] };
+    // Tag failed items with error category for better tracking
+    const taggedPayload = payload.map(item => ({
+      ...item,
+      errorCategory,
+      errorMessage: e.message
+    }));
+    return { processed: [], failedForFallback: [...forFallback, ...taggedPayload] };
   }
 
   if (!Array.isArray(ocrData)) {
@@ -528,6 +678,58 @@ async function processPrimaryBatch(
   return { processed, failedForFallback };
 }
 
+// Helper function to process a fallback group
+async function processFallbackGroup(group, ocrData, job, base_url, wmsUrl, userName, passWord, processed, stillFailed) {
+  if (!Array.isArray(ocrData)) {
+    console.warn(`OCR returned non-array. Marking group failed.`);
+    stillFailed.push(...group);
+    return;
+  }
+
+  const fileMetaDataMap = new Map();
+  await Promise.all(
+    group.map(async (rec) => {
+      try {
+        const fileRes = await fetchWithTimeout(
+          `${BASE_URL}/pod/file?fileId=${rec._id}&fileTable=${
+            rec.FILE_TABLE || "XTI_FILE_POD_T"
+          }`
+        );
+        if (!fileRes.ok)
+          throw new Error(`file meta ${rec._id} HTTP_${fileRes.status}`);
+        const fileData = await fileRes.json();
+        fileMetaDataMap.set(rec._id, fileData);
+      } catch (e) {
+        console.warn(
+          `Fallback meta fetch failed for ${rec._id}: ${e.message}`
+        );
+      }
+    })
+  );
+
+  const byId = new Map(ocrData.map((x) => [x._id, x]));
+  for (const rec of group) {
+    const d = byId.get(rec._id);
+    const fileData = fileMetaDataMap.get(rec._id);
+    if (d && fileData && fileData.FILE_NAME) {
+      const pr = toProcessedRecord(d, rec._id, job, fileData, base_url);
+      if (pr) {
+        const validatedRecord = await performSapCheck(
+          pr,
+          wmsUrl,
+          userName,
+          passWord
+        );
+        processed.push(validatedRecord);
+      } else {
+        stillFailed.push(rec);
+      }
+    } else {
+      stillFailed.push(rec);
+    }
+  }
+}
+
 // ======== FALLBACK PASS (after all primary batches complete) ========
 async function processFallbackBatches(
   ocrUrl,
@@ -540,81 +742,134 @@ async function processFallbackBatches(
 ) {
   const processed = [];
   const stillFailed = [];
-  const groups = chunk(failedList, FALLBACK_BATCH_SIZE);
 
-  for (let gi = 0; gi < groups.length; gi++) {
-    const group = groups[gi];
+  // Separate failures by error category for targeted recovery
+  const categorizedFailures = {
+    pdfErrors: [],
+    urlErrors: [],
+    networkErrors: [],
+    other: []
+  };
 
-    // Retry OCR for this group
-    let ocrData;
-    try {
-      ocrData = await postJsonWithRetry(ocrUrl, group, {
-        tries: OCR_RETRIES,
-        timeout: OCR_TIMEOUT_MS,
-      });
-    } catch (e) {
-      console.warn(
-        `Fallback OCR group ${gi + 1}/${groups.length} failed (${
-          e.message
-        }). Marking group failed.`
-      );
-      stillFailed.push(...group);
-      await cooldownAndGc();
-      continue;
+  for (const item of failedList) {
+    const category = item.errorCategory || 'UNKNOWN';
+    if (category.includes('PDF') || category === 'ENCRYPTED_PDF' || category === 'INVALID_PDF_HEADER') {
+      categorizedFailures.pdfErrors.push(item);
+    } else if (category.includes('URL') || category === 'MISSING_PROTOCOL') {
+      categorizedFailures.urlErrors.push(item);
+    } else if (category.includes('NETWORK') || category === 'TIMEOUT') {
+      categorizedFailures.networkErrors.push(item);
+    } else {
+      categorizedFailures.other.push(item);
     }
-    if (!Array.isArray(ocrData)) {
-      console.warn(
-        `Fallback OCR group ${gi + 1} returned non-array. Marking failed.`
-      );
-      stillFailed.push(...group);
-      await cooldownAndGc();
-      continue;
-    }
+  }
 
-    const fileMetaDataMap = new Map();
-    await Promise.all(
-      group.map(async (rec) => {
-        try {
-          const fileRes = await fetchWithTimeout(
-            `${BASE_URL}/pod/file?fileId=${rec._id}&fileTable=${
-              rec.FILE_TABLE || "XTI_FILE_POD_T"
-            }`
-          );
-          if (!fileRes.ok)
-            throw new Error(`file meta ${rec._id} HTTP_${fileRes.status}`);
-          const fileData = await fileRes.json();
-          fileMetaDataMap.set(rec._id, fileData);
-        } catch (e) {
-          console.warn(
-            `Fallback meta fetch failed for ${rec._id}: ${e.message}`
-          );
-        }
-      })
-    );
+  console.log(`Fallback categorization: PDF errors=${categorizedFailures.pdfErrors.length}, URL errors=${categorizedFailures.urlErrors.length}, Network errors=${categorizedFailures.networkErrors.length}, Other=${categorizedFailures.other.length}`);
 
-    const byId = new Map(ocrData.map((x) => [x._id, x]));
-    for (const rec of group) {
-      const d = byId.get(rec._id);
-      const fileData = fileMetaDataMap.get(rec._id);
-      if (d && fileData && fileData.FILE_NAME) {
-        const pr = toProcessedRecord(d, rec._id, job, fileData, base_url);
-        if (pr) {
-          // ======== NEW: SAP API VALIDATION IN FALLBACK ========
-          const validatedRecord = await performSapCheck(
-            pr,
-            wmsUrl,
-            userName,
-            passWord
-          );
-          processed.push(validatedRecord);
-        } else {
-          stillFailed.push(rec);
-        }
-      } else {
-        stillFailed.push(rec);
+  // Strategy 1: Retry network/timeout errors with increased timeout
+  if (categorizedFailures.networkErrors.length > 0) {
+    console.log(`Fallback Strategy 1: Retrying ${categorizedFailures.networkErrors.length} network/timeout errors with extended timeout`);
+    const groups = chunk(categorizedFailures.networkErrors, FALLBACK_BATCH_SIZE);
+
+    for (let gi = 0; gi < groups.length; gi++) {
+      const group = groups[gi];
+      let ocrData;
+      try {
+        // Extended timeout for network issues (2.5x normal)
+        ocrData = await postJsonWithRetry(ocrUrl, group, {
+          tries: OCR_RETRIES,
+          timeout: Math.floor(OCR_TIMEOUT_MS * 2.5),
+        });
+      } catch (e) {
+        const errorCategory = categorizeOCRError(e.message);
+        console.warn(
+          `[${errorCategory}] Fallback Strategy 1 failed for group ${gi + 1}/${groups.length}: ${e.message}`
+        );
+        stillFailed.push(...group.map(item => ({
+          ...item,
+          errorCategory,
+          errorMessage: e.message
+        })));
+        await cooldownAndGc();
+        continue;
       }
+
+      await processFallbackGroup(group, ocrData, job, base_url, wmsUrl, userName, passWord, processed, stillFailed);
+      await cooldownAndGc();
     }
-    await cooldownAndGc();
+  }
+
+  // Strategy 2: Retry URL errors (these might succeed now with fixed URL construction)
+  if (categorizedFailures.urlErrors.length > 0) {
+    console.log(`Fallback Strategy 2: Retrying ${categorizedFailures.urlErrors.length} URL errors`);
+    const groups = chunk(categorizedFailures.urlErrors, FALLBACK_BATCH_SIZE);
+
+    for (let gi = 0; gi < groups.length; gi++) {
+      const group = groups[gi];
+      let ocrData;
+      try {
+        ocrData = await postJsonWithRetry(ocrUrl, group, {
+          tries: OCR_RETRIES,
+          timeout: OCR_TIMEOUT_MS,
+        });
+      } catch (e) {
+        const errorCategory = categorizeOCRError(e.message);
+        console.warn(
+          `[${errorCategory}] Fallback Strategy 2 failed for group ${gi + 1}/${groups.length}: ${e.message}`
+        );
+        stillFailed.push(...group.map(item => ({
+          ...item,
+          errorCategory,
+          errorMessage: e.message
+        })));
+        await cooldownAndGc();
+        continue;
+      }
+
+      await processFallbackGroup(group, ocrData, job, base_url, wmsUrl, userName, passWord, processed, stillFailed);
+      await cooldownAndGc();
+    }
+  }
+
+  // Strategy 3: Try "other" errors with standard retry
+  if (categorizedFailures.other.length > 0) {
+    console.log(`Fallback Strategy 3: Retrying ${categorizedFailures.other.length} other errors`);
+    const groups = chunk(categorizedFailures.other, FALLBACK_BATCH_SIZE);
+
+    for (let gi = 0; gi < groups.length; gi++) {
+      const group = groups[gi];
+
+      // Retry OCR for this group
+      let ocrData;
+      try {
+        ocrData = await postJsonWithRetry(ocrUrl, group, {
+          tries: OCR_RETRIES,
+          timeout: OCR_TIMEOUT_MS,
+        });
+      } catch (e) {
+        const errorCategory = categorizeOCRError(e.message);
+        console.warn(
+          `[${errorCategory}] Fallback Strategy 3 failed for group ${gi + 1}/${groups.length}: ${e.message}`
+        );
+        stillFailed.push(...group.map(item => ({
+          ...item,
+          errorCategory,
+          errorMessage: e.message
+        })));
+        await cooldownAndGc();
+        continue;
+      }
+
+      await processFallbackGroup(group, ocrData, job, base_url, wmsUrl, userName, passWord, processed, stillFailed);
+      await cooldownAndGc();
+    }
+  }
+
+  // Strategy 4: Skip PDF errors (these are deterministic failures)
+  // Log them as permanently failed - no retry
+  if (categorizedFailures.pdfErrors.length > 0) {
+    console.log(`Fallback Strategy 4: Skipping ${categorizedFailures.pdfErrors.length} PDF format errors (deterministic failures - no retry)`);
+    stillFailed.push(...categorizedFailures.pdfErrors);
   }
 
   return { processed, stillFailed };
@@ -768,14 +1023,50 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
       // Save fallback recoveries
       if (fbProcessed.length) await saveProcessedRecords(base_url, fbProcessed);
 
-      // Optional: persist stillFailed somewhere
+      // Persist failed files with error details
       if (stillFailed.length) {
         console.warn(
           `Unrecoverable after fallback: ${stillFailed
             .map((x) => x._id)
             .join(", ")}`
         );
-        // TODO: POST to /process-data/save-failures if you have it
+
+        // Generate failure report with categorized errors
+        const failureReport = {
+          timestamp: new Date().toISOString(),
+          jobId: job._id,
+          totalFailed: stillFailed.length,
+          errors: stillFailed.map(item => ({
+            fileId: item._id,
+            errorCategory: item.errorCategory || 'UNKNOWN',
+            errorMessage: item.errorMessage || 'No error message',
+            errorDetails: item.errorDetails || '',
+            fileTable: item.FILE_TABLE
+          })),
+          errorSummary: stillFailed.reduce((acc, item) => {
+            const category = item.errorCategory || 'UNKNOWN';
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+          }, {})
+        };
+
+        console.log('Failure Report Summary:', JSON.stringify(failureReport.errorSummary, null, 2));
+
+        // Save failure report
+        try {
+          const reportRes = await fetchWithTimeout(`${BASE_URL}/process-data/save-failures`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(failureReport),
+          });
+          if (reportRes.ok) {
+            console.log('Failure report saved successfully');
+          } else {
+            console.warn(`Failed to save failure report: HTTP ${reportRes.status}`);
+          }
+        } catch (err) {
+          console.error(`Error saving failure report: ${err.message}`);
+        }
       }
     }
 
@@ -810,7 +1101,17 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
       return;
     }
 
+    // Setup timeout handler
+    const timeoutId = setTimeout(() => {
+      console.error(`[TIMEOUT] Job ${key} exceeded timeout of ${JOB_TIMEOUT_MS}ms (${JOB_TIMEOUT_MS / 60000} minutes), force-stopping`);
+      jobRunning.delete(key);
+      jobTimeouts.delete(key);
+    }, JOB_TIMEOUT_MS);
+
+    jobTimeouts.set(key, timeoutId);
+
     const runPromise = (async () => {
+      const startTime = Date.now();
       try {
         const now = new Date();
         const currentDay = now.toLocaleString("en-US", { weekday: "long" });
@@ -839,12 +1140,22 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
         if (isDaySelected && inWindow) {
           console.log(`✓ Running OCR Job: ${key}`);
           await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord); // MUST await full completion
+          const duration = Date.now() - startTime;
+          console.log(`✓ Job ${key} completed successfully in ${Math.round(duration / 60000)} minutes`);
         } else {
           console.log(`⏳ Job ${key} skipped (day/time window not matched).`);
         }
       } catch (e) {
         console.error(`Error running job ${key}:`, e.message);
+        const duration = Date.now() - startTime;
+        console.error(`Job ${key} failed after ${Math.round(duration / 60000)} minutes`);
       } finally {
+        // Clear timeout
+        const timeoutId = jobTimeouts.get(key);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          jobTimeouts.delete(key);
+        }
         jobRunning.delete(key);
       }
     })();
