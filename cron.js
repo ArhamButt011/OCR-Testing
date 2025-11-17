@@ -1085,6 +1085,90 @@ function getCronExpressionFromTime(timeStr) {
   return "* * * * *";
 }
 
+// function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
+//   const cronExp = getCronExpressionFromTime(job.everyTime);
+//   if (!cron.validate(cronExp)) {
+//     console.error(`Invalid cron expression for job ${job._id}: ${cronExp}`);
+//     return;
+//   }
+
+//   const key = String(job._id);
+
+//   const task = cron.schedule(cronExp, async () => {
+//     const existing = jobRunning.get(key);
+//     if (existing) {
+//       console.log(`↺ Skip run: previous run still active for job ${key}`);
+//       return;
+//     }
+
+//     // Setup timeout handler
+//     const timeoutId = setTimeout(() => {
+//       console.error(`[TIMEOUT] Job ${key} exceeded timeout of ${JOB_TIMEOUT_MS}ms (${JOB_TIMEOUT_MS / 60000} minutes), force-stopping`);
+//       jobRunning.delete(key);
+//       jobTimeouts.delete(key);
+//     }, JOB_TIMEOUT_MS);
+
+//     jobTimeouts.set(key, timeoutId);
+
+//     const runPromise = (async () => {
+//       const startTime = Date.now();
+//       try {
+//         const now = new Date();
+//         const currentDay = now.toLocaleString("en-US", { weekday: "long" });
+//         const currentTime = `${String(now.getHours()).padStart(
+//           2,
+//           "0"
+//         )}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+//         const fromTime = new Date(job.pdfCriteria.fromTime);
+//         const toTime = new Date(job.pdfCriteria.toTime);
+//         const fromTimeStr = `${String(fromTime.getUTCHours()).padStart(
+//           2,
+//           "0"
+//         )}:${String(fromTime.getUTCMinutes()).padStart(2, "0")}`;
+//         const toTimeStr = `${String(toTime.getUTCHours()).padStart(
+//           2,
+//           "0"
+//         )}:${String(toTime.getUTCMinutes()).padStart(2, "0")}`;
+
+//         const isDaySelected = job.selectedDays.includes(currentDay);
+//         const inWindow =
+//           (currentTime >= fromTimeStr && currentTime <= toTimeStr) ||
+//           (fromTimeStr > toTimeStr &&
+//             (currentTime >= fromTimeStr || currentTime <= toTimeStr)); // cross-midnight
+
+//         if (isDaySelected && inWindow) {
+//           console.log(`✓ Running OCR Job: ${key}`);
+//           await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord); // MUST await full completion
+//           const duration = Date.now() - startTime;
+//           console.log(`✓ Job ${key} completed successfully in ${Math.round(duration / 60000)} minutes`);
+//         } else {
+//           console.log(`⏳ Job ${key} skipped (day/time window not matched).`);
+//         }
+//       } catch (e) {
+//         console.error(`Error running job ${key}:`, e.message);
+//         const duration = Date.now() - startTime;
+//         console.error(`Job ${key} failed after ${Math.round(duration / 60000)} minutes`);
+//       } finally {
+//         // Clear timeout
+//         const timeoutId = jobTimeouts.get(key);
+//         if (timeoutId) {
+//           clearTimeout(timeoutId);
+//           jobTimeouts.delete(key);
+//         }
+//         jobRunning.delete(key);
+//       }
+//     })();
+
+//     jobRunning.set(key, runPromise);
+//     // await runPromise; // serialize this tick
+//   });
+
+//   task.start();
+//   scheduledTasks.set(key, task);
+//   console.log(`✓ Scheduled job ${key} with cron: ${cronExp}`);
+// }
+
 function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
   const cronExp = getCronExpressionFromTime(job.everyTime);
   if (!cron.validate(cronExp)) {
@@ -1138,8 +1222,8 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
             (currentTime >= fromTimeStr || currentTime <= toTimeStr)); // cross-midnight
 
         if (isDaySelected && inWindow) {
-          console.log(`✓ Running OCR Job: ${key}`);
-          await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord); // MUST await full completion
+          console.log(`✓ Running OCR Job: ${key} at ${currentTime}`);
+          await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord);
           const duration = Date.now() - startTime;
           console.log(`✓ Job ${key} completed successfully in ${Math.round(duration / 60000)} minutes`);
         } else {
@@ -1161,7 +1245,8 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
     })();
 
     jobRunning.set(key, runPromise);
-    await runPromise; // serialize this tick
+    // ✅ Removed await runPromise - cron will fire at scheduled intervals
+    // Job runs in background, next cron tick will check jobRunning.get(key)
   });
 
   task.start();
