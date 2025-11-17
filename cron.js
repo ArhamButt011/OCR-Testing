@@ -931,10 +931,10 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
   console.log(`OCR script started for job ${job._id}`);
   const dbConnectionType = getDBConnectionType();
   console.log("db connection ->", dbConnectionType);
-
+console.log('base url inside runocr function-> ',base_url)
   try {
     const retrieveRes = await fetchWithTimeout(
-      `${BASE_URL}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
+      `${base_url}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
     );
     if (!retrieveRes.ok) {
       console.error(`retrieve HTTP_${retrieveRes.status}`);
