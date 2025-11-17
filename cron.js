@@ -16,12 +16,12 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
 const OCR_URL =
   process.env.OCR_URL || "https://rfwvxuqsbkx593-8080.proxy.runpod.net/run-ocr";
-const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 95000);
+const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 120000);
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3); // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
 const PRIMARY_CONCURRENCY = Number(process.env.PRIMARY_CONCURRENCY || 1);
 const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS || 130000);
-const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 10000);
+const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 60000);
 const OCR_RETRIES = Number(process.env.OCR_RETRIES || 3);
 const OCR_RETRY_BASE_BACKOFF = Number(
   process.env.OCR_RETRY_BASE_BACKOFF || 1000
@@ -1245,8 +1245,6 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
     })();
 
     jobRunning.set(key, runPromise);
-    // ✅ Removed await runPromise - cron will fire at scheduled intervals
-    // Job runs in background, next cron tick will check jobRunning.get(key)
   });
 
   task.start();
