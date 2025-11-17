@@ -367,7 +367,7 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
     validBaseUrl = `http://${validBaseUrl}`;
   }
 
-  const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+  const filePath = `${base_url}/access-file?filename=${encodeURIComponent(safeFileName)}`;
 
   const blNumber = String(
     firstOf(
@@ -560,7 +560,7 @@ async function processPrimaryBatch(
           validBaseUrl = `http://${validBaseUrl}`;
         }
 
-        const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+        const filePath = `${base_url}/access-file?filename=${encodeURIComponent(safeFileName)}`;
 
         // Pre-flight URL check
         const urlOk = await isUrlOk(filePath);
@@ -927,7 +927,7 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
 
   try {
     const retrieveRes = await fetchWithTimeout(
-      `${base_url}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
+      `${BASE_URL}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
     );
     if (!retrieveRes.ok) {
       console.error(`retrieve HTTP_${retrieveRes.status}`);
