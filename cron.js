@@ -174,8 +174,9 @@ async function validatePdfStructure(fileUrl) {
       return { valid: false, reason: 'UNSUPPORTED_PDF_VERSION', details: `Version ${pdfVersion}` };
     }
 
-    // Check for encrypted PDFs (simple check for /Encrypt keyword in first 1KB)
-    const headerText = String.fromCharCode(...bytes);
+    // Check for encrypted PDFs - FIX HERE
+    // Instead of converting entire buffer, just search in the buffer
+    const headerText = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
     if (headerText.includes('/Encrypt')) {
       console.warn(`Encrypted PDF detected: ${fileUrl}`);
       return { valid: false, reason: 'ENCRYPTED_PDF', details: 'Password protected' };
@@ -188,7 +189,6 @@ async function validatePdfStructure(fileUrl) {
     return { valid: false, reason: 'VALIDATION_ERROR', details: err.message };
   }
 }
-
 const getDBConnectionType = () => {
   try {
     const filePath = path.join(__dirname, "db-config.json");
