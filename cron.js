@@ -1145,8 +1145,8 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
             (currentTime >= fromTimeStr || currentTime <= toTimeStr)); // cross-midnight
 
         if (isDaySelected && inWindow) {
-          console.log(`✓ Running OCR Job: ${key}`);
-          await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord); // MUST await full completion
+          console.log(`✓ Running OCR Job: ${key} at ${currentTime}`);
+          await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord);
           const duration = Date.now() - startTime;
           console.log(`✓ Job ${key} completed successfully in ${Math.round(duration / 60000)} minutes`);
         } else {
@@ -1168,7 +1168,6 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
     })();
 
     jobRunning.set(key, runPromise);
-    await runPromise; // serialize this tick
   });
 
   task.start();
