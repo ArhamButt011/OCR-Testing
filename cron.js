@@ -927,7 +927,7 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
 
   try {
     const retrieveRes = await fetchWithTimeout(
-      `${BASE_URL}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
+      `${base_url}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
     );
     if (!retrieveRes.ok) {
       console.error(`retrieve HTTP_${retrieveRes.status}`);
