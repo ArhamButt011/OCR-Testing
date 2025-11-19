@@ -1139,12 +1139,16 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
         )}:${String(toTime.getUTCMinutes()).padStart(2, "0")}`;
 
         const isDaySelected = job.selectedDays.includes(currentDay);
+        
         const inWindow =
           (currentTime >= fromTimeStr && currentTime <= toTimeStr) ||
           (fromTimeStr > toTimeStr &&
-            (currentTime >= fromTimeStr || currentTime <= toTimeStr)); // cross-midnight
+            (currentTime >= fromTimeStr || currentTime <= toTimeStr));
+console.log(`Job ${key} check current → Day: ${currentDay} (selected day: ${isDaySelected}), Time: ${currentTime} (From time: ${fromTimeStr} -  to time: ${toTimeStr}, inWindow: ${inWindow})`);
 
         if (isDaySelected && inWindow) {
+          console.log(`Is todasy is selected to run job: ${isDaySelected}`);
+
           console.log(`✓ Running OCR Job: ${key} at ${currentTime}`);
           await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord);
           const duration = Date.now() - startTime;
