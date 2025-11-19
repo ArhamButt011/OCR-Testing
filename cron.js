@@ -513,6 +513,44 @@ function clearScheduledJobs() {
   }
 }
 
+// Helper function to cancel all currently running jobs
+function cancelAllRunningJobs(excludeJobId = null) {
+  const cancelledJobs = [];
+
+  for (const [jobId, promise] of jobRunning.entries()) {
+    // Skip the job we want to keep running (if any)
+    if (excludeJobId && jobId === excludeJobId) {
+      continue;
+    }
+
+    console.log(`⚠ Cancelling running job: ${jobId}`);
+
+    // Abort the job
+    const abortController = jobAbortControllers.get(jobId);
+    if (abortController) {
+      abortController.abort();
+      cancelledJobs.push(jobId);
+    }
+
+    // Clear timeout
+    const timeoutId = jobTimeouts.get(jobId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      jobTimeouts.delete(jobId);
+    }
+
+    // Remove from tracking maps
+    jobRunning.delete(jobId);
+    jobAbortControllers.delete(jobId);
+  }
+
+  if (cancelledJobs.length > 0) {
+    console.log(`✓ Cancelled ${cancelledJobs.length} running job(s): ${cancelledJobs.join(', ')}`);
+  }
+
+  return cancelledJobs;
+}
+
 // ======== PRIMARY PASS (no per-file fallback here) ========
 async function processPrimaryBatch(
   ocrUrl,
@@ -1113,30 +1151,17 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
   const key = String(job._id);
 
   const task = cron.schedule(cronExp, async () => {
-    const existing = jobRunning.get(key);
-    if (existing) {
-      console.log(`⚠ Previous run still active for job ${key}, cancelling previous job...`);
+    // Cancel ALL other running jobs before starting this one
+    const runningJobsCount = jobRunning.size;
+    if (runningJobsCount > 0) {
+      console.log(`⚠ ${runningJobsCount} job(s) currently running. Cancelling all before starting job ${key}...`);
 
-      // Cancel the previous job
-      const previousAbortController = jobAbortControllers.get(key);
-      if (previousAbortController) {
-        previousAbortController.abort();
-        console.log(`✓ Previous job ${key} cancellation signal sent`);
-      }
-
-      // Clear previous timeout
-      const previousTimeoutId = jobTimeouts.get(key);
-      if (previousTimeoutId) {
-        clearTimeout(previousTimeoutId);
-        jobTimeouts.delete(key);
-      }
-
-      // Remove from running map
-      jobRunning.delete(key);
-      jobAbortControllers.delete(key);
+      // Cancel all running jobs (no exclusions - stop everything)
+      cancelAllRunningJobs();
 
       // Wait a moment for cleanup
       await sleep(1000);
+      console.log(`✓ All previous jobs cancelled. Starting job ${key}`);
     }
 
     // Create new abort controller for this job run
