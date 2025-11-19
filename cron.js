@@ -970,6 +970,7 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, a
       console.log(`Job ${job._id} was aborted before starting`);
       return;
     }
+    
     const retrieveRes = await fetchWithTimeout(
       `${BASE_URL}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
     );
@@ -977,6 +978,7 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, a
       console.error(`retrieve HTTP_${retrieveRes.status}`);
       return;
     }
+    
     const fileList = await retrieveRes.json();
     if (!Array.isArray(fileList) || fileList.length === 0) {
       console.log("No files to process for this job.");
@@ -1001,47 +1003,56 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, a
       const batch = batches[i];
 
       primaryQueue.add(async () => {
-        // Check if job was aborted
-        if (abortSignal?.aborted) {
-          console.log(`Job ${job._id} aborted during batch ${i + 1}/${batches.length}`);
-          throw new Error('Job aborted');
+        try {
+          // Check if job was aborted
+          if (abortSignal?.aborted) {
+            console.log(`Job ${job._id} aborted during batch ${i + 1}/${batches.length}`);
+            return; // Exit gracefully instead of throwing
+          }
+
+          console.log(
+            `Primary batch ${i + 1}/${batches.length} (size=${batch.length})`
+          );
+
+          const { processed, failedForFallback } = await processPrimaryBatch(
+            ocrUrl,
+            batch,
+            job,
+            base_url,
+            wmsUrl,
+            userName,
+            passWord
+          );
+
+          // Save successes from this batch immediately
+          if (processed && processed.length) {
+            await saveProcessedRecords(base_url, processed);
+            totalProcessed += processed.length;
+          }
+
+          // Accumulate fallback candidates
+          if (failedForFallback && failedForFallback.length) {
+            fallbackBucket.push(...failedForFallback);
+            totalDeferred += failedForFallback.length;
+          }
+
+          // Progress heartbeat
+          console.log(
+            `Progress so far → processed=${totalProcessed}, deferred=${totalDeferred}, batch=${
+              i + 1
+            }/${batches.length}`
+          );
+
+          // --- added: let OCR server free GPU memory between batches ---
+          await cooldownAndGc();
+        } catch (error) {
+          // Handle errors within the queue task to prevent unhandled rejections
+          if (abortSignal?.aborted || error.message === 'Job aborted') {
+            console.log(`Batch ${i + 1}/${batches.length} aborted for job ${job._id}`);
+          } else {
+            console.error(`Error in batch ${i + 1}/${batches.length}:`, error.message);
+          }
         }
-
-        console.log(
-          `Primary batch ${i + 1}/${batches.length} (size=${batch.length})`
-        );
-
-        const { processed, failedForFallback } = await processPrimaryBatch(
-          ocrUrl,
-          batch,
-          job,
-          base_url,
-          wmsUrl,
-          userName,
-          passWord
-        );
-
-        // Save successes from this batch immediately
-        if (processed && processed.length) {
-          await saveProcessedRecords(base_url, processed);
-          totalProcessed += processed.length;
-        }
-
-        // Accumulate fallback candidates
-        if (failedForFallback && failedForFallback.length) {
-          fallbackBucket.push(...failedForFallback);
-          totalDeferred += failedForFallback.length;
-        }
-
-        // Progress heartbeat
-        console.log(
-          `Progress so far → processed=${totalProcessed}, deferred=${totalDeferred}, batch=${
-            i + 1
-          }/${batches.length}`
-        );
-
-        // --- added: let OCR server free GPU memory between batches ---
-        await cooldownAndGc();
       });
     }
 
@@ -1131,7 +1142,6 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, a
     console.error("OCR job error:", err.message);
   }
 }
-
 // ======== CRON/SCHEDULING (promise guard) ========
 function getCronExpressionFromTime(timeStr) {
   const [hours, minutes] = String(timeStr).split(":").map(Number);
