@@ -15,7 +15,7 @@ dayjs.extend(isBetween);
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
 const OCR_URL =
-  process.env.OCR_URL || "https://rfwvxuqsbkx593-8080.proxy.runpod.net/run-ocr";
+  process.env.OCR_URL || "https://dp0d3cgxkrz317-8080.proxy.runpod.net/run-ocr";
 const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 120000);
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3); // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
@@ -513,6 +513,44 @@ function clearScheduledJobs() {
   }
 }
 
+// Helper function to cancel all currently running jobs
+function cancelAllRunningJobs(excludeJobId = null) {
+  const cancelledJobs = [];
+
+  for (const [jobId, promise] of jobRunning.entries()) {
+    // Skip the job we want to keep running (if any)
+    if (excludeJobId && jobId === excludeJobId) {
+      continue;
+    }
+
+    console.log(`⚠ Cancelling running job: ${jobId}`);
+
+    // Abort the job
+    const abortController = jobAbortControllers.get(jobId);
+    if (abortController) {
+      abortController.abort();
+      cancelledJobs.push(jobId);
+    }
+
+    // Clear timeout
+    const timeoutId = jobTimeouts.get(jobId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      jobTimeouts.delete(jobId);
+    }
+
+    // Remove from tracking maps
+    jobRunning.delete(jobId);
+    jobAbortControllers.delete(jobId);
+  }
+
+  if (cancelledJobs.length > 0) {
+    console.log(`✓ Cancelled ${cancelledJobs.length} running job(s): ${cancelledJobs.join(', ')}`);
+  }
+
+  return cancelledJobs;
+}
+
 // ======== PRIMARY PASS (no per-file fallback here) ========
 async function processPrimaryBatch(
   ocrUrl,
@@ -932,6 +970,7 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, a
       console.log(`Job ${job._id} was aborted before starting`);
       return;
     }
+    
     const retrieveRes = await fetchWithTimeout(
       `${BASE_URL}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
     );
@@ -939,6 +978,7 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, a
       console.error(`retrieve HTTP_${retrieveRes.status}`);
       return;
     }
+    
     const fileList = await retrieveRes.json();
     if (!Array.isArray(fileList) || fileList.length === 0) {
       console.log("No files to process for this job.");
@@ -963,47 +1003,56 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, a
       const batch = batches[i];
 
       primaryQueue.add(async () => {
-        // Check if job was aborted
-        if (abortSignal?.aborted) {
-          console.log(`Job ${job._id} aborted during batch ${i + 1}/${batches.length}`);
-          throw new Error('Job aborted');
+        try {
+          // Check if job was aborted
+          if (abortSignal?.aborted) {
+            console.log(`Job ${job._id} aborted during batch ${i + 1}/${batches.length}`);
+            return; // Exit gracefully instead of throwing
+          }
+
+          console.log(
+            `Primary batch ${i + 1}/${batches.length} (size=${batch.length})`
+          );
+
+          const { processed, failedForFallback } = await processPrimaryBatch(
+            ocrUrl,
+            batch,
+            job,
+            base_url,
+            wmsUrl,
+            userName,
+            passWord
+          );
+
+          // Save successes from this batch immediately
+          if (processed && processed.length) {
+            await saveProcessedRecords(base_url, processed);
+            totalProcessed += processed.length;
+          }
+
+          // Accumulate fallback candidates
+          if (failedForFallback && failedForFallback.length) {
+            fallbackBucket.push(...failedForFallback);
+            totalDeferred += failedForFallback.length;
+          }
+
+          // Progress heartbeat
+          console.log(
+            `Progress so far → processed=${totalProcessed}, deferred=${totalDeferred}, batch=${
+              i + 1
+            }/${batches.length}`
+          );
+
+          // --- added: let OCR server free GPU memory between batches ---
+          await cooldownAndGc();
+        } catch (error) {
+          // Handle errors within the queue task to prevent unhandled rejections
+          if (abortSignal?.aborted || error.message === 'Job aborted') {
+            console.log(`Batch ${i + 1}/${batches.length} aborted for job ${job._id}`);
+          } else {
+            console.error(`Error in batch ${i + 1}/${batches.length}:`, error.message);
+          }
         }
-
-        console.log(
-          `Primary batch ${i + 1}/${batches.length} (size=${batch.length})`
-        );
-
-        const { processed, failedForFallback } = await processPrimaryBatch(
-          ocrUrl,
-          batch,
-          job,
-          base_url,
-          wmsUrl,
-          userName,
-          passWord
-        );
-
-        // Save successes from this batch immediately
-        if (processed && processed.length) {
-          await saveProcessedRecords(base_url, processed);
-          totalProcessed += processed.length;
-        }
-
-        // Accumulate fallback candidates
-        if (failedForFallback && failedForFallback.length) {
-          fallbackBucket.push(...failedForFallback);
-          totalDeferred += failedForFallback.length;
-        }
-
-        // Progress heartbeat
-        console.log(
-          `Progress so far → processed=${totalProcessed}, deferred=${totalDeferred}, batch=${
-            i + 1
-          }/${batches.length}`
-        );
-
-        // --- added: let OCR server free GPU memory between batches ---
-        await cooldownAndGc();
       });
     }
 
@@ -1093,7 +1142,6 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, a
     console.error("OCR job error:", err.message);
   }
 }
-
 // ======== CRON/SCHEDULING (promise guard) ========
 function getCronExpressionFromTime(timeStr) {
   const [hours, minutes] = String(timeStr).split(":").map(Number);
@@ -1113,30 +1161,17 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
   const key = String(job._id);
 
   const task = cron.schedule(cronExp, async () => {
-    const existing = jobRunning.get(key);
-    if (existing) {
-      console.log(`⚠ Previous run still active for job ${key}, cancelling previous job...`);
+    // Cancel ALL other running jobs before starting this one
+    const runningJobsCount = jobRunning.size;
+    if (runningJobsCount > 0) {
+      console.log(`⚠ ${runningJobsCount} job(s) currently running. Cancelling all before starting job ${key}...`);
 
-      // Cancel the previous job
-      const previousAbortController = jobAbortControllers.get(key);
-      if (previousAbortController) {
-        previousAbortController.abort();
-        console.log(`✓ Previous job ${key} cancellation signal sent`);
-      }
-
-      // Clear previous timeout
-      const previousTimeoutId = jobTimeouts.get(key);
-      if (previousTimeoutId) {
-        clearTimeout(previousTimeoutId);
-        jobTimeouts.delete(key);
-      }
-
-      // Remove from running map
-      jobRunning.delete(key);
-      jobAbortControllers.delete(key);
+      // Cancel all running jobs (no exclusions - stop everything)
+      cancelAllRunningJobs();
 
       // Wait a moment for cleanup
       await sleep(1000);
+      console.log(`✓ All previous jobs cancelled. Starting job ${key}`);
     }
 
     // Create new abort controller for this job run
