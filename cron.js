@@ -928,10 +928,12 @@ async function saveProcessedRecords(base_url, records) {
 
 // ======== JOB RUNNER ========
 async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
-  console.log(`OCR script started for job ${job._id}`);
+  const jobStartTime = Date.now();
+  console.log(`[Job ${job._id}] OCR script started at ${new Date().toISOString()}`);
   const dbConnectionType = getDBConnectionType();
   console.log("db connection ->", dbConnectionType);
-console.log('base url inside runocr function-> ',base_url)
+  console.log('base url inside runocr function-> ', base_url);
+ 
   try {
     const retrieveRes = await fetchWithTimeout(
       `${base_url}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
@@ -946,7 +948,7 @@ console.log('base url inside runocr function-> ',base_url)
       return;
     }
     console.log(`Total files: ${fileList.length}`);
-
+ 
     const batches = chunk(fileList, BATCH_SIZE);
     console.log(
       `Chunked into ${batches.length} batches, last batch size = ${
@@ -954,132 +956,194 @@ console.log('base url inside runocr function-> ',base_url)
       }`
     );
     const primaryQueue = new PQueue({ concurrency: PRIMARY_CONCURRENCY });
-
+ 
     let totalProcessed = 0;
     let totalDeferred = 0;
     const fallbackBucket = [];
-
-    // STREAM-SAVE PER BATCH
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-
-      primaryQueue.add(async () => {
+    // CRITICAL FIX: Store batch results to avoid race conditions
+    const batchResults = [];
+ 
+    // CRITICAL FIX: Use map to properly capture batch index
+    const queueTasks = batches.map((batch, batchIndex) => {
+      return primaryQueue.add(async () => {
         console.log(
-          `Primary batch ${i + 1}/${batches.length} (size=${batch.length})`
+          `Primary batch ${batchIndex + 1}/${batches.length} (size=${batch.length})`
         );
-
-        const { processed, failedForFallback } = await processPrimaryBatch(
-          ocrUrl,
-          batch,
-          job,
-          base_url,
-          wmsUrl,
-          userName,
-          passWord
-        );
-
-        // Save successes from this batch immediately
-        if (processed && processed.length) {
-          await saveProcessedRecords(base_url, processed);
-          totalProcessed += processed.length;
+ 
+        try {
+          const { processed, failedForFallback } = await processPrimaryBatch(
+            ocrUrl,
+            batch,
+            job,
+            base_url,
+            wmsUrl,
+            userName,
+            passWord
+          );
+ 
+          // Store results for aggregation after all batches complete
+          batchResults.push({
+            batchIndex,
+            processed: processed || [],
+            failedForFallback: failedForFallback || []
+          });
+ 
+          // Save successes from this batch immediately
+          if (processed && processed.length) {
+            try {
+              await saveProcessedRecords(base_url, processed);
+              console.log(`✓ Batch ${batchIndex + 1}: Saved ${processed.length} records`);
+            } catch (saveErr) {
+              console.error(`✗ Batch ${batchIndex + 1}: Failed to save records: ${saveErr.message}`);
+              // Don't throw - continue with other batches
+            }
+          }
+ 
+          // Progress heartbeat
+          console.log(
+            `Progress: Batch ${batchIndex + 1}/${batches.length} complete → processed=${processed?.length || 0}, deferred=${failedForFallback?.length || 0}`
+          );
+ 
+          // Let OCR server free GPU memory between batches
+          await cooldownAndGc();
+          return { success: true, batchIndex };
+        } catch (batchErr) {
+          console.error(`✗ Batch ${batchIndex + 1} failed completely: ${batchErr.message}`);
+          console.error(`Stack trace:`, batchErr.stack);
+          // Mark entire batch for fallback
+          batchResults.push({
+            batchIndex,
+            processed: [],
+            failedForFallback: batch.map(item => ({
+              _id: item.FILE_ID || item.file_id,
+              FILE_TABLE: item.FILE_TABLE || item.file_table,
+              errorCategory: 'BATCH_PROCESSING_ERROR',
+              errorMessage: batchErr.message
+            }))
+          });
+          return { success: false, batchIndex, error: batchErr.message };
         }
-
-        // Accumulate fallback candidates
-        if (failedForFallback && failedForFallback.length) {
-          fallbackBucket.push(...failedForFallback);
-          totalDeferred += failedForFallback.length;
+      });
+    });
+ 
+    // Wait for all queue tasks to complete
+    console.log(`Waiting for ${queueTasks.length} batches to complete...`);
+    const results = await Promise.allSettled(queueTasks);
+    // Check for any rejected promises
+    const rejectedCount = results.filter(r => r.status === 'rejected').length;
+    if (rejectedCount > 0) {
+      console.error(`⚠️ Warning: ${rejectedCount} batches were rejected`);
+      results.forEach((result, idx) => {
+        if (result.status === 'rejected') {
+          console.error(`Batch ${idx + 1} rejection reason:`, result.reason);
         }
-
-        // Progress heartbeat
-        console.log(
-          `Progress so far → processed=${totalProcessed}, deferred=${totalDeferred}, batch=${
-            i + 1
-          }/${batches.length}`
-        );
-
-        // --- added: let OCR server free GPU memory between batches ---
-        await cooldownAndGc();
       });
     }
-
-    // Wait until ALL primary batches finish
-    await primaryQueue.onIdle();
+ 
+    // Aggregate results after all batches complete
+    for (const result of batchResults) {
+      totalProcessed += result.processed.length;
+      if (result.failedForFallback && result.failedForFallback.length > 0) {
+        fallbackBucket.push(...result.failedForFallback);
+        totalDeferred += result.failedForFallback.length;
+      }
+    }
+ 
     console.log(
       `Primary pass complete. Processed (saved): ${totalProcessed}, Deferred: ${fallbackBucket.length}`
     );
-
+ 
     // Fallback pass on accumulated failures
     if (fallbackBucket.length > 0) {
       console.log(
         `Starting fallback pass for ${fallbackBucket.length} file(s)...`
       );
-      const { processed: fbProcessed, stillFailed } =
-        await processFallbackBatches(
-          ocrUrl,
-          fallbackBucket,
-          job,
-          base_url,
-          wmsUrl,
-          userName,
-          passWord
+      try {
+        const { processed: fbProcessed, stillFailed } =
+          await processFallbackBatches(
+            ocrUrl,
+            fallbackBucket,
+            job,
+            base_url,
+            wmsUrl,
+            userName,
+            passWord
+          );
+        console.log(
+          `Fallback complete. Recovered: ${fbProcessed.length}, Still failed: ${stillFailed.length}`
         );
-      console.log(
-        `Fallback complete. Recovered: ${fbProcessed.length}, Still failed: ${stillFailed.length}`
-      );
-
-      // Save fallback recoveries
-      if (fbProcessed.length) await saveProcessedRecords(base_url, fbProcessed);
-
-      // Persist failed files with error details
-      if (stillFailed.length) {
-        console.warn(
-          `Unrecoverable after fallback: ${stillFailed
-            .map((x) => x._id)
-            .join(", ")}`
-        );
-
-        // Generate failure report with categorized errors
-        const failureReport = {
-          timestamp: new Date().toISOString(),
-          jobId: job._id,
-          totalFailed: stillFailed.length,
-          errors: stillFailed.map(item => ({
-            fileId: item._id,
-            errorCategory: item.errorCategory || 'UNKNOWN',
-            errorMessage: item.errorMessage || 'No error message',
-            errorDetails: item.errorDetails || '',
-            fileTable: item.FILE_TABLE
-          })),
-          errorSummary: stillFailed.reduce((acc, item) => {
-            const category = item.errorCategory || 'UNKNOWN';
-            acc[category] = (acc[category] || 0) + 1;
-            return acc;
-          }, {})
-        };
-
-        console.log('Failure Report Summary:', JSON.stringify(failureReport.errorSummary, null, 2));
-
-        // Save failure report
-        try {
-          const reportRes = await fetchWithTimeout(`${BASE_URL}/process-data/save-failures`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(failureReport),
-          });
-          if (reportRes.ok) {
-            console.log('Failure report saved successfully');
-          } else {
-            console.warn(`Failed to save failure report: HTTP ${reportRes.status}`);
+ 
+        // Save fallback recoveries
+        if (fbProcessed.length) {
+          try {
+            await saveProcessedRecords(base_url, fbProcessed);
+            totalProcessed += fbProcessed.length;
+          } catch (saveErr) {
+            console.error(`Failed to save fallback records: ${saveErr.message}`);
           }
-        } catch (err) {
-          console.error(`Error saving failure report: ${err.message}`);
         }
+ 
+        // Persist failed files with error details
+        if (stillFailed.length) {
+          console.warn(
+            `Unrecoverable after fallback: ${stillFailed
+              .map((x) => x._id)
+              .join(", ")}`
+          );
+ 
+          // Generate failure report with categorized errors
+          const failureReport = {
+            timestamp: new Date().toISOString(),
+            jobId: job._id,
+            totalFailed: stillFailed.length,
+            errors: stillFailed.map(item => ({
+              fileId: item._id,
+              errorCategory: item.errorCategory || 'UNKNOWN',
+              errorMessage: item.errorMessage || 'No error message',
+              errorDetails: item.errorDetails || '',
+              fileTable: item.FILE_TABLE
+            })),
+            errorSummary: stillFailed.reduce((acc, item) => {
+              const category = item.errorCategory || 'UNKNOWN';
+              acc[category] = (acc[category] || 0) + 1;
+              return acc;
+            }, {})
+          };
+ 
+          console.log('Failure Report Summary:', JSON.stringify(failureReport.errorSummary, null, 2));
+ 
+          // Save failure report
+          try {
+            const reportRes = await fetchWithTimeout(`${BASE_URL}/process-data/save-failures`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(failureReport),
+            });
+            if (reportRes.ok) {
+              console.log('Failure report saved successfully');
+            } else {
+              console.warn(`Failed to save failure report: HTTP ${reportRes.status}`);
+            }
+          } catch (err) {
+            console.error(`Error saving failure report: ${err.message}`);
+          }
+        }
+      } catch (fallbackErr) {
+        console.error(`Fallback pass failed completely: ${fallbackErr.message}`);
+        console.error(`Stack trace:`, fallbackErr.stack);
       }
     }
-
-    console.log(`All processing completed for job: ${job._id}`);
+ 
+    const jobDuration = Date.now() - jobStartTime;
+    console.log(`✓ All processing completed for job: ${job._id}`);
+    console.log(`✓ Job ${job._id} completed in ${Math.round(jobDuration / 60000)} minutes`);
+    console.log(`✓ Final stats: ${totalProcessed} processed, ${fallbackBucket.length} initially failed`);
   } catch (err) {
-    console.error("OCR job error:", err.message);
+    const jobDuration = Date.now() - jobStartTime;
+    console.error(`✗ OCR job error for ${job._id}:`, err.message);
+    console.error(`Stack trace:`, err.stack);
+    console.error(`Job ${job._id} failed after ${Math.round(jobDuration / 60000)} minutes`);
+    throw err; // Re-throw so scheduler knows job failed
   }
 }
 
