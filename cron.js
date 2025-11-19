@@ -13,9 +13,9 @@ dayjs.extend(isBetween);
 
 // ======== CONFIG (env-tunable) ========
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api";
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
 const OCR_URL =
-  process.env.OCR_URL || "https://dp0d3cgxkrz317-19123-8080.proxy.runpod.net/run-ocr";
+  process.env.OCR_URL || "https://rfwvxuqsbkx593-8080.proxy.runpod.net/run-ocr";
 const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 120000);
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3); // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
@@ -139,10 +139,8 @@ async function isUrlOk(u) {
   }
 }
 
-// PDF validation function to detect corrupt/invalid PDFs
 async function validatePdfStructure(fileUrl) {
   try {
-    // Fetch first 1KB of file to validate PDF header
     const res = await fetchWithTimeout(
       fileUrl,
       { headers: { Range: "bytes=0-1023" } },
@@ -157,38 +155,33 @@ async function validatePdfStructure(fileUrl) {
     const buffer = await res.arrayBuffer();
     const bytes = new Uint8Array(buffer);
 
-    // Check PDF magic number (%PDF-)
     const pdfHeader = String.fromCharCode(...bytes.slice(0, 5));
     if (!pdfHeader.startsWith('%PDF-')) {
       console.warn(`Invalid PDF header: ${pdfHeader} for ${fileUrl}`);
       return { valid: false, reason: 'INVALID_PDF_HEADER', details: `Header: ${pdfHeader}` };
     }
 
-    // Extract PDF version (e.g., %PDF-1.4)
     const versionMatch = String.fromCharCode(...bytes.slice(0, 20)).match(/%PDF-(\d+\.\d+)/);
     const pdfVersion = versionMatch ? parseFloat(versionMatch[1]) : 0;
 
-    // Warn about PDF 2.0+ which may have compatibility issues with PDFium
     if (pdfVersion >= 2.0) {
       console.warn(`PDF version ${pdfVersion} may have compatibility issues: ${fileUrl}`);
       return { valid: false, reason: 'UNSUPPORTED_PDF_VERSION', details: `Version ${pdfVersion}` };
     }
 
-    // Check for encrypted PDFs - FIX HERE
-    // Instead of converting entire buffer, just search in the buffer
     const headerText = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
     if (headerText.includes('/Encrypt')) {
       console.warn(`Encrypted PDF detected: ${fileUrl}`);
       return { valid: false, reason: 'ENCRYPTED_PDF', details: 'Password protected' };
     }
 
-    // PDF looks valid
     return { valid: true, version: pdfVersion };
   } catch (err) {
     console.error(`PDF validation exception for ${fileUrl}: ${err.message}`);
     return { valid: false, reason: 'VALIDATION_ERROR', details: err.message };
   }
 }
+
 const getDBConnectionType = () => {
   try {
     const filePath = path.join(__dirname, "db-config.json");
@@ -374,7 +367,7 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
     validBaseUrl = `http://${validBaseUrl}`;
   }
 
-  const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+  const filePath = `${base_url}/access-file?filename=${encodeURIComponent(safeFileName)}`;
 
   const blNumber = String(
     firstOf(
@@ -567,7 +560,7 @@ async function processPrimaryBatch(
           validBaseUrl = `http://${validBaseUrl}`;
         }
 
-        const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+        const filePath = `${base_url}/access-file?filename=${encodeURIComponent(safeFileName)}`;
 
         // Pre-flight URL check
         const urlOk = await isUrlOk(filePath);
@@ -928,15 +921,13 @@ async function saveProcessedRecords(base_url, records) {
 
 // ======== JOB RUNNER ========
 async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
-  const jobStartTime = Date.now();
-  console.log(`[Job ${job._id}] OCR script started at ${new Date().toISOString()}`);
+  console.log(`OCR script started for job ${job._id}`);
   const dbConnectionType = getDBConnectionType();
   console.log("db connection ->", dbConnectionType);
-  console.log('base url inside runocr function-> ', base_url);
- 
+
   try {
     const retrieveRes = await fetchWithTimeout(
-      `${base_url}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
+      `${BASE_URL}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
     );
     if (!retrieveRes.ok) {
       console.error(`retrieve HTTP_${retrieveRes.status}`);
@@ -948,7 +939,7 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
       return;
     }
     console.log(`Total files: ${fileList.length}`);
- 
+
     const batches = chunk(fileList, BATCH_SIZE);
     console.log(
       `Chunked into ${batches.length} batches, last batch size = ${
@@ -956,194 +947,132 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
       }`
     );
     const primaryQueue = new PQueue({ concurrency: PRIMARY_CONCURRENCY });
- 
+
     let totalProcessed = 0;
     let totalDeferred = 0;
     const fallbackBucket = [];
-    // CRITICAL FIX: Store batch results to avoid race conditions
-    const batchResults = [];
- 
-    // CRITICAL FIX: Use map to properly capture batch index
-    const queueTasks = batches.map((batch, batchIndex) => {
-      return primaryQueue.add(async () => {
+
+    // STREAM-SAVE PER BATCH
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+
+      primaryQueue.add(async () => {
         console.log(
-          `Primary batch ${batchIndex + 1}/${batches.length} (size=${batch.length})`
+          `Primary batch ${i + 1}/${batches.length} (size=${batch.length})`
         );
- 
-        try {
-          const { processed, failedForFallback } = await processPrimaryBatch(
-            ocrUrl,
-            batch,
-            job,
-            base_url,
-            wmsUrl,
-            userName,
-            passWord
-          );
- 
-          // Store results for aggregation after all batches complete
-          batchResults.push({
-            batchIndex,
-            processed: processed || [],
-            failedForFallback: failedForFallback || []
-          });
- 
-          // Save successes from this batch immediately
-          if (processed && processed.length) {
-            try {
-              await saveProcessedRecords(base_url, processed);
-              console.log(`✓ Batch ${batchIndex + 1}: Saved ${processed.length} records`);
-            } catch (saveErr) {
-              console.error(`✗ Batch ${batchIndex + 1}: Failed to save records: ${saveErr.message}`);
-              // Don't throw - continue with other batches
-            }
-          }
- 
-          // Progress heartbeat
-          console.log(
-            `Progress: Batch ${batchIndex + 1}/${batches.length} complete → processed=${processed?.length || 0}, deferred=${failedForFallback?.length || 0}`
-          );
- 
-          // Let OCR server free GPU memory between batches
-          await cooldownAndGc();
-          return { success: true, batchIndex };
-        } catch (batchErr) {
-          console.error(`✗ Batch ${batchIndex + 1} failed completely: ${batchErr.message}`);
-          console.error(`Stack trace:`, batchErr.stack);
-          // Mark entire batch for fallback
-          batchResults.push({
-            batchIndex,
-            processed: [],
-            failedForFallback: batch.map(item => ({
-              _id: item.FILE_ID || item.file_id,
-              FILE_TABLE: item.FILE_TABLE || item.file_table,
-              errorCategory: 'BATCH_PROCESSING_ERROR',
-              errorMessage: batchErr.message
-            }))
-          });
-          return { success: false, batchIndex, error: batchErr.message };
+
+        const { processed, failedForFallback } = await processPrimaryBatch(
+          ocrUrl,
+          batch,
+          job,
+          base_url,
+          wmsUrl,
+          userName,
+          passWord
+        );
+
+        // Save successes from this batch immediately
+        if (processed && processed.length) {
+          await saveProcessedRecords(base_url, processed);
+          totalProcessed += processed.length;
         }
-      });
-    });
- 
-    // Wait for all queue tasks to complete
-    console.log(`Waiting for ${queueTasks.length} batches to complete...`);
-    const results = await Promise.allSettled(queueTasks);
-    // Check for any rejected promises
-    const rejectedCount = results.filter(r => r.status === 'rejected').length;
-    if (rejectedCount > 0) {
-      console.error(`⚠️ Warning: ${rejectedCount} batches were rejected`);
-      results.forEach((result, idx) => {
-        if (result.status === 'rejected') {
-          console.error(`Batch ${idx + 1} rejection reason:`, result.reason);
+
+        // Accumulate fallback candidates
+        if (failedForFallback && failedForFallback.length) {
+          fallbackBucket.push(...failedForFallback);
+          totalDeferred += failedForFallback.length;
         }
+
+        // Progress heartbeat
+        console.log(
+          `Progress so far → processed=${totalProcessed}, deferred=${totalDeferred}, batch=${
+            i + 1
+          }/${batches.length}`
+        );
+
+        // --- added: let OCR server free GPU memory between batches ---
+        await cooldownAndGc();
       });
     }
- 
-    // Aggregate results after all batches complete
-    for (const result of batchResults) {
-      totalProcessed += result.processed.length;
-      if (result.failedForFallback && result.failedForFallback.length > 0) {
-        fallbackBucket.push(...result.failedForFallback);
-        totalDeferred += result.failedForFallback.length;
-      }
-    }
- 
+
+    // Wait until ALL primary batches finish
+    await primaryQueue.onIdle();
     console.log(
       `Primary pass complete. Processed (saved): ${totalProcessed}, Deferred: ${fallbackBucket.length}`
     );
- 
+
     // Fallback pass on accumulated failures
     if (fallbackBucket.length > 0) {
       console.log(
         `Starting fallback pass for ${fallbackBucket.length} file(s)...`
       );
-      try {
-        const { processed: fbProcessed, stillFailed } =
-          await processFallbackBatches(
-            ocrUrl,
-            fallbackBucket,
-            job,
-            base_url,
-            wmsUrl,
-            userName,
-            passWord
-          );
-        console.log(
-          `Fallback complete. Recovered: ${fbProcessed.length}, Still failed: ${stillFailed.length}`
+      const { processed: fbProcessed, stillFailed } =
+        await processFallbackBatches(
+          ocrUrl,
+          fallbackBucket,
+          job,
+          base_url,
+          wmsUrl,
+          userName,
+          passWord
         );
- 
-        // Save fallback recoveries
-        if (fbProcessed.length) {
-          try {
-            await saveProcessedRecords(base_url, fbProcessed);
-            totalProcessed += fbProcessed.length;
-          } catch (saveErr) {
-            console.error(`Failed to save fallback records: ${saveErr.message}`);
+      console.log(
+        `Fallback complete. Recovered: ${fbProcessed.length}, Still failed: ${stillFailed.length}`
+      );
+
+      // Save fallback recoveries
+      if (fbProcessed.length) await saveProcessedRecords(base_url, fbProcessed);
+
+      // Persist failed files with error details
+      if (stillFailed.length) {
+        console.warn(
+          `Unrecoverable after fallback: ${stillFailed
+            .map((x) => x._id)
+            .join(", ")}`
+        );
+
+        // Generate failure report with categorized errors
+        const failureReport = {
+          timestamp: new Date().toISOString(),
+          jobId: job._id,
+          totalFailed: stillFailed.length,
+          errors: stillFailed.map(item => ({
+            fileId: item._id,
+            errorCategory: item.errorCategory || 'UNKNOWN',
+            errorMessage: item.errorMessage || 'No error message',
+            errorDetails: item.errorDetails || '',
+            fileTable: item.FILE_TABLE
+          })),
+          errorSummary: stillFailed.reduce((acc, item) => {
+            const category = item.errorCategory || 'UNKNOWN';
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+          }, {})
+        };
+
+        console.log('Failure Report Summary:', JSON.stringify(failureReport.errorSummary, null, 2));
+
+        // Save failure report
+        try {
+          const reportRes = await fetchWithTimeout(`${BASE_URL}/process-data/save-failures`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(failureReport),
+          });
+          if (reportRes.ok) {
+            console.log('Failure report saved successfully');
+          } else {
+            console.warn(`Failed to save failure report: HTTP ${reportRes.status}`);
           }
+        } catch (err) {
+          console.error(`Error saving failure report: ${err.message}`);
         }
- 
-        // Persist failed files with error details
-        if (stillFailed.length) {
-          console.warn(
-            `Unrecoverable after fallback: ${stillFailed
-              .map((x) => x._id)
-              .join(", ")}`
-          );
- 
-          // Generate failure report with categorized errors
-          const failureReport = {
-            timestamp: new Date().toISOString(),
-            jobId: job._id,
-            totalFailed: stillFailed.length,
-            errors: stillFailed.map(item => ({
-              fileId: item._id,
-              errorCategory: item.errorCategory || 'UNKNOWN',
-              errorMessage: item.errorMessage || 'No error message',
-              errorDetails: item.errorDetails || '',
-              fileTable: item.FILE_TABLE
-            })),
-            errorSummary: stillFailed.reduce((acc, item) => {
-              const category = item.errorCategory || 'UNKNOWN';
-              acc[category] = (acc[category] || 0) + 1;
-              return acc;
-            }, {})
-          };
- 
-          console.log('Failure Report Summary:', JSON.stringify(failureReport.errorSummary, null, 2));
- 
-          // Save failure report
-          try {
-            const reportRes = await fetchWithTimeout(`${BASE_URL}/process-data/save-failures`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(failureReport),
-            });
-            if (reportRes.ok) {
-              console.log('Failure report saved successfully');
-            } else {
-              console.warn(`Failed to save failure report: HTTP ${reportRes.status}`);
-            }
-          } catch (err) {
-            console.error(`Error saving failure report: ${err.message}`);
-          }
-        }
-      } catch (fallbackErr) {
-        console.error(`Fallback pass failed completely: ${fallbackErr.message}`);
-        console.error(`Stack trace:`, fallbackErr.stack);
       }
     }
- 
-    const jobDuration = Date.now() - jobStartTime;
-    console.log(`✓ All processing completed for job: ${job._id}`);
-    console.log(`✓ Job ${job._id} completed in ${Math.round(jobDuration / 60000)} minutes`);
-    console.log(`✓ Final stats: ${totalProcessed} processed, ${fallbackBucket.length} initially failed`);
+
+    console.log(`All processing completed for job: ${job._id}`);
   } catch (err) {
-    const jobDuration = Date.now() - jobStartTime;
-    console.error(`✗ OCR job error for ${job._id}:`, err.message);
-    console.error(`Stack trace:`, err.stack);
-    console.error(`Job ${job._id} failed after ${Math.round(jobDuration / 60000)} minutes`);
-    throw err; // Re-throw so scheduler knows job failed
+    console.error("OCR job error:", err.message);
   }
 }
 
@@ -1155,6 +1084,90 @@ function getCronExpressionFromTime(timeStr) {
   if (hours > 0 && minutes > 0) return `${minutes} */${hours} * * *`;
   return "* * * * *";
 }
+
+// function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
+//   const cronExp = getCronExpressionFromTime(job.everyTime);
+//   if (!cron.validate(cronExp)) {
+//     console.error(`Invalid cron expression for job ${job._id}: ${cronExp}`);
+//     return;
+//   }
+
+//   const key = String(job._id);
+
+//   const task = cron.schedule(cronExp, async () => {
+//     const existing = jobRunning.get(key);
+//     if (existing) {
+//       console.log(`↺ Skip run: previous run still active for job ${key}`);
+//       return;
+//     }
+
+//     // Setup timeout handler
+//     const timeoutId = setTimeout(() => {
+//       console.error(`[TIMEOUT] Job ${key} exceeded timeout of ${JOB_TIMEOUT_MS}ms (${JOB_TIMEOUT_MS / 60000} minutes), force-stopping`);
+//       jobRunning.delete(key);
+//       jobTimeouts.delete(key);
+//     }, JOB_TIMEOUT_MS);
+
+//     jobTimeouts.set(key, timeoutId);
+
+//     const runPromise = (async () => {
+//       const startTime = Date.now();
+//       try {
+//         const now = new Date();
+//         const currentDay = now.toLocaleString("en-US", { weekday: "long" });
+//         const currentTime = `${String(now.getHours()).padStart(
+//           2,
+//           "0"
+//         )}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+//         const fromTime = new Date(job.pdfCriteria.fromTime);
+//         const toTime = new Date(job.pdfCriteria.toTime);
+//         const fromTimeStr = `${String(fromTime.getUTCHours()).padStart(
+//           2,
+//           "0"
+//         )}:${String(fromTime.getUTCMinutes()).padStart(2, "0")}`;
+//         const toTimeStr = `${String(toTime.getUTCHours()).padStart(
+//           2,
+//           "0"
+//         )}:${String(toTime.getUTCMinutes()).padStart(2, "0")}`;
+
+//         const isDaySelected = job.selectedDays.includes(currentDay);
+//         const inWindow =
+//           (currentTime >= fromTimeStr && currentTime <= toTimeStr) ||
+//           (fromTimeStr > toTimeStr &&
+//             (currentTime >= fromTimeStr || currentTime <= toTimeStr)); // cross-midnight
+
+//         if (isDaySelected && inWindow) {
+//           console.log(`✓ Running OCR Job: ${key}`);
+//           await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord); // MUST await full completion
+//           const duration = Date.now() - startTime;
+//           console.log(`✓ Job ${key} completed successfully in ${Math.round(duration / 60000)} minutes`);
+//         } else {
+//           console.log(`⏳ Job ${key} skipped (day/time window not matched).`);
+//         }
+//       } catch (e) {
+//         console.error(`Error running job ${key}:`, e.message);
+//         const duration = Date.now() - startTime;
+//         console.error(`Job ${key} failed after ${Math.round(duration / 60000)} minutes`);
+//       } finally {
+//         // Clear timeout
+//         const timeoutId = jobTimeouts.get(key);
+//         if (timeoutId) {
+//           clearTimeout(timeoutId);
+//           jobTimeouts.delete(key);
+//         }
+//         jobRunning.delete(key);
+//       }
+//     })();
+
+//     jobRunning.set(key, runPromise);
+//     // await runPromise; // serialize this tick
+//   });
+
+//   task.start();
+//   scheduledTasks.set(key, task);
+//   console.log(`✓ Scheduled job ${key} with cron: ${cronExp}`);
+// }
 
 function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
   const cronExp = getCronExpressionFromTime(job.everyTime);
@@ -1203,16 +1216,12 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
         )}:${String(toTime.getUTCMinutes()).padStart(2, "0")}`;
 
         const isDaySelected = job.selectedDays.includes(currentDay);
-        
         const inWindow =
           (currentTime >= fromTimeStr && currentTime <= toTimeStr) ||
           (fromTimeStr > toTimeStr &&
-            (currentTime >= fromTimeStr || currentTime <= toTimeStr));
-console.log(`Job ${key} check current → Day: ${currentDay} (selected day: ${isDaySelected}), Time: ${currentTime} (From time: ${fromTimeStr} -  to time: ${toTimeStr}, inWindow: ${inWindow})`);
+            (currentTime >= fromTimeStr || currentTime <= toTimeStr)); // cross-midnight
 
         if (isDaySelected && inWindow) {
-          console.log(`Is todasy is selected to run job: ${isDaySelected}`);
-
           console.log(`✓ Running OCR Job: ${key} at ${currentTime}`);
           await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord);
           const duration = Date.now() - startTime;
@@ -1257,9 +1266,9 @@ async function scheduleJobs() {
       `${BASE_URL}/ipAddress/ip-address`
     ).catch(() => null);
     const ipData = await ipRes.json();
-    const ocrUrl = OCR_URL;
+    const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
 
-    let base_url = BASE_URL;
+    let base_url = `http://${ipData.secondaryIp}:3000/api`;
 
     
     console.log("Using base_url:", base_url);
