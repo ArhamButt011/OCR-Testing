@@ -63,6 +63,7 @@ function normalizeQuantity(value) {
 const scheduledTasks = new Map();
 const jobRunning = new Map();
 const jobTimeouts = new Map(); // Track timeout handlers
+const jobAbortControllers = new Map(); // Track abort controllers for cancellation
 let isInitialLoad = true;
 let currentJobsHash = "[]";
 
@@ -920,12 +921,17 @@ async function saveProcessedRecords(base_url, records) {
 }
 
 // ======== JOB RUNNER ========
-async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
+async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, abortSignal) {
   console.log(`OCR script started for job ${job._id}`);
   const dbConnectionType = getDBConnectionType();
   console.log("db connection ->", dbConnectionType);
 
   try {
+    // Check if job was aborted before starting
+    if (abortSignal?.aborted) {
+      console.log(`Job ${job._id} was aborted before starting`);
+      return;
+    }
     const retrieveRes = await fetchWithTimeout(
       `${BASE_URL}/pod/retrieve?dayOffset=${job.dayOffset}&fetchLimit=${job.fetchLimit}`
     );
@@ -957,6 +963,12 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
       const batch = batches[i];
 
       primaryQueue.add(async () => {
+        // Check if job was aborted
+        if (abortSignal?.aborted) {
+          console.log(`Job ${job._id} aborted during batch ${i + 1}/${batches.length}`);
+          throw new Error('Job aborted');
+        }
+
         console.log(
           `Primary batch ${i + 1}/${batches.length} (size=${batch.length})`
         );
@@ -1003,6 +1015,12 @@ async function runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
 
     // Fallback pass on accumulated failures
     if (fallbackBucket.length > 0) {
+      // Check if job was aborted before fallback
+      if (abortSignal?.aborted) {
+        console.log(`Job ${job._id} aborted before fallback pass`);
+        return;
+      }
+
       console.log(
         `Starting fallback pass for ${fallbackBucket.length} file(s)...`
       );
@@ -1096,27 +1114,42 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
 
   const task = cron.schedule(cronExp, async () => {
     const existing = jobRunning.get(key);
-       if (existing) {
-      console.warn(`⚠️  WARNING: Previous run still active for job ${key}`);
-      console.warn(`⚠️  Auto-canceling stuck job and starting fresh run...`);
- 
-      // Force cleanup of the stuck job
-      const timeoutId = jobTimeouts.get(key);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        jobTimeouts.delete(key);
-        console.log(`✓ Cleared timeout for stuck job ${key}`);
+    if (existing) {
+      console.log(`⚠ Previous run still active for job ${key}, cancelling previous job...`);
+
+      // Cancel the previous job
+      const previousAbortController = jobAbortControllers.get(key);
+      if (previousAbortController) {
+        previousAbortController.abort();
+        console.log(`✓ Previous job ${key} cancellation signal sent`);
       }
+
+      // Clear previous timeout
+      const previousTimeoutId = jobTimeouts.get(key);
+      if (previousTimeoutId) {
+        clearTimeout(previousTimeoutId);
+        jobTimeouts.delete(key);
+      }
+
+      // Remove from running map
       jobRunning.delete(key);
-      console.log(`✓ Force-removed stuck job ${key} from running jobs`);
-      console.log(`🔄 Starting new run for job ${key}...`);
+      jobAbortControllers.delete(key);
+
+      // Wait a moment for cleanup
+      await sleep(1000);
     }
+
+    // Create new abort controller for this job run
+    const abortController = new AbortController();
+    jobAbortControllers.set(key, abortController);
 
     // Setup timeout handler
     const timeoutId = setTimeout(() => {
       console.error(`[TIMEOUT] Job ${key} exceeded timeout of ${JOB_TIMEOUT_MS}ms (${JOB_TIMEOUT_MS / 60000} minutes), force-stopping`);
+      abortController.abort();
       jobRunning.delete(key);
       jobTimeouts.delete(key);
+      jobAbortControllers.delete(key);
     }, JOB_TIMEOUT_MS);
 
     jobTimeouts.set(key, timeoutId);
@@ -1150,16 +1183,20 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
 
         if (isDaySelected && inWindow) {
           console.log(`✓ Running OCR Job: ${key} at ${currentTime}`);
-          await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord);
+          await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord, abortController.signal);
           const duration = Date.now() - startTime;
           console.log(`✓ Job ${key} completed successfully in ${Math.round(duration / 60000)} minutes`);
         } else {
           console.log(`⏳ Job ${key} skipped (day/time window not matched).`);
         }
       } catch (e) {
-        console.error(`Error running job ${key}:`, e.message);
         const duration = Date.now() - startTime;
-        console.error(`Job ${key} failed after ${Math.round(duration / 60000)} minutes`);
+        if (e.message === 'Job aborted' || abortController.signal.aborted) {
+          console.log(`Job ${key} was cancelled after ${Math.round(duration / 60000)} minutes`);
+        } else {
+          console.error(`Error running job ${key}:`, e.message);
+          console.error(`Job ${key} failed after ${Math.round(duration / 60000)} minutes`);
+        }
       } finally {
         // Clear timeout
         const timeoutId = jobTimeouts.get(key);
@@ -1168,6 +1205,7 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
           jobTimeouts.delete(key);
         }
         jobRunning.delete(key);
+        jobAbortControllers.delete(key);
       }
     })();
 
