@@ -1199,6 +1199,7 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
       try {
         const now = new Date();
         const currentDay = now.toLocaleString("en-US", { weekday: "long" });
+        
         const currentTime = `${String(now.getHours()).padStart(
           2,
           "0"
@@ -1220,8 +1221,9 @@ function scheduleOne(ocrUrl, job, base_url, wmsUrl, userName, passWord) {
           (currentTime >= fromTimeStr && currentTime <= toTimeStr) ||
           (fromTimeStr > toTimeStr &&
             (currentTime >= fromTimeStr || currentTime <= toTimeStr)); // cross-midnight
-
+console.log(`Job ${key} check current → Day: ${currentDay} (selected day: ${isDaySelected}), Time: ${currentTime} (From time: ${fromTimeStr} -  to time: ${toTimeStr}, inWindow: ${inWindow})`);
         if (isDaySelected && inWindow) {
+          console.log(`is job is selected ot run for today:  ${isDaySelected}`);
           console.log(`✓ Running OCR Job: ${key} at ${currentTime}`);
           await runOcrForJob(ocrUrl, job, base_url, wmsUrl, userName, passWord);
           const duration = Date.now() - startTime;
