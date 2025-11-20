@@ -456,12 +456,17 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
   const safeFileName = fileName.replace(/^.*[\\\/]/, '');
 
   // Validate base_url has proper protocol
+  if (!base_url || typeof base_url !== 'string') {
+    console.error(`[toProcessedRecord] Invalid base_url for fileId ${fileId}: ${base_url}`);
+    return null;
+  }
+
   let validBaseUrl = base_url;
   if (!validBaseUrl.startsWith('http://') && !validBaseUrl.startsWith('https://')) {
     validBaseUrl = `http://${validBaseUrl}`;
   }
 
-  const filePath = `${base_url}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+  const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
 
   const blNumber = String(
     firstOf(
@@ -829,7 +834,7 @@ async function processPrimaryBatch(
 
     if (ocrData) {
       // Process normal batch results (existing logic)
-      normalProcessed = await processOCRResults(ocrData, payload, fileMetaDataMap, job, wmsUrl, userName, passWord);
+      normalProcessed = await processOCRResults(ocrData, payload, fileMetaDataMap, job, base_url, wmsUrl, userName, passWord);
     }
   } else {
     console.log("No normal-sized files to process in this batch");
@@ -862,6 +867,7 @@ async function processPrimaryBatch(
           [largeFile],
           fileMetaDataMap,
           job,
+          base_url,
           wmsUrl,
           userName,
           passWord
@@ -918,7 +924,7 @@ async function processPrimaryBatch(
 }
 
 // Helper function to process OCR results and perform SAP validation
-async function processOCRResults(ocrData, payload, fileMetaDataMap, job, wmsUrl, userName, passWord) {
+async function processOCRResults(ocrData, payload, fileMetaDataMap, job, base_url, wmsUrl, userName, passWord) {
   if (!Array.isArray(ocrData)) {
     console.warn(`OCR returned non-array; cannot process results.`);
     return [];
@@ -934,7 +940,7 @@ async function processOCRResults(ocrData, payload, fileMetaDataMap, job, wmsUrl,
     const d = byId.get(rec._id);
     const fileData = fileMetaDataMap.get(rec._id);
     if (d && fileData && fileData.FILE_NAME) {
-      const pr = toProcessedRecord(d, rec._id, job, fileData);
+      const pr = toProcessedRecord(d, rec._id, job, fileData, base_url);
       if (pr) {
         // Perform SAP API validation
         const validatedRecord = await performSapCheck(
