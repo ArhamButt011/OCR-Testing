@@ -33,7 +33,26 @@ const SAVE_CHUNK_SIZE = Number(process.env.SAVE_CHUNK_SIZE || 50);
 const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000);
 const OCR_GC_URL = process.env.OCR_GC_URL || "";
 
+// ======== LARGE FILE HANDLING CONFIG ========
+const LARGE_FILE_THRESHOLD_MB = Number(process.env.LARGE_FILE_THRESHOLD_MB || 10); // 10MB default
+const LARGE_FILE_THRESHOLD_BYTES = LARGE_FILE_THRESHOLD_MB * 1024 * 1024;
+const LARGE_FILE_BATCH_SIZE = Number(process.env.LARGE_FILE_BATCH_SIZE || 1); // Process large files one at a time
+const LARGE_FILE_TIMEOUT_MS = Number(process.env.LARGE_FILE_TIMEOUT_MS || 300000); // 5 minutes for large files
+const SEPARATE_LARGE_FILES = (process.env.SEPARATE_LARGE_FILES || "true") === "true";
+
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
+console.log("=== Configuration ===");
+console.log(`Base URL: ${BASE_URL}`);
+console.log(`OCR Timeout: ${OCR_TIMEOUT_MS}ms (${(OCR_TIMEOUT_MS/1000).toFixed(1)}s)`);
+console.log(`Proxy Deadline: ${PROXY_DEADLINE_MS}ms (${(PROXY_DEADLINE_MS/1000).toFixed(1)}s)`);
+console.log(`Effective Timeout: ${Math.min(OCR_TIMEOUT_MS, PROXY_DEADLINE_MS)}ms`);
+console.log(`OCR Retries: ${OCR_RETRIES}`);
+console.log(`Batch Size: ${BATCH_SIZE}`);
+console.log(`Primary Concurrency: ${PRIMARY_CONCURRENCY}`);
+console.log(`Large file separation: ${SEPARATE_LARGE_FILES ? 'ENABLED' : 'DISABLED'}`);
+console.log(`Large file threshold: ${LARGE_FILE_THRESHOLD_MB}MB, batch size: ${LARGE_FILE_BATCH_SIZE}`);
+console.log(`Large file timeout: ${LARGE_FILE_TIMEOUT_MS}ms (${(LARGE_FILE_TIMEOUT_MS/1000).toFixed(1)}s)`);
+console.log("==================");
 function normalizeQuantity(value) {
   // Handle null, undefined, or empty string
   if (value === null || value === undefined || value === "") {
@@ -88,9 +107,19 @@ async function postJsonWithRetry(
   { tries = OCR_RETRIES, timeout = OCR_TIMEOUT_MS } = {}
 ) {
   let lastErr;
+  const fileCount = Array.isArray(jsonBody) ? jsonBody.length : 1;
+  const fileIds = Array.isArray(jsonBody) ? jsonBody.map(f => f._id).join(', ') : 'unknown';
+
+  console.log(`[OCR-REQUEST] Starting request for ${fileCount} file(s): ${fileIds}`);
+  console.log(`[OCR-REQUEST] URL: ${url}`);
+  console.log(`[OCR-REQUEST] Timeout: ${timeout}ms, Max retries: ${tries}`);
+
   for (let i = 1; i <= tries; i++) {
     try {
       const requestTimeout = Math.min(timeout, PROXY_DEADLINE_MS);
+      const startTime = Date.now();
+
+      console.log(`[OCR-REQUEST] Attempt ${i}/${tries} - timeout set to ${requestTimeout}ms`);
 
       const res = await fetchWithTimeout(
         url,
@@ -101,26 +130,50 @@ async function postJsonWithRetry(
         },
         requestTimeout
       );
+
+      const duration = Date.now() - startTime;
+      console.log(`[OCR-REQUEST] Request completed in ${duration}ms (${(duration/1000).toFixed(2)}s)`);
+
       const text = await res.text();
       if (!res.ok) {
         console.error(
-          `OCR HTTP ${res.status} ${res.statusText}: ${text.slice(0, 500)}`
+          `[OCR-REQUEST] HTTP ${res.status} ${res.statusText}: ${text.slice(0, 500)}`
         );
         throw new Error(`HTTP_${res.status}`);
       }
       try {
-        return JSON.parse(text);
+        const result = JSON.parse(text);
+        console.log(`[OCR-REQUEST] ✓ Success after ${i} attempt(s), duration: ${(duration/1000).toFixed(2)}s`);
+        return result;
       } catch (e) {
-        console.error("OCR response not JSON:", text.slice(0, 200));
+        console.error("[OCR-REQUEST] Response not JSON:", text.slice(0, 200));
         throw new Error("NON_JSON_RESPONSE");
       }
     } catch (e) {
       lastErr = e;
       const backoff = OCR_RETRY_BASE_BACKOFF * i;
-      console.warn(
-        `postJsonWithRetry attempt ${i} failed: ${e.message}. Backing off ${backoff}ms...`
-      );
-      await sleep(backoff);
+
+      // Check if it's an abort error
+      if (e.name === 'AbortError' || e.message.includes('aborted')) {
+        console.error(
+          `[OCR-REQUEST] ✗ Attempt ${i}/${tries} ABORTED (timeout: ${timeout}ms). ${e.message}`
+        );
+      } else {
+        console.error(
+          `[OCR-REQUEST] ✗ Attempt ${i}/${tries} failed: ${e.message}`
+        );
+      }
+
+      if (i < tries) {
+        console.warn(
+          `[OCR-REQUEST] Backing off ${backoff}ms before retry ${i + 1}/${tries}...`
+        );
+        await sleep(backoff);
+      } else {
+        console.error(
+          `[OCR-REQUEST] ✗ All ${tries} attempts failed for ${fileCount} file(s)`
+        );
+      }
     }
   }
   throw lastErr;
@@ -134,9 +187,49 @@ async function isUrlOk(u) {
       { headers: { Range: "bytes=0-0" } },
       5000
     );
+    if (!res.ok) {
+      console.warn(`[PREFLIGHT] URL returned HTTP ${res.status} ${res.statusText}: ${u}`);
+    }
     return res.ok;
-  } catch {
+  } catch (err) {
+    console.warn(`[PREFLIGHT] URL check exception: ${err.message} for ${u}`);
     return false;
+  }
+}
+
+async function getFileSize(fileUrl) {
+  /**
+   * Get file size in bytes from URL using HEAD request
+   * Returns: { size: number, isLarge: boolean } or null if unavailable
+   */
+  try {
+    const res = await fetchWithTimeout(
+      fileUrl,
+      { method: 'HEAD' },
+      5000
+    );
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const contentLength = res.headers.get('content-length');
+    if (!contentLength) {
+      return null;
+    }
+
+    const sizeBytes = parseInt(contentLength, 10);
+    const sizeMB = sizeBytes / (1024 * 1024);
+    const isLarge = sizeBytes > LARGE_FILE_THRESHOLD_BYTES;
+
+    return {
+      size: sizeBytes,
+      sizeMB: sizeMB,
+      isLarge: isLarge
+    };
+  } catch (err) {
+    console.error(`Failed to get file size for ${fileUrl}: ${err.message}`);
+    return null;
   }
 }
 
@@ -363,12 +456,17 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
   const safeFileName = fileName.replace(/^.*[\\\/]/, '');
 
   // Validate base_url has proper protocol
+  if (!base_url || typeof base_url !== 'string') {
+    console.error(`[toProcessedRecord] Invalid base_url for fileId ${fileId}: ${base_url}`);
+    return null;
+  }
+
   let validBaseUrl = base_url;
   if (!validBaseUrl.startsWith('http://') && !validBaseUrl.startsWith('https://')) {
     validBaseUrl = `http://${validBaseUrl}`;
   }
 
-  const filePath = `${base_url}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+  const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
 
   const blNumber = String(
     firstOf(
@@ -561,7 +659,22 @@ async function processPrimaryBatch(
   userName,
   passWord
 ) {
+  // Validate base_url parameter
+  if (!base_url || typeof base_url !== 'string') {
+    console.error(`[BATCH] Invalid base_url: ${base_url}. Cannot process batch.`);
+    return {
+      processed: [],
+      failedForFallback: batch.map((it) => ({
+        _id: it.FILE_ID || it.file_id,
+        FILE_TABLE: it.FILE_TABLE || it.file_table,
+        errorCategory: 'INVALID_BASE_URL',
+        errorMessage: `base_url is ${base_url}`
+      })),
+    };
+  }
+
   const payload = [];
+  const largeFilePayload = []; // Separate queue for large files
   const fileMetaDataMap = new Map();
   const forFallback = []; // minimal records to retry later
 
@@ -578,11 +691,22 @@ async function processPrimaryBatch(
         const fileData = await fileRes.json();
         fileMetaDataMap.set(fileId, fileData);
 
-        await fetchWithTimeout(`${BASE_URL}/pod/store`, {
+        const storeRes = await fetchWithTimeout(`${BASE_URL}/pod/store`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileId: fileData.FILE_ID }),
         });
+
+        if (!storeRes.ok) {
+          const errorData = await storeRes.json().catch(() => ({}));
+          const errorDetail = errorData.error || errorData.originalError || 'Unknown error';
+          throw new Error(`file meta ${fileId} HTTP_${storeRes.status}: ${errorDetail}`);
+        }
+
+        const storeData = await storeRes.json();
+        if (storeData.warning && storeData.rowsAffected === 0) {
+          console.warn(`[WARNING] ${fileId}: ${storeData.message}`);
+        }
 
         // Fix: Validate and sanitize FILE_NAME to prevent missing protocol errors
         const fileName = fileData.FILE_NAME || "";
@@ -594,17 +718,28 @@ async function processPrimaryBatch(
         const safeFileName = fileName.replace(/^.*[\\\/]/, '');
 
         // Validate base_url has proper protocol
-        let validBaseUrl = base_url;
-        if (!validBaseUrl.startsWith('http://') && !validBaseUrl.startsWith('https://')) {
+        let validBaseUrl = base_url || '';
+        if (validBaseUrl && !validBaseUrl.startsWith('http://') && !validBaseUrl.startsWith('https://')) {
           validBaseUrl = `http://${validBaseUrl}`;
         }
 
-        const filePath = `${base_url}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+        if (!validBaseUrl) {
+          throw new Error(`Invalid base_url for ${fileId}`);
+        }
+
+        const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+
+        console.log(`[PREFLIGHT] Checking URL for ${fileId}: ${filePath}`);
 
         // Pre-flight URL check
         const urlOk = await isUrlOk(filePath);
         if (!urlOk) {
-          console.warn(`Preflight URL check failed; defer to fallback: ${fileId}`);
+          console.warn(`[PREFLIGHT] URL check failed for ${fileId}`);
+          console.warn(`  - File: ${safeFileName}`);
+          console.warn(`  - Base URL: ${base_url}`);
+          console.warn(`  - Validated URL: ${validBaseUrl}`);
+          console.warn(`  - Full path: ${filePath}`);
+          console.warn(`  - Deferring to fallback`);
           forFallback.push({
             _id: fileId,
             file_url_or_path: filePath,
@@ -612,6 +747,14 @@ async function processPrimaryBatch(
             errorCategory: 'URL_CHECK_FAILED'
           });
         } else {
+          console.log(`[PREFLIGHT] URL check passed for ${fileId}`);
+
+          // Check file size (if large file separation is enabled)
+          let fileSize = null;
+          if (SEPARATE_LARGE_FILES) {
+            fileSize = await getFileSize(filePath);
+          }
+
           // PDF validation check
           const pdfValidation = await validatePdfStructure(filePath);
           if (!pdfValidation.valid) {
@@ -624,11 +767,26 @@ async function processPrimaryBatch(
               errorDetails: pdfValidation.details
             });
           } else {
-            payload.push({
-              _id: fileId,
-              file_url_or_path: filePath,
-              FILE_TABLE: fileTable,
-            });
+            // Separate large files into different batch
+            if (SEPARATE_LARGE_FILES && fileSize?.isLarge) {
+              console.log(`Large file detected (${fileSize.sizeMB.toFixed(2)}MB): ${fileId} - queuing separately`);
+              largeFilePayload.push({
+                _id: fileId,
+                file_url_or_path: filePath,
+                FILE_TABLE: fileTable,
+                fileSize: fileSize.sizeMB,
+              });
+            } else {
+              if (fileSize) {
+                console.log(`Normal file (${fileSize.sizeMB.toFixed(2)}MB): ${fileId}`);
+              }
+              payload.push({
+                _id: fileId,
+                file_url_or_path: filePath,
+                FILE_TABLE: fileTable,
+                fileSize: fileSize?.sizeMB,
+              });
+            }
           }
         }
       } catch (e) {
@@ -647,7 +805,101 @@ async function processPrimaryBatch(
     })
   );
 
-  if (payload.length === 0) {
+  // Process normal-sized files
+  let normalProcessed = [];
+  let normalFailed = [];
+
+  if (payload.length > 0) {
+    console.log(`Processing ${payload.length} normal-sized files (batch)`);
+
+    let ocrData;
+    try {
+      ocrData = await postJsonWithRetry(ocrUrl, payload, {
+        tries: OCR_RETRIES,
+        timeout: OCR_TIMEOUT_MS,
+      });
+    } catch (e) {
+      const errorCategory = categorizeOCRError(e.message);
+      console.error(
+        `[${errorCategory}] Primary OCR failed for normal batch (${e.message}); deferring to fallback.`
+      );
+      const taggedPayload = payload.map(item => ({
+        ...item,
+        errorCategory,
+        errorMessage: e.message
+      }));
+      normalFailed = taggedPayload;
+      ocrData = null;
+    }
+
+    if (ocrData) {
+      // Process normal batch results (existing logic)
+      normalProcessed = await processOCRResults(ocrData, payload, fileMetaDataMap, job, base_url, wmsUrl, userName, passWord);
+    }
+  } else {
+    console.log("No normal-sized files to process in this batch");
+  }
+
+  // Process large files independently (one at a time)
+  let largeProcessed = [];
+  let largeFailed = [];
+
+  if (SEPARATE_LARGE_FILES && largeFilePayload.length > 0) {
+    console.log(`\n📦 Processing ${largeFilePayload.length} LARGE files independently (one at a time)`);
+
+    for (let i = 0; i < largeFilePayload.length; i++) {
+      const largeFile = largeFilePayload[i];
+      console.log(`\n[${i + 1}/${largeFilePayload.length}] Processing large file: ${largeFile._id} (${largeFile.fileSize.toFixed(2)}MB)`);
+
+      try {
+        const largeFileOcrData = await postJsonWithRetry(
+          ocrUrl,
+          [largeFile], // Process one file at a time
+          {
+            tries: OCR_RETRIES,
+            timeout: LARGE_FILE_TIMEOUT_MS, // Extended timeout for large files
+          }
+        );
+
+        // Process large file results
+        const largeFileResults = await processOCRResults(
+          largeFileOcrData,
+          [largeFile],
+          fileMetaDataMap,
+          job,
+          base_url,
+          wmsUrl,
+          userName,
+          passWord
+        );
+
+        largeProcessed.push(...largeFileResults);
+        console.log(`✅ Large file ${largeFile._id} processed successfully`);
+
+        // Add cooldown after large file to allow GPU memory cleanup
+        if (i < largeFilePayload.length - 1) {
+          console.log(`Cooldown ${OCR_COOLDOWN_MS}ms before next large file...`);
+          await sleep(OCR_COOLDOWN_MS);
+        }
+
+      } catch (e) {
+        const errorCategory = categorizeOCRError(e.message);
+        console.error(
+          `[${errorCategory}] Large file OCR failed for ${largeFile._id} (${e.message}); deferring to fallback.`
+        );
+        largeFailed.push({
+          ...largeFile,
+          errorCategory,
+          errorMessage: e.message
+        });
+      }
+    }
+
+    console.log(`\n✅ Large file processing complete: ${largeProcessed.length} succeeded, ${largeFailed.length} failed\n`);
+  }
+
+  // If both queues are empty, return early
+  if (payload.length === 0 && largeFilePayload.length === 0) {
     return {
       processed: [],
       failedForFallback: forFallback.length
@@ -659,37 +911,29 @@ async function processPrimaryBatch(
     };
   }
 
-  // one OCR call for the batch
-  let ocrData;
-  try {
-    ocrData = await postJsonWithRetry(ocrUrl, payload, {
-      tries: OCR_RETRIES,
-      timeout: OCR_TIMEOUT_MS,
-    });
-  } catch (e) {
-    const errorCategory = categorizeOCRError(e.message);
-    console.error(
-      `[${errorCategory}] Primary OCR failed for batch (${e.message}); deferring entire payload to fallback.`
-    );
-    // Tag failed items with error category for better tracking
-    const taggedPayload = payload.map(item => ({
-      ...item,
-      errorCategory,
-      errorMessage: e.message
-    }));
-    return { processed: [], failedForFallback: [...forFallback, ...taggedPayload] };
-  }
+  // Combine results from normal and large file processing
+  const allProcessed = [...normalProcessed, ...largeProcessed];
+  const allFailed = [...forFallback, ...normalFailed, ...largeFailed];
 
+  console.log(`\nBatch Summary: ${allProcessed.length} total processed, ${allFailed.length} deferred to fallback`);
+
+  return {
+    processed: allProcessed,
+    failedForFallback: allFailed.length > 0 ? allFailed : [],
+  };
+}
+
+// Helper function to process OCR results and perform SAP validation
+async function processOCRResults(ocrData, payload, fileMetaDataMap, job, base_url, wmsUrl, userName, passWord) {
   if (!Array.isArray(ocrData)) {
-    console.warn(`OCR returned non-array; deferring payload to fallback.`);
-    return { processed: [], failedForFallback: [...forFallback, ...payload] };
+    console.warn(`OCR returned non-array; cannot process results.`);
+    return [];
   }
 
-  console.log(`OCR returned ${ocrData.length} item(s) for this batch`);
+  console.log(`OCR returned ${ocrData.length} item(s) for processing`);
 
   const byId = new Map(ocrData.map((x) => [x._id, x]));
   const processed = [];
-  const failedForFallback = [...forFallback];
 
   // Process each OCR result and perform SAP validation
   for (const rec of payload) {
@@ -698,7 +942,7 @@ async function processPrimaryBatch(
     if (d && fileData && fileData.FILE_NAME) {
       const pr = toProcessedRecord(d, rec._id, job, fileData, base_url);
       if (pr) {
-        // ======== NEW: SAP API VALIDATION ========
+        // Perform SAP API validation
         const validatedRecord = await performSapCheck(
           pr,
           wmsUrl,
@@ -706,15 +950,11 @@ async function processPrimaryBatch(
           passWord
         );
         processed.push(validatedRecord);
-      } else {
-        failedForFallback.push(rec); // keep for fallback if mapping failed
       }
-    } else {
-      failedForFallback.push(rec);
     }
   }
 
-  return { processed, failedForFallback };
+  return processed;
 }
 
 // Helper function to process a fallback group
@@ -1265,12 +1505,25 @@ async function scheduleJobs() {
     const ipRes = await fetchWithTimeout(
       `${BASE_URL}/ipAddress/ip-address`
     ).catch(() => null);
-    const ipData = await ipRes.json();
-    const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
 
+    if (!ipRes || !ipRes.ok) {
+      console.error("Failed to fetch IP address configuration");
+      return false;
+    }
+
+    const ipData = await ipRes.json();
+    console.log("IP Data received:", JSON.stringify(ipData, null, 2));
+
+    if (!ipData || !ipData.ip || !ipData.secondaryIp) {
+      console.error("Invalid IP data received:", ipData);
+      console.error("Expected format: { ip: '...', secondaryIp: '...' }");
+      return false;
+    }
+
+    const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
     let base_url = `http://${ipData.secondaryIp}:3000/api`;
 
-    
+    console.log("Using OCR URL:", ocrUrl);
     console.log("Using base_url:", base_url);
     const wmsRes = await fetchWithTimeout(`${BASE_URL}/save-wms-url`);
     const {
