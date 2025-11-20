@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const filename = searchParams.get("filename");
 
+  console.log(`[ACCESS-FILE] Request received for filename: ${filename}`);
+
   if (!filename) {
+    console.error("[ACCESS-FILE] No filename provided in request");
     return NextResponse.json(
       { message: "Filename is required" },
       { status: 400 }
@@ -19,11 +22,35 @@ export async function GET(req: NextRequest) {
   }
 
   const filePath = path.join(process.cwd(), "public/file", filename);
-  console.log("file path-> ", filePath);
+  console.log(`[ACCESS-FILE] Resolved file path: ${filePath}`);
 
   if (!fs.existsSync(filePath)) {
-    return NextResponse.json({ message: "File not found" }, { status: 404 });
+    console.error(`[ACCESS-FILE] File not found: ${filePath}`);
+    console.error(`[ACCESS-FILE] Checked directory: ${path.join(process.cwd(), "public/file")}`);
+
+    // List files in directory for debugging
+    try {
+      const publicFileDir = path.join(process.cwd(), "public/file");
+      if (fs.existsSync(publicFileDir)) {
+        const files = fs.readdirSync(publicFileDir);
+        console.error(`[ACCESS-FILE] Available files in directory (${files.length} total):`);
+        if (files.length <= 10) {
+          files.forEach(f => console.error(`  - ${f}`));
+        } else {
+          files.slice(0, 5).forEach(f => console.error(`  - ${f}`));
+          console.error(`  ... and ${files.length - 5} more files`);
+        }
+      } else {
+        console.error(`[ACCESS-FILE] Directory does not exist: ${publicFileDir}`);
+      }
+    } catch (listErr) {
+      console.error(`[ACCESS-FILE] Could not list directory:`, listErr);
+    }
+
+    return NextResponse.json({ message: "File not found", requestedFile: filename }, { status: 404 });
   }
+
+  console.log(`[ACCESS-FILE] File found: ${filename}`);
 
   // Check file size
   const stat = fs.statSync(filePath);

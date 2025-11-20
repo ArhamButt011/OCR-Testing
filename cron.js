@@ -143,8 +143,12 @@ async function isUrlOk(u) {
       { headers: { Range: "bytes=0-0" } },
       5000
     );
+    if (!res.ok) {
+      console.warn(`[PREFLIGHT] URL returned HTTP ${res.status} ${res.statusText}: ${u}`);
+    }
     return res.ok;
-  } catch {
+  } catch (err) {
+    console.warn(`[PREFLIGHT] URL check exception: ${err.message} for ${u}`);
     return false;
   }
 }
@@ -624,11 +628,22 @@ async function processPrimaryBatch(
         const fileData = await fileRes.json();
         fileMetaDataMap.set(fileId, fileData);
 
-        await fetchWithTimeout(`${BASE_URL}/pod/store`, {
+        const storeRes = await fetchWithTimeout(`${BASE_URL}/pod/store`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileId: fileData.FILE_ID }),
         });
+
+        if (!storeRes.ok) {
+          const errorData = await storeRes.json().catch(() => ({}));
+          const errorDetail = errorData.error || errorData.originalError || 'Unknown error';
+          throw new Error(`file meta ${fileId} HTTP_${storeRes.status}: ${errorDetail}`);
+        }
+
+        const storeData = await storeRes.json();
+        if (storeData.warning && storeData.rowsAffected === 0) {
+          console.warn(`[WARNING] ${fileId}: ${storeData.message}`);
+        }
 
         // Fix: Validate and sanitize FILE_NAME to prevent missing protocol errors
         const fileName = fileData.FILE_NAME || "";
@@ -645,12 +660,19 @@ async function processPrimaryBatch(
           validBaseUrl = `http://${validBaseUrl}`;
         }
 
-        const filePath = `${base_url}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+        const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
+
+        console.log(`[PREFLIGHT] Checking URL for ${fileId}: ${filePath}`);
 
         // Pre-flight URL check
         const urlOk = await isUrlOk(filePath);
         if (!urlOk) {
-          console.warn(`Preflight URL check failed; defer to fallback: ${fileId}`);
+          console.warn(`[PREFLIGHT] URL check failed for ${fileId}`);
+          console.warn(`  - File: ${safeFileName}`);
+          console.warn(`  - Base URL: ${base_url}`);
+          console.warn(`  - Validated URL: ${validBaseUrl}`);
+          console.warn(`  - Full path: ${filePath}`);
+          console.warn(`  - Deferring to fallback`);
           forFallback.push({
             _id: fileId,
             file_url_or_path: filePath,
@@ -658,6 +680,8 @@ async function processPrimaryBatch(
             errorCategory: 'URL_CHECK_FAILED'
           });
         } else {
+          console.log(`[PREFLIGHT] URL check passed for ${fileId}`);
+
           // Check file size (if large file separation is enabled)
           let fileSize = null;
           if (SEPARATE_LARGE_FILES) {
@@ -1414,9 +1438,9 @@ async function scheduleJobs() {
       `${BASE_URL}/ipAddress/ip-address`
     ).catch(() => null);
     const ipData = await ipRes.json();
-    const ocrUrl = OCR_URL;
+    const ocrUrl = OCR_URL
 
-    let base_url = BASE_URL;
+    let base_url = BASE_URL
 
     
     console.log("Using base_url:", base_url);
