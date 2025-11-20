@@ -33,7 +33,16 @@ const SAVE_CHUNK_SIZE = Number(process.env.SAVE_CHUNK_SIZE || 50);
 const OCR_COOLDOWN_MS = Number(process.env.OCR_COOLDOWN_MS || 10000);
 const OCR_GC_URL = process.env.OCR_GC_URL || "";
 
+// ======== LARGE FILE HANDLING CONFIG ========
+const LARGE_FILE_THRESHOLD_MB = Number(process.env.LARGE_FILE_THRESHOLD_MB || 10); // 10MB default
+const LARGE_FILE_THRESHOLD_BYTES = LARGE_FILE_THRESHOLD_MB * 1024 * 1024;
+const LARGE_FILE_BATCH_SIZE = Number(process.env.LARGE_FILE_BATCH_SIZE || 1); // Process large files one at a time
+const LARGE_FILE_TIMEOUT_MS = Number(process.env.LARGE_FILE_TIMEOUT_MS || 300000); // 5 minutes for large files
+const SEPARATE_LARGE_FILES = (process.env.SEPARATE_LARGE_FILES || "true") === "true";
+
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
+console.log(`Large file separation: ${SEPARATE_LARGE_FILES ? 'ENABLED' : 'DISABLED'}`);
+console.log(`Large file threshold: ${LARGE_FILE_THRESHOLD_MB}MB, batch size: ${LARGE_FILE_BATCH_SIZE}`);
 function normalizeQuantity(value) {
   // Handle null, undefined, or empty string
   if (value === null || value === undefined || value === "") {
@@ -91,7 +100,7 @@ async function postJsonWithRetry(
   for (let i = 1; i <= tries; i++) {
     try {
       const requestTimeout = Math.min(timeout, PROXY_DEADLINE_MS);
-console.log('jsonBody-> ', jsonBody?.map(x => x.file_url_or_path));
+
       const res = await fetchWithTimeout(
         url,
         {
@@ -103,7 +112,6 @@ console.log('jsonBody-> ', jsonBody?.map(x => x.file_url_or_path));
       );
       const text = await res.text();
       if (!res.ok) {
-        console.log('ocr response not ok-> ', res)
         console.error(
           `OCR HTTP ${res.status} ${res.statusText}: ${text.slice(0, 500)}`
         );
@@ -138,6 +146,42 @@ async function isUrlOk(u) {
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+async function getFileSize(fileUrl) {
+  /**
+   * Get file size in bytes from URL using HEAD request
+   * Returns: { size: number, isLarge: boolean } or null if unavailable
+   */
+  try {
+    const res = await fetchWithTimeout(
+      fileUrl,
+      { method: 'HEAD' },
+      5000
+    );
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const contentLength = res.headers.get('content-length');
+    if (!contentLength) {
+      return null;
+    }
+
+    const sizeBytes = parseInt(contentLength, 10);
+    const sizeMB = sizeBytes / (1024 * 1024);
+    const isLarge = sizeBytes > LARGE_FILE_THRESHOLD_BYTES;
+
+    return {
+      size: sizeBytes,
+      sizeMB: sizeMB,
+      isLarge: isLarge
+    };
+  } catch (err) {
+    console.error(`Failed to get file size for ${fileUrl}: ${err.message}`);
+    return null;
   }
 }
 
@@ -563,6 +607,7 @@ async function processPrimaryBatch(
   passWord
 ) {
   const payload = [];
+  const largeFilePayload = []; // Separate queue for large files
   const fileMetaDataMap = new Map();
   const forFallback = []; // minimal records to retry later
 
@@ -613,6 +658,12 @@ async function processPrimaryBatch(
             errorCategory: 'URL_CHECK_FAILED'
           });
         } else {
+          // Check file size (if large file separation is enabled)
+          let fileSize = null;
+          if (SEPARATE_LARGE_FILES) {
+            fileSize = await getFileSize(filePath);
+          }
+
           // PDF validation check
           const pdfValidation = await validatePdfStructure(filePath);
           if (!pdfValidation.valid) {
@@ -625,11 +676,26 @@ async function processPrimaryBatch(
               errorDetails: pdfValidation.details
             });
           } else {
-            payload.push({
-              _id: fileId,
-              file_url_or_path: filePath,
-              FILE_TABLE: fileTable,
-            });
+            // Separate large files into different batch
+            if (SEPARATE_LARGE_FILES && fileSize?.isLarge) {
+              console.log(`Large file detected (${fileSize.sizeMB.toFixed(2)}MB): ${fileId} - queuing separately`);
+              largeFilePayload.push({
+                _id: fileId,
+                file_url_or_path: filePath,
+                FILE_TABLE: fileTable,
+                fileSize: fileSize.sizeMB,
+              });
+            } else {
+              if (fileSize) {
+                console.log(`Normal file (${fileSize.sizeMB.toFixed(2)}MB): ${fileId}`);
+              }
+              payload.push({
+                _id: fileId,
+                file_url_or_path: filePath,
+                FILE_TABLE: fileTable,
+                fileSize: fileSize?.sizeMB,
+              });
+            }
           }
         }
       } catch (e) {
@@ -648,7 +714,100 @@ async function processPrimaryBatch(
     })
   );
 
-  if (payload.length === 0) {
+  // Process normal-sized files
+  let normalProcessed = [];
+  let normalFailed = [];
+
+  if (payload.length > 0) {
+    console.log(`Processing ${payload.length} normal-sized files (batch)`);
+
+    let ocrData;
+    try {
+      ocrData = await postJsonWithRetry(ocrUrl, payload, {
+        tries: OCR_RETRIES,
+        timeout: OCR_TIMEOUT_MS,
+      });
+    } catch (e) {
+      const errorCategory = categorizeOCRError(e.message);
+      console.error(
+        `[${errorCategory}] Primary OCR failed for normal batch (${e.message}); deferring to fallback.`
+      );
+      const taggedPayload = payload.map(item => ({
+        ...item,
+        errorCategory,
+        errorMessage: e.message
+      }));
+      normalFailed = taggedPayload;
+      ocrData = null;
+    }
+
+    if (ocrData) {
+      // Process normal batch results (existing logic)
+      normalProcessed = await processOCRResults(ocrData, payload, fileMetaDataMap, job, wmsUrl, userName, passWord);
+    }
+  } else {
+    console.log("No normal-sized files to process in this batch");
+  }
+
+  // Process large files independently (one at a time)
+  let largeProcessed = [];
+  let largeFailed = [];
+
+  if (SEPARATE_LARGE_FILES && largeFilePayload.length > 0) {
+    console.log(`\n📦 Processing ${largeFilePayload.length} LARGE files independently (one at a time)`);
+
+    for (let i = 0; i < largeFilePayload.length; i++) {
+      const largeFile = largeFilePayload[i];
+      console.log(`\n[${i + 1}/${largeFilePayload.length}] Processing large file: ${largeFile._id} (${largeFile.fileSize.toFixed(2)}MB)`);
+
+      try {
+        const largeFileOcrData = await postJsonWithRetry(
+          ocrUrl,
+          [largeFile], // Process one file at a time
+          {
+            tries: OCR_RETRIES,
+            timeout: LARGE_FILE_TIMEOUT_MS, // Extended timeout for large files
+          }
+        );
+
+        // Process large file results
+        const largeFileResults = await processOCRResults(
+          largeFileOcrData,
+          [largeFile],
+          fileMetaDataMap,
+          job,
+          wmsUrl,
+          userName,
+          passWord
+        );
+
+        largeProcessed.push(...largeFileResults);
+        console.log(`✅ Large file ${largeFile._id} processed successfully`);
+
+        // Add cooldown after large file to allow GPU memory cleanup
+        if (i < largeFilePayload.length - 1) {
+          console.log(`Cooldown ${OCR_COOLDOWN_MS}ms before next large file...`);
+          await sleep(OCR_COOLDOWN_MS);
+        }
+
+      } catch (e) {
+        const errorCategory = categorizeOCRError(e.message);
+        console.error(
+          `[${errorCategory}] Large file OCR failed for ${largeFile._id} (${e.message}); deferring to fallback.`
+        );
+        largeFailed.push({
+          ...largeFile,
+          errorCategory,
+          errorMessage: e.message
+        });
+      }
+    }
+
+    console.log(`\n✅ Large file processing complete: ${largeProcessed.length} succeeded, ${largeFailed.length} failed\n`);
+  }
+
+  // If both queues are empty, return early
+  if (payload.length === 0 && largeFilePayload.length === 0) {
     return {
       processed: [],
       failedForFallback: forFallback.length
@@ -660,46 +819,38 @@ async function processPrimaryBatch(
     };
   }
 
-  // one OCR call for the batch
-  let ocrData;
-  try {
-    ocrData = await postJsonWithRetry(ocrUrl, payload, {
-      tries: OCR_RETRIES,
-      timeout: OCR_TIMEOUT_MS,
-    });
-  } catch (e) {
-    const errorCategory = categorizeOCRError(e.message);
-    console.error(
-      `[${errorCategory}] Primary OCR failed for batch (${e.message}); deferring entire payload to fallback.`
-    );
-    // Tag failed items with error category for better tracking
-    const taggedPayload = payload.map(item => ({
-      ...item,
-      errorCategory,
-      errorMessage: e.message
-    }));
-    return { processed: [], failedForFallback: [...forFallback, ...taggedPayload] };
-  }
+  // Combine results from normal and large file processing
+  const allProcessed = [...normalProcessed, ...largeProcessed];
+  const allFailed = [...forFallback, ...normalFailed, ...largeFailed];
 
+  console.log(`\nBatch Summary: ${allProcessed.length} total processed, ${allFailed.length} deferred to fallback`);
+
+  return {
+    processed: allProcessed,
+    failedForFallback: allFailed.length > 0 ? allFailed : [],
+  };
+}
+
+// Helper function to process OCR results and perform SAP validation
+async function processOCRResults(ocrData, payload, fileMetaDataMap, job, wmsUrl, userName, passWord) {
   if (!Array.isArray(ocrData)) {
-    console.warn(`OCR returned non-array; deferring payload to fallback.`);
-    return { processed: [], failedForFallback: [...forFallback, ...payload] };
+    console.warn(`OCR returned non-array; cannot process results.`);
+    return [];
   }
 
-  console.log(`OCR returned ${ocrData.length} item(s) for this batch`);
+  console.log(`OCR returned ${ocrData.length} item(s) for processing`);
 
   const byId = new Map(ocrData.map((x) => [x._id, x]));
   const processed = [];
-  const failedForFallback = [...forFallback];
 
   // Process each OCR result and perform SAP validation
   for (const rec of payload) {
     const d = byId.get(rec._id);
     const fileData = fileMetaDataMap.get(rec._id);
     if (d && fileData && fileData.FILE_NAME) {
-      const pr = toProcessedRecord(d, rec._id, job, fileData, base_url);
+      const pr = toProcessedRecord(d, rec._id, job, fileData);
       if (pr) {
-        // ======== NEW: SAP API VALIDATION ========
+        // Perform SAP API validation
         const validatedRecord = await performSapCheck(
           pr,
           wmsUrl,
@@ -707,15 +858,11 @@ async function processPrimaryBatch(
           passWord
         );
         processed.push(validatedRecord);
-      } else {
-        failedForFallback.push(rec); // keep for fallback if mapping failed
       }
-    } else {
-      failedForFallback.push(rec);
     }
   }
 
-  return { processed, failedForFallback };
+  return processed;
 }
 
 // Helper function to process a fallback group
@@ -1267,9 +1414,9 @@ async function scheduleJobs() {
       `${BASE_URL}/ipAddress/ip-address`
     ).catch(() => null);
     const ipData = await ipRes.json();
-    const ocrUrl = OCR_URL;
+    const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
 
-    let base_url = BASE_URL;
+    let base_url = `http://${ipData.secondaryIp}:3000/api`;
 
     
     console.log("Using base_url:", base_url);
