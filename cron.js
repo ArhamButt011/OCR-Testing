@@ -91,7 +91,7 @@ async function postJsonWithRetry(
   for (let i = 1; i <= tries; i++) {
     try {
       const requestTimeout = Math.min(timeout, PROXY_DEADLINE_MS);
-console.log('jsonBody-> ', jsonBody.file_url_or_path)
+console.log('jsonBody-> ', jsonBody?.map(x => x.file_url_or_path));
       const res = await fetchWithTimeout(
         url,
         {
@@ -102,7 +102,6 @@ console.log('jsonBody-> ', jsonBody.file_url_or_path)
         requestTimeout
       );
       const text = await res.text();
-      console.log('ocr response text-> ', text)
       if (!res.ok) {
         console.log('ocr response not ok-> ', res)
         console.error(
