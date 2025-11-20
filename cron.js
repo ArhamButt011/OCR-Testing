@@ -1414,9 +1414,9 @@ async function scheduleJobs() {
       `${BASE_URL}/ipAddress/ip-address`
     ).catch(() => null);
     const ipData = await ipRes.json();
-    const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
+    const ocrUrl = OCR_URL;
 
-    let base_url = `http://${ipData.secondaryIp}:3000/api`;
+    let base_url = BASE_URL;
 
     
     console.log("Using base_url:", base_url);
