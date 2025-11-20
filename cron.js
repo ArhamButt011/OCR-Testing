@@ -91,7 +91,7 @@ async function postJsonWithRetry(
   for (let i = 1; i <= tries; i++) {
     try {
       const requestTimeout = Math.min(timeout, PROXY_DEADLINE_MS);
-
+console.log('jsonBody-> ', jsonBody)
       const res = await fetchWithTimeout(
         url,
         {
@@ -102,6 +102,7 @@ async function postJsonWithRetry(
         requestTimeout
       );
       const text = await res.text();
+      console.log('ocr response text-> ', text)
       if (!res.ok) {
         console.error(
           `OCR HTTP ${res.status} ${res.statusText}: ${text.slice(0, 500)}`
