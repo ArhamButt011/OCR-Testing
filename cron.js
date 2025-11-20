@@ -41,8 +41,18 @@ const LARGE_FILE_TIMEOUT_MS = Number(process.env.LARGE_FILE_TIMEOUT_MS || 300000
 const SEPARATE_LARGE_FILES = (process.env.SEPARATE_LARGE_FILES || "true") === "true";
 
 console.log("OCR Cron Job Script Initialized (deferred-fallback mode)");
+console.log("=== Configuration ===");
+console.log(`Base URL: ${BASE_URL}`);
+console.log(`OCR Timeout: ${OCR_TIMEOUT_MS}ms (${(OCR_TIMEOUT_MS/1000).toFixed(1)}s)`);
+console.log(`Proxy Deadline: ${PROXY_DEADLINE_MS}ms (${(PROXY_DEADLINE_MS/1000).toFixed(1)}s)`);
+console.log(`Effective Timeout: ${Math.min(OCR_TIMEOUT_MS, PROXY_DEADLINE_MS)}ms`);
+console.log(`OCR Retries: ${OCR_RETRIES}`);
+console.log(`Batch Size: ${BATCH_SIZE}`);
+console.log(`Primary Concurrency: ${PRIMARY_CONCURRENCY}`);
 console.log(`Large file separation: ${SEPARATE_LARGE_FILES ? 'ENABLED' : 'DISABLED'}`);
 console.log(`Large file threshold: ${LARGE_FILE_THRESHOLD_MB}MB, batch size: ${LARGE_FILE_BATCH_SIZE}`);
+console.log(`Large file timeout: ${LARGE_FILE_TIMEOUT_MS}ms (${(LARGE_FILE_TIMEOUT_MS/1000).toFixed(1)}s)`);
+console.log("==================");
 function normalizeQuantity(value) {
   // Handle null, undefined, or empty string
   if (value === null || value === undefined || value === "") {
@@ -97,9 +107,19 @@ async function postJsonWithRetry(
   { tries = OCR_RETRIES, timeout = OCR_TIMEOUT_MS } = {}
 ) {
   let lastErr;
+  const fileCount = Array.isArray(jsonBody) ? jsonBody.length : 1;
+  const fileIds = Array.isArray(jsonBody) ? jsonBody.map(f => f._id).join(', ') : 'unknown';
+
+  console.log(`[OCR-REQUEST] Starting request for ${fileCount} file(s): ${fileIds}`);
+  console.log(`[OCR-REQUEST] URL: ${url}`);
+  console.log(`[OCR-REQUEST] Timeout: ${timeout}ms, Max retries: ${tries}`);
+
   for (let i = 1; i <= tries; i++) {
     try {
       const requestTimeout = Math.min(timeout, PROXY_DEADLINE_MS);
+      const startTime = Date.now();
+
+      console.log(`[OCR-REQUEST] Attempt ${i}/${tries} - timeout set to ${requestTimeout}ms`);
 
       const res = await fetchWithTimeout(
         url,
@@ -110,26 +130,50 @@ async function postJsonWithRetry(
         },
         requestTimeout
       );
+
+      const duration = Date.now() - startTime;
+      console.log(`[OCR-REQUEST] Request completed in ${duration}ms (${(duration/1000).toFixed(2)}s)`);
+
       const text = await res.text();
       if (!res.ok) {
         console.error(
-          `OCR HTTP ${res.status} ${res.statusText}: ${text.slice(0, 500)}`
+          `[OCR-REQUEST] HTTP ${res.status} ${res.statusText}: ${text.slice(0, 500)}`
         );
         throw new Error(`HTTP_${res.status}`);
       }
       try {
-        return JSON.parse(text);
+        const result = JSON.parse(text);
+        console.log(`[OCR-REQUEST] ✓ Success after ${i} attempt(s), duration: ${(duration/1000).toFixed(2)}s`);
+        return result;
       } catch (e) {
-        console.error("OCR response not JSON:", text.slice(0, 200));
+        console.error("[OCR-REQUEST] Response not JSON:", text.slice(0, 200));
         throw new Error("NON_JSON_RESPONSE");
       }
     } catch (e) {
       lastErr = e;
       const backoff = OCR_RETRY_BASE_BACKOFF * i;
-      console.warn(
-        `postJsonWithRetry attempt ${i} failed: ${e.message}. Backing off ${backoff}ms...`
-      );
-      await sleep(backoff);
+
+      // Check if it's an abort error
+      if (e.name === 'AbortError' || e.message.includes('aborted')) {
+        console.error(
+          `[OCR-REQUEST] ✗ Attempt ${i}/${tries} ABORTED (timeout: ${timeout}ms). ${e.message}`
+        );
+      } else {
+        console.error(
+          `[OCR-REQUEST] ✗ Attempt ${i}/${tries} failed: ${e.message}`
+        );
+      }
+
+      if (i < tries) {
+        console.warn(
+          `[OCR-REQUEST] Backing off ${backoff}ms before retry ${i + 1}/${tries}...`
+        );
+        await sleep(backoff);
+      } else {
+        console.error(
+          `[OCR-REQUEST] ✗ All ${tries} attempts failed for ${fileCount} file(s)`
+        );
+      }
     }
   }
   throw lastErr;
@@ -610,6 +654,20 @@ async function processPrimaryBatch(
   userName,
   passWord
 ) {
+  // Validate base_url parameter
+  if (!base_url || typeof base_url !== 'string') {
+    console.error(`[BATCH] Invalid base_url: ${base_url}. Cannot process batch.`);
+    return {
+      processed: [],
+      failedForFallback: batch.map((it) => ({
+        _id: it.FILE_ID || it.file_id,
+        FILE_TABLE: it.FILE_TABLE || it.file_table,
+        errorCategory: 'INVALID_BASE_URL',
+        errorMessage: `base_url is ${base_url}`
+      })),
+    };
+  }
+
   const payload = [];
   const largeFilePayload = []; // Separate queue for large files
   const fileMetaDataMap = new Map();
@@ -655,9 +713,13 @@ async function processPrimaryBatch(
         const safeFileName = fileName.replace(/^.*[\\\/]/, '');
 
         // Validate base_url has proper protocol
-        let validBaseUrl = base_url;
-        if (!validBaseUrl.startsWith('http://') && !validBaseUrl.startsWith('https://')) {
+        let validBaseUrl = base_url || '';
+        if (validBaseUrl && !validBaseUrl.startsWith('http://') && !validBaseUrl.startsWith('https://')) {
           validBaseUrl = `http://${validBaseUrl}`;
+        }
+
+        if (!validBaseUrl) {
+          throw new Error(`Invalid base_url for ${fileId}`);
         }
 
         const filePath = `${validBaseUrl}/access-file?filename=${encodeURIComponent(safeFileName)}`;
@@ -1437,12 +1499,25 @@ async function scheduleJobs() {
     const ipRes = await fetchWithTimeout(
       `${BASE_URL}/ipAddress/ip-address`
     ).catch(() => null);
+
+    if (!ipRes || !ipRes.ok) {
+      console.error("Failed to fetch IP address configuration");
+      return false;
+    }
+
     const ipData = await ipRes.json();
-    const ocrUrl = OCR_URL
+    console.log("IP Data received:", JSON.stringify(ipData, null, 2));
 
-    let base_url = BASE_URL
+    if (!ipData || !ipData.ip || !ipData.secondaryIp) {
+      console.error("Invalid IP data received:", ipData);
+      console.error("Expected format: { ip: '...', secondaryIp: '...' }");
+      return false;
+    }
 
-    
+    const ocrUrl = OCR_URL;
+    let base_url = BASE_URL;
+
+    console.log("Using OCR URL:", ocrUrl);
     console.log("Using base_url:", base_url);
     const wmsRes = await fetchWithTimeout(`${BASE_URL}/save-wms-url`);
     const {
