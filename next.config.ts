@@ -1,8 +1,9 @@
+// next.config.ts
 import { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['oracledb'],
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.externals = [...(config.externals || []), 'oracledb'];
     return config;
   },

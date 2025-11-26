@@ -1,6 +1,7 @@
+// src/app/logs/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../context/SidebarContext";
 import Header from "../components/Header";
@@ -10,7 +11,6 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 
 import { IoIosArrowForward } from "react-icons/io";
-// import { IoIosInformationCircle } from "react-icons/io";
 import { MdDelete } from "react-icons/md";
 import { FiSearch } from "react-icons/fi";
 import { FaChevronDown } from "react-icons/fa";
@@ -18,19 +18,29 @@ import { IoCalendar } from "react-icons/io5";
 import TableSpinner from "../components/TableSpinner";
 
 export interface Log {
-  _id: string; // MongoDB ObjectId as string
+  _id: string;
   message: string;
   fileName: string;
   status: string;
   timestamp: string;
-  connectionResult: string; // ISO string, if using toISOString()
+  connectionResult: string;
+}
+
+interface LiveLogEntry {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  endpoint: string;
+  method: string;
+  statusCode: number;
+  timestamp: string;
+  metadata?: Record<string, any>;
 }
 
 export default function Page() {
   const [isFilterDropDownOpen, setIsFilterDropDownOpen] = useState(true);
 
   // States For Filteration
-
   const [fileNameFilter, setFileNameFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [oracleFilter, setOracleFilter] = useState("");
@@ -46,10 +56,24 @@ export default function Page() {
   const [totalPages, setTotalPages] = useState(1);
   const [allowPageOneFetch, setAllowPageOneFetch] = useState(false);
   const [applyFilters, setApplyFilters] = useState(false);
+
+  // Live Logs States
+  const [liveLogs, setLiveLogs] = useState<LiveLogEntry[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [levelFilter, setLevelFilter] = useState<'all' | 'success' | 'error' | 'warning' | 'info'>('all');
+  const [serviceFilter, setServiceFilter] = useState<string>('all');
+  const [maxLiveLogs, setMaxLiveLogs] = useState<number>(100);
+  const [liveSearchTerm, setLiveSearchTerm] = useState('');
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const pendingLogsRef = useRef<LiveLogEntry[]>([]);
+
   const router = useRouter();
 
   useEffect(() => {
-    const fullUrl = window.location.href; // includes protocol, hostname, port, and path
+    const fullUrl = window.location.href;
     console.log(fullUrl);
   }, []);
 
@@ -94,18 +118,17 @@ export default function Page() {
   const { isExpanded } = useSidebar();
 
   const handleSidebarStateChange = (newState: boolean) => {
-    // setIsSidebarExpanded(newState);
     return newState;
   };
 
   const handlePageChange = (newPage: number) => {
-  if (newPage !== currentPage) {
-    if (newPage > 1) {
-      setAllowPageOneFetch(true);
+    if (newPage !== currentPage) {
+      if (newPage > 1) {
+        setAllowPageOneFetch(true);
+      }
+      setCurrentPage(newPage);
     }
-    setCurrentPage(newPage);
-  }
-};
+  };
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -117,10 +140,8 @@ export default function Page() {
         status: sessionStorage.getItem("statusFilter") || "",
         connectionResult: sessionStorage.getItem("oracleFilter") || "",
       };
-      // const PageParam = currentPage.toString();
-      // console.log("Current Page:", PageParam);
+
       const queryParams = new URLSearchParams();
-      // queryParams.set("page", currentPage.toString());
 
       if (filters.fileName) queryParams.set("fileName", filters.fileName);
       if (filters.timestamp)
@@ -130,9 +151,7 @@ export default function Page() {
         queryParams.set("oracleFilter", filters.connectionResult);
 
       console.log(queryParams.toString());
-      // const searchParam = searchQuery
-      //   ? `&search=${encodeURIComponent(searchQuery)}`
-      //   : "";
+
       const response = await fetch(
         `/api/get-logs?page=${currentPage}&${queryParams.toString()}&limit=${limit}`
       );
@@ -154,6 +173,7 @@ export default function Page() {
       setLoadingTable(false);
     }
   }, [currentPage, limit]);
+
   useEffect(() => {
     if (
       applyFilters ||
@@ -163,16 +183,67 @@ export default function Page() {
       fetchUsers();
       setApplyFilters(false);
 
-      // Reset page-1 fetch flag once it's used
       if (currentPage === 1 && allowPageOneFetch) {
         setAllowPageOneFetch(false);
       }
     }
-  }, [applyFilters, currentPage, allowPageOneFetch]);
+  }, [applyFilters, currentPage, allowPageOneFetch, fetchUsers]);
 
   useEffect(() => {
     setShowButton(selectedRows.length > 0);
   }, [selectedRows]);
+
+  // Live Logs SSE Connection
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    console.log('🔌 Connecting to SSE endpoint...');
+    
+    const eventSource = new EventSource('/api/logs-stream');
+    eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log('✅ Connected to log stream');
+      setIsConnected(true);
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('❌ SSE Connection error:', error);
+      setIsConnected(false);
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'history') {
+          setLiveLogs(data.logs.slice(-maxLiveLogs));
+        } else if (data.type === 'log') {
+          if (isPaused) {
+            pendingLogsRef.current.push(data.log);
+          } else {
+            setLiveLogs(prev => {
+              const updated = [...prev, data.log];
+              return updated.slice(-maxLiveLogs);
+            });
+          }
+        }
+      } catch (error) {
+        console.error('❌ Failed to parse log data:', error);
+      }
+    };
+
+    return () => {
+      console.log('🔌 Disconnecting from log stream');
+      eventSource.close();
+    };
+  }, [isPaused, maxLiveLogs, isAuthenticated]);
+
+  useEffect(() => {
+    if (autoScroll && !isPaused) {
+      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [liveLogs, autoScroll, isPaused]);
 
   if (!isAuthenticated) return <p>Access Denied. Redirecting...</p>;
 
@@ -194,8 +265,8 @@ export default function Page() {
     sessionStorage.setItem("submittedFilter", submittedFilter);
     sessionStorage.setItem("oracleFilter", oracleFilter);
 
-    setCurrentPage(1); // ✅ Reset to first page
-    setApplyFilters(true); // ✅ Trigger fetch
+    setCurrentPage(1);
+    setApplyFilters(true);
   };
 
   const resetFiltersAndFetch = async () => {
@@ -240,6 +311,7 @@ export default function Page() {
       setSelectedRows(logs.map((log) => log._id));
     }
   };
+
   const handleDelete = async () => {
     Swal.fire({
       title: "Delete Files",
@@ -299,6 +371,102 @@ export default function Page() {
     });
   };
 
+  const clearLiveLogs = async () => {
+    try {
+      await fetch('/api/logs-clear', { method: 'POST' });
+      setLiveLogs([]);
+      pendingLogsRef.current = [];
+    } catch (error) {
+      console.error('Failed to clear logs:', error);
+    }
+  };
+
+  const togglePause = () => {
+    setIsPaused(prev => {
+      if (prev) {
+        setLiveLogs(current => {
+          const combined = [...current, ...pendingLogsRef.current];
+          return combined.slice(-maxLiveLogs);
+        });
+        pendingLogsRef.current = [];
+      }
+      return !prev;
+    });
+  };
+
+  const services = Array.from(new Set(liveLogs.map(log => {
+    const parts = log.endpoint.split('/');
+    return parts[2] || 'unknown';
+  })));
+
+  const filteredLiveLogs = liveLogs.filter(log => {
+    const matchesLevel = levelFilter === 'all' || log.type === levelFilter;
+    const matchesService = serviceFilter === 'all' || log.endpoint.includes(`/api/${serviceFilter}`);
+    const matchesSearch = liveSearchTerm === '' || 
+      log.message.toLowerCase().includes(liveSearchTerm.toLowerCase()) ||
+      log.endpoint.toLowerCase().includes(liveSearchTerm.toLowerCase());
+    return matchesLevel && matchesService && matchesSearch;
+  });
+
+  const liveStats = {
+    total: liveLogs.length,
+    errors: liveLogs.filter(l => l.type === 'error').length,
+    warnings: liveLogs.filter(l => l.type === 'warning').length,
+    info: liveLogs.filter(l => l.type === 'info' || l.type === 'success').length,
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  };
+
+  const getLogBadgeColor = (type: LiveLogEntry['type']) => {
+    const colors = {
+      success: 'bg-blue-500',
+      error: 'bg-red-500',
+      warning: 'bg-yellow-500',
+      info: 'bg-blue-500',
+    };
+    return colors[type];
+  };
+
+  const getLogIcon = (type: LiveLogEntry['type']) => {
+    const icons = {
+      success: 'ℹ️',
+      error: '❌',
+      warning: '⚠️',
+      info: 'ℹ️',
+    };
+    return icons[type];
+  };
+
+  const formatLogData = (log: LiveLogEntry) => {
+    const data: any = {
+      request_id: log.id.split('-')[0],
+      method: log.method,
+      path: log.endpoint,
+      status_code: log.statusCode,
+      event: log.type === 'success' ? 'request_completed' : 'request_started',
+      logger: 'app',
+      level: log.type,
+      timestamp: log.timestamp,
+    };
+
+    if (log.metadata?.duration) {
+      data.duration_ms = parseFloat(log.metadata.duration);
+    }
+
+    return JSON.stringify(data);
+  };
+
   return (
     <div className="flex flex-row h-screen bg-white">
       <Sidebar onStateChange={handleSidebarStateChange} />
@@ -310,15 +478,6 @@ export default function Page() {
         <Header
           leftContent="Total Logs"
           totalContent={totalLogs}
-          // rightContent={
-          //   <input
-          //     type="text"
-          //     placeholder="Search user..."
-          //     className="px-4 py-2 rounded-lg border border-gray-300"
-          //     value={searchQuery}
-          //     onChange={(e) => setSearchQuery(e.target.value)}
-          //   />
-          // }
           rightContent={
             <>
               <div className="flex gap-4 mr-3">
@@ -342,7 +501,8 @@ export default function Page() {
           }
           buttonContent={""}
         />
-        <div className="flex-1 p-4 bg-white">
+        <div className="flex-1 p-4 bg-white overflow-y-auto">
+          {/* Existing Filters */}
           <div
             className={`bg-gray-200 p-3 mb-0 transition-all duration-500 ease-in w-full sm:w-auto  ${
               isFilterDropDownOpen ? "rounded-t-lg" : "rounded-lg"
@@ -364,7 +524,7 @@ export default function Page() {
               </span>
             </div>
           </div>
-          {/* sticky top-0 z-40 */}
+
           <div
             className={`overflow-hidden transition-all duration-500 ease-in w-auto  ${
               isFilterDropDownOpen ? "max-h-[1000px] p-3" : "max-h-0"
@@ -518,6 +678,7 @@ export default function Page() {
                   }`}
                   onClick={resetFiltersAndFetch}
                   disabled={!isAnyFilterApplied()}
+                  type="button"
                 >
                   Reset Filters
                 </button>
@@ -531,6 +692,7 @@ export default function Page() {
             </form>
           </div>
 
+          {/* Existing Table */}
           {loadingTable ? (
             <div className="flex justify-center items-center">
               <TableSpinner />
@@ -660,6 +822,181 @@ export default function Page() {
               </button>
             </div>
           )}
+
+          {/* DIVIDER */}
+          <div className="my-8 border-t-2 border-gray-300"></div>
+
+          {/* LIVE API LOGS SECTION */}
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Live API Response Logs</h2>
+            
+            {/* Live Logs Filter Controls */}
+            <div className="bg-gray-200 p-4 rounded-lg mb-4">
+              <div className="flex items-center gap-3 mb-4 flex-wrap">
+                {/* Search */}
+                <div className="relative flex-1 max-w-xs">
+                  <input
+                    type="text"
+                    placeholder="Search logs..."
+                    value={liveSearchTerm}
+                    onChange={(e) => setLiveSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm"
+                  />
+                  <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+
+                {/* Level Filter */}
+                <select
+                  value={levelFilter}
+                  onChange={(e) => setLevelFilter(e.target.value as typeof levelFilter)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
+                >
+                  <option value="all">All Levels</option>
+                  <option value="error">Error</option>
+                  <option value="warning">Warning</option>
+                  <option value="info">Info</option>
+                  <option value="success">Success</option>
+                </select>
+
+                {/* Service Filter */}
+                <select
+                  value={serviceFilter}
+                  onChange={(e) => setServiceFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
+                >
+                  <option value="all">All Services</option>
+                  {services.map(service => (
+                    <option key={service} value={service}>{service}</option>
+                  ))}
+                </select>
+
+                {/* Max Logs */}
+                <select
+                  value={maxLiveLogs}
+                  onChange={(e) => setMaxLiveLogs(Number(e.target.value))}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
+                >
+                  <option value={50}>50 logs</option>
+                  <option value={100}>100 logs</option>
+                  <option value={200}>200 logs</option>
+                  <option value={500}>500 logs</option>
+                  <option value={1000}>1000 logs</option>
+                </select>
+
+                {/* Pause Button */}
+                <button
+                  onClick={togglePause}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition ${
+                    isPaused ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-500 hover:bg-orange-600'
+                  }`}
+                >
+                  {isPaused ? '▶ Resume' : '⏸ Pause'}
+                </button>
+
+                {/* Clear Button */}
+                <button
+                  onClick={clearLiveLogs}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
+                >
+                  🗑️ Clear
+                </button>
+              </div>
+
+              {/* Stats */}
+              <div className="flex items-center gap-8">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-800">{liveStats.total}</div>
+                  <div className="text-xs text-gray-500">Total</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">{liveStats.errors}</div>
+                  <div className="text-xs text-gray-500">Errors</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-600">{liveStats.warnings}</div>
+                  <div className="text-xs text-gray-500">Warnings</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{liveStats.info}</div>
+                  <div className="text-xs text-gray-500">Info</div>
+                </div>
+                <div className="text-center ml-auto">
+                  <div className={`text-xl font-bold ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+                    {isConnected ? 'Live' : 'Disconnected'}
+                  </div>
+                  <div className="text-xs text-gray-500">Status</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Logs List */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-[600px] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4 sticky top-0 bg-gray-50 pb-2 z-10">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                  <span className="text-sm font-semibold text-gray-700">Live Logs ({liveLogs.length})</span>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoScroll}
+                    onChange={(e) => setAutoScroll(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-600">Auto-scroll</span>
+                </label>
+              </div>
+
+              {filteredLiveLogs.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  <p className="text-lg">{liveSearchTerm ? 'No logs match your search' : 'No logs to display'}</p>
+                  <p className="text-sm mt-2">Make some API calls to see logs appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredLiveLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition"
+                    >
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+                        <span className="text-base">{getLogIcon(log.type)}</span>
+                        <span className="text-xs text-gray-500">{formatTimestamp(log.timestamp)}</span>
+                        <span className="text-xs text-gray-600">backend</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${getLogBadgeColor(log.type)}`}>
+                          {log.type.toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="px-4 py-3">
+                        <pre className="text-xs text-gray-700 font-mono whitespace-pre-wrap break-words">
+                          {formatLogData(log)}
+                        </pre>
+                      </div>
+
+                      <details className="px-4 pb-3">
+                        <summary className="text-xs text-[#005B97] cursor-pointer hover:text-blue-700">
+                          View Details
+                        </summary>
+                        <pre className="mt-2 text-xs text-gray-600 bg-gray-50 p-3 rounded">
+                          {JSON.stringify({
+                            message: log.message,
+                            endpoint: log.endpoint,
+                            method: log.method,
+                            statusCode: log.statusCode,
+                            metadata: log.metadata,
+                          }, null, 2)}
+                        </pre>
+                      </details>
+                    </div>
+                  ))}
+                  <div ref={logsEndRef} />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
