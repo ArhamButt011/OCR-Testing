@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
       // Listen for new logs
       const logHandler = (log: LogEntry) => {
-        console.log('📨 Broadcasting new log:', log.endpoint);
+        console.log('Broadcasting new log:', log.endpoint);
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: 'log', log })}\n\n`)
         );
