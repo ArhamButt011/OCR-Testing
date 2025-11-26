@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { withLogging } from "@/lib/apiWrapper";
 
-export async function POST() {
+async function logoutHandler() {
     try {
         return NextResponse.json({ message: "Logout successful" }, { status: 200 });
     } catch (error) {
@@ -8,3 +9,5 @@ export async function POST() {
         return NextResponse.json({ message: "Internal server error" }, { status: 500 });
     }
 }
+
+export const POST = withLogging(logoutHandler);

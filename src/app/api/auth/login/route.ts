@@ -1,12 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";   // ✅ added
 
 const SECRET_KEY = process.env.JWT_SECRET as string;
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function POST(req: Request) {
+// ------------------------
+// ORIGINAL HANDLER (unchanged)
+// ------------------------
+async function loginHandler(request: NextRequest | Request): Promise<NextResponse> {
+  const req = request as Request; // cast for json()
+
   try {
     const { email, password, role } = await req.json();
 
@@ -80,3 +86,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+
+export const POST = withLogging(loginHandler);

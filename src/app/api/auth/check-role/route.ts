@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt, { TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
+import { withLogging } from "@/lib/apiWrapper";
 
 const SECRET_KEY = process.env.JWT_SECRET as string;
 
-export async function POST(req: NextRequest) {
+// Original handler preserved exactly as-is
+async function roleCheckHandler(request: NextRequest | Request) {
+  const req = request as NextRequest;
+
   try {
     const token = req.headers.get("Authorization")?.split(" ")[1];
 
@@ -50,3 +54,4 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export const POST = withLogging(roleCheckHandler);

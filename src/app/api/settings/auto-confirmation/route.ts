@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   try {
     const { isAutoConfirmationOpen } = await req.json();
 
@@ -21,13 +22,14 @@ export async function POST(req: Request) {
       { $set: { isAutoConfirmationOpen } },
       { upsert: true }
     );
+
     return NextResponse.json({ success: true, status: isAutoConfirmationOpen ? "ON" : "OFF" });
   } catch (error) {
     return NextResponse.json({ error: error }, { status: 500 });
   }
 }
 
-export async function GET() {
+async function getHandler() {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -40,3 +42,6 @@ export async function GET() {
     return NextResponse.json({ error: error }, { status: 500 });
   }
 }
+
+export const POST = withLogging(postHandler);
+export const GET = withLogging(getHandler);

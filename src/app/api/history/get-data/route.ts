@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Filter, ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 interface Job {
     _id: ObjectId;
@@ -29,13 +30,15 @@ interface Job {
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-
-export async function GET(req: Request) {
+async function getJobsHandler(
+    request: Request,
+    context?: any
+) {
     try {
         const client = await clientPromise;
         const db = client.db(DB_NAME);
         const dataCollection = db.collection<Job>("mockData");
-        const url = new URL(req.url);
+        const url = new URL(request.url);
         const page = parseInt(url.searchParams.get("page") || "1", 10);
         const limit = parseInt(url.searchParams.get("limit") || "10", 10);
         const skip = (page - 1) * limit;
@@ -69,13 +72,6 @@ export async function GET(req: Request) {
             };
         }
 
-
-        // const filter: Filter<Job> = {
-        //     $or: [
-        //         { updatedAt: { $exists: true } },
-        //         { $expr: { $gt: ["$updatedAt", "$createdAt"] } },
-        //     ],
-        // };
         if (searchQuery) {
             const searchRegex = { $regex: searchQuery, $options: "i" };
             filter.$and = [
@@ -103,6 +99,9 @@ export async function GET(req: Request) {
     }
 }
 
-export async function OPTIONS() {
+export const GET = withLogging(getJobsHandler);
+
+async function optionsHandler() {
     return NextResponse.json({ allowedMethods: ["GET"] });
 }
+export const OPTIONS = withLogging(optionsHandler);

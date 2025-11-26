@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function POST(req: Request) {
+async function postMockDataHandler(
+  request: Request,
+  context?: any
+): Promise<NextResponse> {
   try {
-    const dataArray = await req.json();
+    const dataArray = await request.json();
     console.log('data ara-> ', dataArray)
 
     if (!Array.isArray(dataArray)) {
@@ -143,3 +147,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withLogging(postMockDataHandler);

@@ -1,14 +1,15 @@
+// src/app/api/your-endpoint/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import oracledb from "oracledb";
 import clientPromise from "@/lib/mongodb";
 import { jsonDBConnectionHandler } from "@/lib/JsonDBConfig/jsonDBConnectionHandler";
+import { withLogging } from "@/lib/apiWrapper";
 
 const SECRET_KEY = process.env.JWT_SECRET as string;
 const DB_NAME = process.env.DB_NAME || "my-next-app";
-
-export async function POST(req: NextRequest) {
+async function originalPOST(req: NextRequest) {
   let connection;
   let logMessage = "";
 
@@ -170,7 +171,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+async function originalGET(req: NextRequest) {
   try {
     const token = req.headers.get("Authorization")?.split(" ")[1];
     if (!token) {
@@ -210,7 +211,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { password, ...connectionWithoutPassword } = connection ?? {};
-    void password; // Mark as intentionally unused
+    void password; 
 
     return NextResponse.json(
       { success: true, data: connectionWithoutPassword },
@@ -228,3 +229,13 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+
+export const POST = withLogging(async (request: NextRequest | Request, context?: any) => {
+  return originalPOST(request as NextRequest);
+});
+
+// wrapped GET
+export const GET = withLogging(async (request: NextRequest | Request, context?: any) => {
+  return originalGET(request as NextRequest);
+});

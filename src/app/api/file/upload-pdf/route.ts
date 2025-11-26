@@ -5,6 +5,7 @@ import path from "path";
 import { Readable } from "stream";
 import { IncomingMessage } from "http";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
@@ -27,12 +28,13 @@ async function convertRequest(req: NextRequest): Promise<IncomingMessage> {
     return readable;
 }
 
-export async function POST(req: NextRequest) {
+async function postFileHandler(req: NextRequest | Request, context?: any) {
+    const request = req as NextRequest; // cast to NextRequest
     try {
         const client = await clientPromise;
         const db = client.db(DB_NAME);
 
-        const convertedReq = await convertRequest(req);
+        const convertedReq = await convertRequest(request);
         const form = formidable({ multiples: true });
 
         const { files } = await new Promise<{ files: formidable.Files }>((resolve, reject) => {
@@ -61,11 +63,6 @@ export async function POST(req: NextRequest) {
         for (const file of uploadedFiles) {
             if (!file || !file.filepath || !file.originalFilename) continue;
 
-            // if (file.mimetype !== "application/pdf") {
-            //     uploadedResults.push({ filename: file.originalFilename, status: "skipped (not a PDF)" });
-            //     continue;
-            // }
-
             const filename = `${file.originalFilename}`;
             const filePath = path.join(saveDirectory, filename);
             const fileUrl = `/file/${filename}`;
@@ -79,7 +76,6 @@ export async function POST(req: NextRequest) {
                 continue;
             }
 
-            // await fs.rename(file.filepath, filePath);
             try {
                 await fs.rename(file.filepath, filePath);
             } catch (error) {
@@ -147,3 +143,4 @@ export async function POST(req: NextRequest) {
     }
 }
 
+export const POST = withLogging(postFileHandler);

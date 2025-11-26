@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { getOracleConnection } from "@/lib/oracle";
+import { withLogging } from "@/lib/apiWrapper";
 
-export async function POST(req: Request) {
+async function postHandler(req: Request, context?: any) {
   try {
     const { fileId } = await req.json();
     console.log("Received fileId:", fileId);
@@ -58,8 +59,11 @@ export async function POST(req: Request) {
              FROM  ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_T B
              WHERE B.FILE_ID = :fileId
              AND NOT EXISTS (
+
         SELECT 1 FROM ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T C
+
          WHERE C.FILE_ID = B.FILE_ID
+
       )`,
       [fileId]
     );
@@ -79,3 +83,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withLogging(postHandler);

@@ -1,4 +1,3 @@
-// src/app/logs/page.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -454,15 +453,15 @@ export default function Page() {
     return colors[type];
   };
 
-  const getLogIcon = (type: LiveLogEntry['type']) => {
-    const icons = {
-      success: 'ℹ️',
-      error: '❌',
-      warning: '⚠️',
-      info: 'ℹ️',
-    };
-    return icons[type];
-  };
+  // const getLogIcon = (type: LiveLogEntry['type']) => {
+  //   const icons = {
+  //     success: 'ℹ️',
+  //     error: '❌',
+  //     warning: '⚠️',
+  //     info: 'ℹ️',
+  //   };
+  //   return icons[type];
+  // };
 
   const formatLogData = (log: LiveLogEntry) => {
     const data: FormattedLog = {
@@ -856,9 +855,9 @@ export default function Page() {
                     placeholder="Search logs..."
                     value={liveSearchTerm}
                     onChange={(e) => setLiveSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm"
+                    className="w-full pl-10 pr-4 py-2 border text-gray-700 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm placeholder:text-gray-700"
                   />
-                  <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
@@ -867,20 +866,19 @@ export default function Page() {
                 <select
                   value={levelFilter}
                   onChange={(e) => setLevelFilter(e.target.value as typeof levelFilter)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
                 >
                   <option value="all">All Levels</option>
                   <option value="error">Error</option>
                   <option value="warning">Warning</option>
-                  <option value="info">Info</option>
-                  <option value="success">Success</option>
+                  <option value="success">Info</option>
                 </select>
 
                 {/* Service Filter */}
                 <select
                   value={serviceFilter}
                   onChange={(e) => setServiceFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
                 >
                   <option value="all">All Services</option>
                   {services.map(service => (
@@ -892,7 +890,7 @@ export default function Page() {
                 <select
                   value={maxLiveLogs}
                   onChange={(e) => setMaxLiveLogs(Number(e.target.value))}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
+                  className="px-4 py-2 border text-gray-700 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005B97] text-sm bg-white"
                 >
                   <option value={50}>50 logs</option>
                   <option value={100}>100 logs</option>
@@ -916,12 +914,14 @@ export default function Page() {
                   onClick={clearLiveLogs}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
                 >
-                  🗑️ Clear
+                  <span className="flex items-center gap-1">
+                 <MdDelete className="fill-[white] text-lg transition-transform transform group-hover:scale-110 group-hover:duration-300" />Clear
+                 </span>
                 </button>
               </div>
 
               {/* Stats */}
-              <div className="flex items-center gap-8">
+              <div className="flex items-center justify-between gap-8">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-800">{liveStats.total}</div>
                   <div className="text-xs text-gray-500">Total</div>
@@ -938,7 +938,7 @@ export default function Page() {
                   <div className="text-2xl font-bold text-blue-600">{liveStats.info}</div>
                   <div className="text-xs text-gray-500">Info</div>
                 </div>
-                <div className="text-center ml-auto">
+                <div className="text-centerd">
                   <div className={`text-xl font-bold ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
                     {isConnected ? 'Live' : 'Disconnected'}
                   </div>
@@ -978,11 +978,11 @@ export default function Page() {
                       className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition"
                     >
                       <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
-                        <span className="text-base">{getLogIcon(log.type)}</span>
+                        {/* <span className="text-base">{getLogIcon(log.type)}</span> */}
                         <span className="text-xs text-gray-500">{formatTimestamp(log.timestamp)}</span>
                         <span className="text-xs text-gray-600">backend</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${getLogBadgeColor(log.type)}`}>
-                          {log.type.toUpperCase()}
+                          {log.type === 'success' ? 'INFO' : log.type === 'error' ? 'ERROR' : log.type === 'warning' ? 'WARNING' :''}
                         </span>
                       </div>
 

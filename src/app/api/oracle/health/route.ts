@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import oracledb from "oracledb";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
-export async function GET() {
+async function oracleConnectionHandler(
+  request: Request,
+  context?: any
+) {
   try {
     const client = await clientPromise;
     const db = client.db("my-next-app");
@@ -25,22 +29,21 @@ export async function GET() {
       connectString: `${ipAddress}:${portNumber}/${serviceName}`,
     });
 
-    // Perform a quick query to validate connection
     await connection.execute(`SELECT 1 FROM DUAL`);
 
-    // Close the connection
     await connection.close();
 
     return NextResponse.json({ status: "online" }, { status: 200 });
 
   } catch (error) {
     if (error instanceof Error) {
-  console.error("❌ OracleDB connection check failed:", error.message);
-  return NextResponse.json({ status: "offline", error: error.message }, { status: 500 });
-} else {
-  console.error("❌ Unknown error:", error);
-  return NextResponse.json({ status: "offline", error: "Unknown error occurred" }, { status: 500 });
-}
-
+      console.error("❌ OracleDB connection check failed:", error.message);
+      return NextResponse.json({ status: "offline", error: error.message }, { status: 500 });
+    } else {
+      console.error("❌ Unknown error:", error);
+      return NextResponse.json({ status: "offline", error: "Unknown error occurred" }, { status: 500 });
+    }
   }
 }
+
+export const GET = withLogging(oracleConnectionHandler);

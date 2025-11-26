@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-
-export async function PATCH(req: Request) {
+async function patchJobHandler(
+  req: Request,
+  context?: any 
+) {
   try {
     const { id, field, value, reviewedBy } = await req.json();
 
     console.log(reviewedBy);
-
 
     if (!id || !field || value === undefined || !reviewedBy) {
       return NextResponse.json(
@@ -24,7 +26,6 @@ export async function PATCH(req: Request) {
     const dataCollection = db.collection("mockData");
     const historyCollection = db.collection("jobHistory");
 
-    // Fetch existing job to get old value
     const existingJob = await dataCollection.findOne({ _id: new ObjectId(id) });
 
     if (!existingJob) {
@@ -34,7 +35,6 @@ export async function PATCH(req: Request) {
     const oldValue = existingJob[field];
 
     const updatedAt = new Date();
-
 
     const result = await dataCollection.updateOne(
       { _id: new ObjectId(id) },
@@ -47,10 +47,6 @@ export async function PATCH(req: Request) {
       }
     );
 
-
-
-
-    // Store the change in job history
     const historyEntry = {
       jobId: new ObjectId(id),
       field: field,
@@ -81,3 +77,5 @@ export async function PATCH(req: Request) {
     );
   }
 }
+
+export const PATCH = withLogging(patchJobHandler);

@@ -4,7 +4,7 @@ import clientPromise from "@/lib/mongodb";
 import oracledb from "oracledb";
 import fs from "fs";
 import path from "path";
-
+import { withLogging } from "@/lib/apiWrapper";
 const PUBLIC_DIR = path.join(process.cwd(), "public", "file");
 interface FileRow {
   FILE_ID: string;
@@ -51,7 +51,10 @@ function detectFileType(
   return null;
 }
 
-export async function GET(req: NextRequest) {
+async function getFileHandler(
+  req: NextRequest | Request,
+  context?: any
+): Promise<NextResponse> {
   let connection;
   let fileId: string | null = null;
   let fileTable: string | null = null;
@@ -178,7 +181,7 @@ export async function GET(req: NextRequest) {
           }
 
           console.log(
-            `✅ Successfully read ${fileId}: ${(buffer.length / 1024 / 1024).toFixed(2)}MB, detected as ${fileType.type} (${fileType.extension})`
+            `Successfully read ${fileId}: ${(buffer.length / 1024 / 1024).toFixed(2)}MB, detected as ${fileType.type} (${fileType.extension})`
           );
           resolve(buffer);
         });
@@ -288,7 +291,6 @@ export async function GET(req: NextRequest) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     const errorStack = err instanceof Error ? err.stack : undefined;
 
-    // Enhanced error logging with categorization
     console.error(
       `❌ Error retrieving file data for ${fileId || "unknown"}:`,
       {
@@ -334,3 +336,5 @@ export async function GET(req: NextRequest) {
     }
   }
 }
+
+export const GET = withLogging(getFileHandler);

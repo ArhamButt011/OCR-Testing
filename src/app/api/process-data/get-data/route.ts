@@ -1,10 +1,9 @@
-// src/app/api/process-data/get-data/route.ts
 import { NextResponse } from "next/server";
 import { getJobsFromMongo } from "@/lib/getJobsFromMongo";
 import { getOracleOCRData } from "@/lib/oracleOCRData";
 import { withLogging } from "@/lib/apiWrapper";
 
-async function handler(req: Request, context: { params: Record<string, string | string[]> }) {
+async function handler(req: Request) {
   try {
     const origin = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const connectionStatusRes = await fetch(
@@ -33,7 +32,7 @@ async function handler(req: Request, context: { params: Record<string, string | 
 
 export const GET = withLogging(handler);
 
-async function optionsHandler(req: Request, context: { params: Record<string, string | string[]> }) {
+async function optionsHandler() {
   return NextResponse.json({ allowedMethods: ["GET"] });
 }
 

@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import oracledb from "oracledb";
+import { withLogging } from "@/lib/apiWrapper";
 
-export async function POST(req: Request) {
+async function postHandler(request: Request, context?: any) {
   let connection;
 
   try {
-    const data = await req.json();
+    const data = await request.json();
 
     const { fileId, ldLegId, fileTable, crtdBy, bolOcrCat } = data;
 
-    // Get Oracle DB connection
     connection = await oracledb.getConnection({
       user: `${process.env.ORACLE_DB_USER_NAME}`,
       password: `${process.env.ORACLE_DB_PASS}`,
@@ -23,9 +23,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Start transaction
-
-    // Insert into xti_pod_stamp_reqrd_t
     await connection.execute(
       `INSERT INTO xti_pod_stamp_reqrd_t (
         file_id, BOL_OCR_CAT, CRTD_DTT, RECVR_SIGN, ARVL_DATE, CNT_RCVR, STMP_REQR, STKR_REQR, RECT_REQR, CUST_NAME, CRTD_BY, UPDT_BY, UPDT_DTT
@@ -35,19 +32,13 @@ export async function POST(req: Request) {
       { fileId, bolOcrCat, crtdBy }
     );
 
-    // Insert into xti_file_pod_t with additional fields
     await connection.execute(
       `INSERT INTO xti_file_pod_t (
         file_id, ld_leg_id, file_table, crtd_dtt, stop_id, save_type, trans_dtt, note, pod_yn, erp_yn, crtd_by, file_yn, alt_ld_leg_id, parent_path, file_path, file_crtd_dtt, file_name
       ) VALUES (
         :fileId, :ldLegId, :fileTable, SYSDATE, 0, 'NA', SYSDATE, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
       )`,
-      {
-        fileId,
-        ldLegId,
-        fileTable,
-        // ensure these variables are set/received from request, or define defaults
-      }
+      { fileId, ldLegId, fileTable }
     );
 
     await connection.commit();
@@ -55,7 +46,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: "Records inserted successfully" });
   } catch (err) {
-    // Handle rollback in case of error
     if (connection) {
       try {
         await connection.execute(`ROLLBACK`, []);
@@ -70,3 +60,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withLogging(postHandler);

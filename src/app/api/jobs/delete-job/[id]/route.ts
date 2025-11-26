@@ -1,13 +1,16 @@
 import { NextResponse, NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-
-export async function DELETE(req: NextRequest) {
+async function deleteJobHandler(
+  request: NextRequest | Request,
+  context?: any
+): Promise<NextResponse> {
   try {
-    const url = new URL(req.url);
+    const url = new URL((request as NextRequest).url);
     const id = url.pathname.split("/").pop();
 
     if (!id || !ObjectId.isValid(id)) {
@@ -30,3 +33,5 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Failed to delete job." }, { status: 500 });
   }
 }
+
+export const DELETE = withLogging(deleteJobHandler);

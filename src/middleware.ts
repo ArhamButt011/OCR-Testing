@@ -1,4 +1,3 @@
-// middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 import '@/lib/autoLogging';
 import { requestContext } from '@/lib/autoLogging';
@@ -6,13 +5,12 @@ import { requestContext } from '@/lib/autoLogging';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Wrap API requests with context
   if (
     pathname.startsWith('/api/') &&
     pathname !== '/api/logs-stream' &&
     pathname !== '/api/logs-clear'
   ) {
-    console.log('🎯 Setting context for:', pathname, request.method);
+    console.log('Setting context for:', pathname, request.method);
     return requestContext.run(
       {
         endpoint: pathname,
@@ -31,7 +29,6 @@ function handleAuthAndProceed(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
   const role = request.cookies.get('role')?.value;
 
-  // Root route
   if (pathname === '/') {
     if (token) {
       if (role === 'admin') return NextResponse.redirect(new URL('/jobs', request.url));
@@ -39,7 +36,6 @@ function handleAuthAndProceed(request: NextRequest) {
     }
   }
 
-  // Admin login or root
   if (pathname.startsWith('/admin-login') || pathname === '/') {
     if (token) {
       if (role === 'admin') return NextResponse.redirect(new URL('/jobs', request.url));
@@ -47,7 +43,6 @@ function handleAuthAndProceed(request: NextRequest) {
     }
   }
 
-  // Login route
   if (pathname === '/login') {
     if (token) {
       if (role === 'admin') return NextResponse.redirect(new URL('/jobs', request.url));
@@ -55,7 +50,6 @@ function handleAuthAndProceed(request: NextRequest) {
     }
   }
 
-  // Admin-only routes
   if (
     pathname.startsWith('/logs') ||
     pathname.startsWith('/roles-requests') ||
@@ -66,7 +60,6 @@ function handleAuthAndProceed(request: NextRequest) {
     }
   }
 
-  // Extracted data monitoring
   if (pathname === '/extracted-data-monitoring') {
     if (token && (role === 'reviewer' || role === 'standarduser')) {
       return NextResponse.next();
@@ -77,12 +70,10 @@ function handleAuthAndProceed(request: NextRequest) {
     }
   }
 
-  // Admin login with existing token
   if (pathname === '/admin-login' && token && role === 'admin') {
     return NextResponse.redirect(new URL('/jobs', request.url));
   }
 
-  // Non-admin users trying admin-only pages
   if (token && (role === 'reviewer' || role === 'standarduser')) {
     if (
       pathname.startsWith('/logs') ||
@@ -109,3 +100,4 @@ export const config = {
     '/api/:path*',
   ],
 };
+

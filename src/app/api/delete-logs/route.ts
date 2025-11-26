@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function POST(req: Request) {
+async function deleteLogsHandler(req: Request) {
   try {
     const { ids } = await req.json();
 
@@ -36,3 +37,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Failed to delete logs' }, { status: 500 });
   }
 }
+
+export const POST = withLogging(deleteLogsHandler);

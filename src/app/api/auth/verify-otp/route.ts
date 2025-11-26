@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import clientPromise from "@/lib/mongodb";
 import { Db } from "mongodb";
-
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const OTP_COLLECTION = "otps";
 
-export async function POST(req: NextRequest) {
+async function postHandler(request: NextRequest | Request, context?: any) {
+  const req = request as NextRequest;
+
   try {
     const { email, otp }: { email: string; otp: string } = await req.json();
 
@@ -37,6 +39,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Internal server error." }, { status: 500 });
   }
 }
+
+export const POST = withLogging(postHandler);
+
 
 async function getDatabase() {
   const client = await clientPromise;
