@@ -34,7 +34,23 @@ interface LiveLogEntry {
   method: string;
   statusCode: number;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: {
+  duration?: string;
+  dataKeys?: string[];
+  recordCount?: number;
+};
+}
+
+interface FormattedLog {
+  request_id: string;
+  method: string;
+  path: string;
+  status_code: number;
+  event: 'request_completed' | 'request_started';
+  logger: string;
+  level: LiveLogEntry['type'];
+  timestamp: string;
+  duration_ms?: number;
 }
 
 export default function Page() {
@@ -449,7 +465,7 @@ export default function Page() {
   };
 
   const formatLogData = (log: LiveLogEntry) => {
-    const data: any = {
+    const data: FormattedLog = {
       request_id: log.id.split('-')[0],
       method: log.method,
       path: log.endpoint,
@@ -460,9 +476,9 @@ export default function Page() {
       timestamp: log.timestamp,
     };
 
-    if (log.metadata?.duration) {
-      data.duration_ms = parseFloat(log.metadata.duration);
-    }
+   if (log.metadata?.duration) {
+  data.duration_ms = parseFloat(log.metadata.duration);
+}
 
     return JSON.stringify(data);
   };

@@ -9,6 +9,7 @@ export async function POST() {
     
     return NextResponse.json({ success: true, message: 'Logs cleared' });
   } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to clear logs' }, { status: 500 });
-  }
+  console.error('Failed to clear logs:', error);
+  return NextResponse.json({ success: false, error: 'Failed to clear logs' }, { status: 500 });
+}
 }

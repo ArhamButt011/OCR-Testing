@@ -9,7 +9,7 @@ interface LogEntry {
   method: string;
   statusCode: number;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>; // stricter type
 }
 
 class LogCapture extends EventEmitter {

@@ -2,13 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLogCapture } from './logCapture';
 
+type RouteContext = { params: Record<string, string | string[]> };
+
 type RouteHandler = (
   request: NextRequest | Request,
-  context?: any
+  context: RouteContext  // ✅ Remove the optional ?
 ) => Promise<Response | NextResponse>;
 
-export function withLogging(handler: RouteHandler): RouteHandler {
-  return async (request: NextRequest | Request, context?: any) => {
+export function withLogging(handler: RouteHandler) {
+  return async (request: NextRequest | Request, context: RouteContext) => {
     const startTime = Date.now();
     const url = new URL(request.url);
     const endpoint = url.pathname;
@@ -34,7 +36,6 @@ export function withLogging(handler: RouteHandler): RouteHandler {
         }
       } catch (e) {
         // Not JSON or empty body
-        console.log('⚠️ Response body is not JSON');
       }
 
       // Determine log type
@@ -67,7 +68,7 @@ export function withLogging(handler: RouteHandler): RouteHandler {
         },
       });
 
-      console.log('✅ Logged:', { endpoint, method, statusCode, type, message });
+      console.log('✅ Logged:', { endpoint, method, statusCode, type, duration: `${duration}ms` });
 
       return response;
     } catch (error: any) {

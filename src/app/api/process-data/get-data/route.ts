@@ -4,7 +4,7 @@ import { getJobsFromMongo } from "@/lib/getJobsFromMongo";
 import { getOracleOCRData } from "@/lib/oracleOCRData";
 import { withLogging } from "@/lib/apiWrapper";
 
-async function handler(req: Request) {
+async function handler(req: Request, context: { params: Record<string, string | string[]> }) {
   try {
     const origin = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const connectionStatusRes = await fetch(
@@ -31,10 +31,9 @@ async function handler(req: Request) {
   }
 }
 
-// Wrap the handler
 export const GET = withLogging(handler);
 
-async function optionsHandler() {
+async function optionsHandler(req: Request, context: { params: Record<string, string | string[]> }) {
   return NextResponse.json({ allowedMethods: ["GET"] });
 }
 

@@ -8,6 +8,14 @@ export interface RequestContext {
   startTime: number;
 }
 
+export interface ApiResponseBody {
+  message?: string;
+  error?: string;
+  jobs?: unknown[];
+  data?: unknown[];
+  [key: string]: unknown; // for extra optional fields
+}
+
 // Create async local storage
 export const requestContext = new AsyncLocalStorage<RequestContext>();
 
@@ -20,7 +28,10 @@ getLogCapture();
 const originalJson = NextResponse.json.bind(NextResponse);
 
 // Override NextResponse.json
-(NextResponse as any).json = function (body: any, init?: ResponseInit) {
+(NextResponse as unknown as { json: (body: ApiResponseBody, init?: ResponseInit) => Response }).json = function (
+  body: ApiResponseBody,
+  init?: ResponseInit
+) {
   const statusCode = init?.status || 200;
   const context = requestContext.getStore();
 
