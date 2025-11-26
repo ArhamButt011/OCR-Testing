@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const documentId = new ObjectId("65d123456789abcd12345678");
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function GET() {
+async function getOCRStatusHandler(
+  request: Request | any,
+  context?: any
+) {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -26,9 +30,12 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+async function postOCRStatusHandler(
+  request: Request | any,
+  context?: any
+) {
   try {
-    const { status } = await req.json();
+    const { status } = await request.json();
 
     if (!status || (status !== "start" && status !== "stop")) {
       return NextResponse.json(
@@ -59,3 +66,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const GET = withLogging(getOCRStatusHandler);
+export const POST = withLogging(postOCRStatusHandler);

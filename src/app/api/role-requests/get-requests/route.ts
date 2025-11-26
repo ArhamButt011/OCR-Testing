@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { Filter } from 'mongodb'
 import clientPromise from '@/lib/mongodb'
+import { withLogging } from '@/lib/apiWrapper'
 
 interface User {
   name?: string
@@ -9,7 +10,10 @@ interface User {
 
 const DB_NAME = process.env.DB_NAME || 'my-next-app'
 
-export async function GET(req: Request) {
+async function getUsersHandler(
+  req: Request,
+  context?: any
+) {
   try {
     const client = await clientPromise
     const db = client.db(DB_NAME)
@@ -22,12 +26,11 @@ export async function GET(req: Request) {
     const skip = (page - 1) * limit
     const searchQuery = url.searchParams.get('search') || ''
 
-    // let filter: Filter<User> = { status: { $in: [0, 1, 2] } };
     let filter: Filter<User> = {
       status: { $in: [0, 1, 2] },
       $or: [
-        { isDeleted: { $exists: false } }, // Users without the 'isDeleted' field
-        { isDeleted: false }, // Users with 'isDeleted' field set to false
+        { isDeleted: { $exists: false } },
+        { isDeleted: false },
       ],
     }
 
@@ -63,6 +66,9 @@ export async function GET(req: Request) {
   }
 }
 
-export async function OPTIONS() {
+export const GET = withLogging(getUsersHandler)
+
+async function optionsHandler() {
   return NextResponse.json({ allowedMethods: ['GET'] })
 }
+export const OPTIONS = withLogging(optionsHandler)

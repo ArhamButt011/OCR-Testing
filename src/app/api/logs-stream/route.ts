@@ -1,3 +1,4 @@
+// src/app/api/logs-stream/route.ts
 import { getLogCapture, LogEntry } from '@/lib/logCapture';
 
 export const dynamic = 'force-dynamic';

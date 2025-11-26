@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
+import { withLogging } from '@/lib/apiWrapper';
 
 type PDF = {
   name: string;
   url: string;
 };
 
-export async function GET() {
+async function getPdfHandler(
+  request: Request | any, 
+  context?: any
+) {
   try {
     const response = await fetch('https://hanneskonzept.ml-bench.com/public/api/pdf-files');
 
@@ -27,7 +31,6 @@ export async function GET() {
 
     const pdf = validPdfs[0];
 
-
     const responseData = {
       name: pdf.name,  
       url: pdf.url,  
@@ -39,3 +42,5 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const GET = withLogging(getPdfHandler);

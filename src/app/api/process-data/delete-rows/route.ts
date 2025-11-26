@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import fs from "fs/promises";
 import path from "path";
 import oracledb from "oracledb";
+import { withLogging } from "@/lib/apiWrapper";
 
 interface FileTableRow {
   FILE_TABLE: string;
@@ -15,7 +16,6 @@ interface DeleteResult {
   reason?: string;
 }
 
-// Oracle connection helper
 async function getOracleConnection(
   user: string,
   password: string,
@@ -33,7 +33,10 @@ async function getOracleConnection(
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const ORACLE_DB_USER = process.env.ORACLE_DB_USER_NAME || "YOUR_SCHEMA";
 
-export async function POST(req: Request) {
+async function postDeleteHandler(
+  req: Request,
+  context?: any
+) {
   try {
     const { ids = [] } = await req.json();
     console.log("Received IDs for deletion:", ids);
@@ -63,11 +66,9 @@ export async function POST(req: Request) {
       const stringIds: string[] = [];
 
       ids.forEach((id: string) => {
-        // Check if the ID is a valid MongoDB ObjectId (24 hex characters)
         if (ObjectId.isValid(id) && /^[a-f\d]{24}$/i.test(id)) {
           objectIds.push(new ObjectId(id));
         } else {
-          // Otherwise, treat it as a string ID (e.g., "POD_1761128658475_532")
           stringIds.push(id);
         }
       });
@@ -75,31 +76,24 @@ export async function POST(req: Request) {
       console.log("ObjectIds:", objectIds);
       console.log("String IDs:", stringIds);
 
-      // Build query to match both types of IDs
-      // Combine both ObjectIds and string IDs into a single array
       const allIds: (ObjectId | string)[] = [...objectIds, ...stringIds];
-
       const query = allIds.length > 0 
         ? { _id: { $in: allIds as unknown as ObjectId[] } } 
-        : { _id: { $in: [] } }; // Empty query if no valid IDs
+        : { _id: { $in: [] } };
 
-      // Find jobs to delete (to get file paths)
       const jobsToDelete = await jobCollection.find(query).toArray();
       const filePaths = jobsToDelete.map((job) =>
         job.pdfUrl ? path.join(process.cwd(), "public", job.pdfUrl) : null
       );
 
-      // Delete from job collection
       const jobDeleteResult = await jobCollection.deleteMany(query);
 
-      // Delete from history collection (matching on jobId field)
       const historyQuery = allIds.length > 0
         ? { jobId: { $in: allIds as unknown as ObjectId[] } }
-        : { jobId: { $in: [] } }; // Empty query if no valid IDs
+        : { jobId: { $in: [] } };
 
       const historyDeleteResult = await historyCollection.deleteMany(historyQuery);
 
-      // Delete associated files
       for (const filePath of filePaths) {
         if (filePath) {
           try {
@@ -150,7 +144,6 @@ export async function POST(req: Request) {
       const deleteSummary: DeleteResult[] = [];
       
       for (const fileId of ids) {
-        // Step 1: Get FILE_TABLE and check if it exists in all required base tables
         const lookupQuery = `
     SELECT pod.FILE_TABLE
     FROM ${ORACLE_DB_USER}.XTI_FILE_POD_T pod
@@ -176,7 +169,6 @@ export async function POST(req: Request) {
           continue;
         }
 
-        // Step 2: Delete from all known tables
         await connection.execute(
           `DELETE FROM ${ORACLE_DB_USER}.XTI_FILE_POD_OCR_T WHERE FILE_ID = :fileId`,
           [fileId]
@@ -219,3 +211,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withLogging(postDeleteHandler);

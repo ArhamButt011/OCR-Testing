@@ -2,10 +2,11 @@
 import { NextResponse } from "next/server";
 import { ObjectId, AnyBulkWriteOperation, Document, Filter } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper"; 
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function PUT(req: Request) {
+async function putHandler(req: Request, context?: any) {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -15,12 +16,11 @@ export async function PUT(req: Request) {
 
     console.log("Update body:", body);
 
-    // 🔹 Case 1: array of updates
     if (Array.isArray(body)) {
       const bulkOps: AnyBulkWriteOperation<Document>[] = body
         .map((doc) => {
           const { _id, ...updatedData } = doc;
-          if (!_id) return null; // skip invalid
+          if (!_id) return null; 
 
           let filter: Filter<Document> = { _id };
           if (ObjectId.isValid(_id)) {
@@ -52,7 +52,6 @@ export async function PUT(req: Request) {
       );
     }
 
-    // 🔹 Case 2: single update (old logic)
     const { _id, ...updatedData } = body;
     if (!_id) {
       return NextResponse.json({ error: "Missing job ID" }, { status: 400 });
@@ -84,3 +83,5 @@ export async function PUT(req: Request) {
     );
   }
 }
+
+export const PUT = withLogging(putHandler);

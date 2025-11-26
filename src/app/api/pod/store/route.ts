@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { getOracleConnection } from "@/lib/oracle";
+import { withLogging } from "@/lib/apiWrapper";
 
-export async function POST(req: Request) {
+async function postHandler(req: Request, context?: any) {
   try {
     const { fileId } = await req.json();
     console.log("Received fileId:", fileId);
@@ -82,3 +83,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withLogging(postHandler);

@@ -3,12 +3,14 @@ import { getOracleConnection } from "@/lib/oracle";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import oracledb from "oracledb";
+import { withLogging } from "@/lib/apiWrapper"; 
 
 interface FileRow {
   FILE_ID: string;
   FILE_NAME: string;
   FILE_DATA: oracledb.Lob | null;
 }
+
 function normalizeQuantity(
   value: string | number | null | undefined
 ): number | null {
@@ -30,8 +32,8 @@ function normalizeQuantity(
 
   return numValue;
 }
-export async function PUT(req: Request) {
-  //   const logs: { fileName: string; message: string }[] = []; // <-- added this
+
+async function putHandler(req: Request) {
   const logs: Array<{
     fileName: string;
     status: "added" | "updated" | "not_found";
@@ -165,10 +167,8 @@ export async function PUT(req: Request) {
         continue;
       }
 
-      // handle podDate formatting...
       const normalizedReceivedQty = normalizeQuantity(job.received);
 
-      // check for existing record in OCR table
       const existingCheck = await conn.execute(
         `SELECT FILE_ID FROM ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T WHERE FILE_ID = :fileId`,
         { fileId },
@@ -243,7 +243,7 @@ export async function PUT(req: Request) {
             symtRefs: job.refused,
             symtSeal: job.sealIntact ?? "N",
             fileId,
-            crtdDtt, // ✅ added to match placeholder
+            crtdDtt,
           }
         );
 
@@ -292,3 +292,5 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
+
+export const PUT = withLogging(putHandler);

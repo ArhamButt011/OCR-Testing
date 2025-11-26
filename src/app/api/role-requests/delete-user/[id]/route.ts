@@ -1,19 +1,22 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
+import { withLogging } from '@/lib/apiWrapper'
 
 const DB_NAME = process.env.DB_NAME || 'my-next-app'
 
-export async function DELETE(req: Request) {
+async function deleteUserHandler(
+  req: Request,
+  context?: any
+) {
   try {
     const client = await clientPromise
     const db = client.db(DB_NAME)
     const usersCollection = db.collection('users')
 
-    // Extract the user ID from the URL parameter
     const url = new URL(req.url)
     const pathSegments = url.pathname.split('/')
-    const id = pathSegments[pathSegments.length - 1] // This will get the 'id' from the URL
+    const id = pathSegments[pathSegments.length - 1] 
 
     if (!id) {
       return NextResponse.json(
@@ -22,7 +25,6 @@ export async function DELETE(req: Request) {
       )
     }
 
-    // Perform the soft delete
     const result = await usersCollection.updateOne(
       { _id: new ObjectId(id) },
       {
@@ -50,6 +52,10 @@ export async function DELETE(req: Request) {
   }
 }
 
-export async function OPTIONS() {
+export const DELETE = withLogging(deleteUserHandler)
+
+async function optionsHandler() {
   return NextResponse.json({ allowedMethods: ['DELETE'] })
 }
+
+export const OPTIONS = withLogging(optionsHandler)

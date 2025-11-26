@@ -1,13 +1,20 @@
+// src/app/api/access-file/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
+import { withLogging } from "@/lib/apiWrapper";
 
 // File size limits
 const MAX_FILE_SIZE_MB = 50;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-const STREAM_THRESHOLD_BYTES = 10 * 1024 * 1024; // 10MB - use streaming for larger files
+const STREAM_THRESHOLD_BYTES = 10 * 1024 * 1024; 
 
-export async function GET(req: NextRequest) {
+// Original GET logic wrapped
+async function getFileHandler(
+  request: NextRequest | Request,
+  context?: any
+): Promise<NextResponse> {
+  const req = request as NextRequest; 
   const { searchParams } = new URL(req.url);
   const filename = searchParams.get("filename");
 
@@ -28,7 +35,6 @@ export async function GET(req: NextRequest) {
     console.error(`[ACCESS-FILE] File not found: ${filePath}`);
     console.error(`[ACCESS-FILE] Checked directory: ${path.join(process.cwd(), "public/file")}`);
 
-    // List files in directory for debugging
     try {
       const publicFileDir = path.join(process.cwd(), "public/file");
       if (fs.existsSync(publicFileDir)) {
@@ -52,7 +58,6 @@ export async function GET(req: NextRequest) {
 
   console.log(`[ACCESS-FILE] File found: ${filename}`);
 
-  // Check file size
   const stat = fs.statSync(filePath);
   const fileSize = stat.size;
 
@@ -63,7 +68,7 @@ export async function GET(req: NextRequest) {
         fileSize: fileSize,
         maxSize: MAX_FILE_SIZE_BYTES
       },
-      { status: 413 } // Payload Too Large
+      { status: 413 } 
     );
   }
 
@@ -77,12 +82,11 @@ export async function GET(req: NextRequest) {
   };
   const contentType = mimeTypes[ext] || "application/octet-stream";
 
-  // Use streaming for large files (> 10MB)
   if (fileSize > STREAM_THRESHOLD_BYTES) {
     console.log(`Streaming large file: ${filename} (${(fileSize / 1024 / 1024).toFixed(2)}MB)`);
 
     const fileStream = fs.createReadStream(filePath, {
-      highWaterMark: 64 * 1024 // 64KB chunks for better performance
+      highWaterMark: 64 * 1024 
     });
 
     const readableStream = new ReadableStream({
@@ -98,12 +102,11 @@ export async function GET(req: NextRequest) {
         "Content-Type": contentType,
         "Content-Length": fileSize.toString(),
         "Content-Disposition": `inline; filename="${filename}"`,
-        "Accept-Ranges": "bytes", // Enable range requests for resumable downloads
+        "Accept-Ranges": "bytes", 
       },
     });
   }
 
-  // For smaller files, read fully (more efficient for small files)
   console.log(`Reading small file: ${filename} (${(fileSize / 1024).toFixed(2)}KB)`);
   const fileStream = fs.createReadStream(filePath);
   const readableStream = new ReadableStream({
@@ -121,3 +124,5 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export const GET = withLogging(getFileHandler);

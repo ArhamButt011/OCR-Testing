@@ -1,8 +1,11 @@
 import oracledb from "oracledb";
 import { NextRequest, NextResponse } from "next/server";
+import { withLogging } from "@/lib/apiWrapper";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function POST(req: NextRequest) {
+async function checkOracleConnection(
+  req: NextRequest | Request,
+  context?: any
+): Promise<NextResponse> {
   const dbConfig = {
     user: `${process.env.ORACLE_DB_USER_NAME}`,
     password: `${process.env.ORACLE_DB_PASS}`,
@@ -41,3 +44,5 @@ export async function POST(req: NextRequest) {
     }
   }
 }
+
+export const POST = withLogging(checkOracleConnection);

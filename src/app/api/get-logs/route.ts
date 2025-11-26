@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { Filter } from "mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 type Log = {
@@ -9,7 +10,10 @@ type Log = {
   connectionResult?: string;
 };
 
-export async function GET(req: Request) {
+async function getLogsHandler(
+  req: Request | any,
+  context?: any
+): Promise<NextResponse> {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -89,6 +93,9 @@ export async function GET(req: Request) {
   }
 }
 
-export async function OPTIONS() {
+export const GET = withLogging(getLogsHandler);
+
+async function optionsHandler() {
   return NextResponse.json({ allowedMethods: ["GET"] });
 }
+export const OPTIONS = withLogging(optionsHandler);

@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import clientPromise from "@/lib/mongodb";
 import { Db } from "mongodb";
+import { withLogging } from "@/lib/apiWrapper"; 
 
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const USERS_COLLECTION = "users";
 const OTPS_COLLECTION = "otps";
 
-export async function POST(req: NextRequest) {
+async function postHandler(request: NextRequest | Request) {
+  const req = request as NextRequest; 
+
   try {
     const { email }: { email: string } = await req.json();
 
@@ -44,6 +47,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
+
+export const POST = withLogging(postHandler);
 
 function validateEmail(email: string): string | null {
   if (!email) return "Email is required.";

@@ -1,13 +1,12 @@
-// import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
-// import { getOracleConnection } from "@/lib/oracle";
-// import oracledb from "oracledb";
 import { getFileExtension } from "@/lib/getMimeType";
 import { NextResponse } from "next/server";
 import oracledb from "oracledb";
 import { getOracleConnection } from "@/lib/oracle";
 import { getDBConnectionType } from "@/lib/JsonDBConfig/getDBConnectionType";
+import { withLogging } from "@/lib/apiWrapper";
+
 interface FileRow {
   FILE_ID: string;
   FILE_NAME?: string;
@@ -42,7 +41,7 @@ interface Job {
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function GET(req: Request) {
+async function getJobHandler(req: Request) {
   try {
     const url = new URL(req.url);
     const id = url.pathname.split("/").pop();
@@ -53,7 +52,6 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
-
 
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -178,7 +176,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function PATCH(req: Request) {
+async function patchJobHandler(req: Request) {
   try {
     const url = new URL(req.url);
     const id = url.pathname.split("/").pop();
@@ -294,7 +292,7 @@ export async function PATCH(req: Request) {
   }
 }
 
-export async function OPTIONS() {
+async function optionsHandler(req: Request) {
   return new NextResponse(null, {
     status: 204,
     headers: {
@@ -305,3 +303,7 @@ export async function OPTIONS() {
     },
   });
 }
+
+export const GET = withLogging(getJobHandler);
+export const PATCH = withLogging(patchJobHandler);
+export const OPTIONS = withLogging(optionsHandler);

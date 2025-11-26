@@ -1,8 +1,12 @@
 // app/api/oracle/connection-status/route.ts
 import clientPromise from "@/lib/mongodb";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { withLogging } from "@/lib/apiWrapper";
 
-export async function GET() {
+async function getConnectionStatusHandler(
+  request: NextRequest | Request,
+  context?: any
+): Promise<NextResponse> {
   try {
     const client = await clientPromise;
     const db = client.db("my-next-app");
@@ -20,3 +24,5 @@ export async function GET() {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+export const GET = withLogging(getConnectionStatusHandler);

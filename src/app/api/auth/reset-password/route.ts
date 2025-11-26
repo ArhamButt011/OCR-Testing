@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import clientPromise from "@/lib/mongodb";
 import { Db } from "mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const USER_COLLECTION = "users";
 
-export async function POST(req: Request) {
+async function resetPasswordHandler(request: Request) {
   try {
-    const { email, password }: { email: string; password: string } = await req.json();
+    const { email, password }: { email: string; password: string } = await request.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -56,7 +57,9 @@ async function getDatabase() {
 }
 
 async function findUserByEmail(db: Db, email: string) {
-  return await db.collection(USER_COLLECTION).findOne({ email: email.toLowerCase() });
+  return await db
+    .collection(USER_COLLECTION)
+    .findOne({ email: email.toLowerCase() });
 }
 
 async function updatePassword(db: Db, email: string, hashedPassword: string) {
@@ -65,3 +68,5 @@ async function updatePassword(db: Db, email: string, hashedPassword: string) {
     { $set: { password: hashedPassword, updatedAt: new Date() } }
   );
 }
+
+export const POST = withLogging(resetPasswordHandler);

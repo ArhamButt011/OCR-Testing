@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOracleConnection } from "@/lib/oracle";
 import clientPromise from "@/lib/mongodb";
 import oracledb from "oracledb";
+import { withLogging } from "@/lib/apiWrapper";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function GET(req: NextRequest) {
+async function getOracleDataHandler(
+  req: NextRequest | Request,
+  context?: any
+) {
   let connection;
   try {
     const client = await clientPromise;
     const db = client.db("my-next-app");
     const connectionsCollection = db.collection("db_connections");
-    const url = new URL(req.url);
+    const url = new URL((req as NextRequest).url);
     const dayOffsetParam = url.searchParams.get("dayOffset");
     const dayOffset = parseInt(dayOffsetParam || "0", 10);
     const fetchLimitParam = url.searchParams.get("fetchLimit");
@@ -79,3 +83,5 @@ export async function GET(req: NextRequest) {
     }
   }
 }
+
+export const GET = withLogging(getOracleDataHandler);

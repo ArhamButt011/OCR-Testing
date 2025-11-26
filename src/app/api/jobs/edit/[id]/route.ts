@@ -1,6 +1,7 @@
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { NextResponse, NextRequest } from "next/server";
+import { withLogging } from "@/lib/apiWrapper";
 
 interface PDFCriteria {
   fromTime: Date;
@@ -9,8 +10,12 @@ interface PDFCriteria {
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function GET(req: NextRequest) {
+async function getJobHandler(
+  request: NextRequest | Request,
+  context?: any
+): Promise<NextResponse> {
   try {
+    const req = request as NextRequest;
     const id = new URL(req.url).pathname.split("/").pop();
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -32,8 +37,12 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function PATCH(req: NextRequest) {
+async function patchJobHandler(
+  request: NextRequest | Request,
+  context?: any
+): Promise<NextResponse> {
   try {
+    const req = request as NextRequest;
     const id = new URL(req.url).pathname.split("/").pop();
     const body = await req.json();
     const {
@@ -45,6 +54,7 @@ export async function PATCH(req: NextRequest) {
       dayOffset,
       fetchLimit,
     } = body;
+
     console.log("Request body:", dayOffset);
 
     if (
@@ -115,3 +125,6 @@ export async function PATCH(req: NextRequest) {
     );
   }
 }
+
+export const GET = withLogging(getJobHandler);
+export const PATCH = withLogging(patchJobHandler);

@@ -1,5 +1,6 @@
 import oracledb from "oracledb";
 import { NextRequest, NextResponse } from "next/server";
+import { withLogging } from "@/lib/apiWrapper";
 
 // Helper: infer extension from mime or filename
 function inferExtension(mime: string | undefined, name: string | undefined) {
@@ -35,10 +36,13 @@ interface OracleResult {
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
+// Original POST handler wrapped
+async function postHandler(req: NextRequest | Request, context?: any) {
+  const request = req as NextRequest; // cast to NextRequest for Next.js-specific properties
+
   let connection: oracledb.Connection | undefined;
   try {
-    const formData = await req.formData();
+    const formData = await request.formData();
     const entries = Array.from(formData.entries());
 
     // Files (all Blob values)
@@ -215,3 +219,5 @@ export async function POST(req: NextRequest) {
     }
   }
 }
+
+export const POST = withLogging(postHandler);

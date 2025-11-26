@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getOracleConnection } from "@/lib/oracle";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
+
 function normalizeQuantity(
   value: string | number | null | undefined
 ): number | null {
@@ -21,7 +23,10 @@ function normalizeQuantity(
   return numValue;
 }
 
-export async function PUT(req: Request) {
+async function putOCRDataHandler(
+  req: Request,
+  context?: any 
+): Promise<NextResponse> {
   try {
     const { ocrDataList } = await req.json();
     console.log("Received OCR data list:", ocrDataList);
@@ -121,3 +126,5 @@ export async function PUT(req: Request) {
     );
   }
 }
+
+export const PUT = withLogging(putOCRDataHandler);

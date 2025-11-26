@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 interface JobHistory {
     _id: ObjectId;
@@ -14,8 +15,10 @@ interface JobHistory {
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-
-export async function GET(req: Request) {
+async function getJobHistoryHandler(
+    req: Request,
+    context?: any
+) {
     try {
         const url = new URL(req.url);
         const id = url.pathname.split("/").pop();
@@ -31,7 +34,7 @@ export async function GET(req: Request) {
 
         const jobHistory = await historyCollection
             .find({ jobId: new ObjectId(id) })
-            .sort({ changedOn: -1 }) 
+            .sort({ changedOn: -1 })
             .toArray();
 
         return NextResponse.json(jobHistory, { status: 200 });
@@ -40,3 +43,5 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "Failed to fetch job history." }, { status: 500 });
     }
 }
+
+export const GET = withLogging(getJobHistoryHandler);

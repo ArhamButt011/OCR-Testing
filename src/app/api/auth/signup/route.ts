@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function POST(req: Request) {
+async function createUserHandler(request: NextRequest | Request) {
   try {
-    const { name, email, password, role } = await req.json();
+    const { name, email, password, role } = await request.json();
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -30,12 +31,14 @@ export async function POST(req: Request) {
     }
 
     const normalizedEmail = email.toLowerCase();
-    let formattedRole = role.replace(/\s+/g, '').toLowerCase();
+    let formattedRole = role.replace(/\s+/g, "").toLowerCase();
 
     const client = await clientPromise;
     const db = client.db(DB_NAME);
 
-    const existingUser = await db.collection("users").findOne({ email: normalizedEmail });
+    const existingUser = await db
+      .collection("users")
+      .findOne({ email: normalizedEmail });
     if (existingUser) {
       return NextResponse.json(
         { message: "User already exists" },
@@ -46,19 +49,21 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     let num = 0;
 
-    const user = await db.collection("users").findOne({ email: "admin@gmail.com" });
+    const user = await db
+      .collection("users")
+      .findOne({ email: "admin@gmail.com" });
 
     if (!user) {
-      if (normalizedEmail == "admin@gmail.com") {
+      if (normalizedEmail === "admin@gmail.com") {
         num = 3;
-        formattedRole = 'admin';
+        formattedRole = "admin";
       }
     }
 
     await db.collection("users").insertOne({
       name: name.trim(),
       email: normalizedEmail,
-      status: num, // 3 for admin, 0 for pending, 1 for accepted, 2 for rejected 
+      status: num, 
       role: formattedRole,
       password: hashedPassword,
       createdAt: new Date(),
@@ -76,3 +81,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withLogging(createUserHandler);

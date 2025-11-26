@@ -1,5 +1,6 @@
 import clientPromise from "@/lib/mongodb";
 import { NextResponse } from "next/server";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
@@ -9,7 +10,10 @@ async function getJobsCollection() {
     return db.collection("jobs");
 }
 
-export async function GET() {
+async function getActiveJobsHandler(
+    request: Request | any, 
+    context?: any
+) {
     try {
         const jobsCollection = await getJobsCollection();
         const activeJobs = await jobsCollection.find({ active: true }).toArray();
@@ -22,3 +26,5 @@ export async function GET() {
         return NextResponse.json({ error: 'Failed to fetch active jobs.' }, { status: 500 });
     }
 }
+
+export const GET = withLogging(getActiveJobsHandler);

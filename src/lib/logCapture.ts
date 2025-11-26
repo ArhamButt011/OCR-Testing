@@ -1,7 +1,7 @@
-// lib/logCapture.ts
+// src/lib/logCapture.ts
 import { EventEmitter } from 'events';
 
-interface LogEntry {
+export interface LogEntry {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
@@ -9,49 +9,49 @@ interface LogEntry {
   method: string;
   statusCode: number;
   timestamp: string;
-  metadata?: Record<string, unknown>; // stricter type
+  metadata?: Record<string, any>;
 }
 
 class LogCapture extends EventEmitter {
   private logs: LogEntry[] = [];
   private maxLogs = 1000;
 
-  constructor() {
-    super();
-  }
-
-  public addLog(entry: Omit<LogEntry, 'id' | 'timestamp'>) {
-    const logEntry: LogEntry = {
-      ...entry,
-      id: `${Date.now()}-${Math.random()}`,
+  addLog(logData: Omit<LogEntry, 'id' | 'timestamp'>) {
+    const log: LogEntry = {
+      ...logData,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date().toISOString(),
     };
 
-    this.logs.push(logEntry);
-    
+    this.logs.push(log);
+
     if (this.logs.length > this.maxLogs) {
       this.logs.shift();
     }
 
-    this.emit('log', logEntry);
+    this.emit('log', log);
+    console.log('Log stored. Total logs:', this.logs.length);
   }
 
-  public getLogs(): LogEntry[] {
-    return this.logs;
+  getLogs(): LogEntry[] {
+    return [...this.logs];
   }
 
-  public clearLogs(): void {
+  clearLogs() {
+    console.log('Clearing all logs');
     this.logs = [];
+    this.emit('cleared');
   }
 }
 
-let logCaptureInstance: LogCapture | null = null;
+const globalForLogCapture = globalThis as unknown as {
+  logCaptureInstance: LogCapture | undefined;
+};
 
 export function getLogCapture(): LogCapture {
-  if (!logCaptureInstance) {
-    logCaptureInstance = new LogCapture();
+  if (!globalForLogCapture.logCaptureInstance) {
+    globalForLogCapture.logCaptureInstance = new LogCapture();
+    console.log('LogCapture instance created');
   }
-  return logCaptureInstance;
+  return globalForLogCapture.logCaptureInstance;
 }
-
-export type { LogEntry };

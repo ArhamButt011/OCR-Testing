@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function GET() {
+async function connectionStatusHandler(
+  request: Request,
+  context?: any
+): Promise<NextResponse> {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const collection = db.collection("db_connections");
 
-    // Fetch the first document only (you have one record)
     const connection = await collection.findOne({});
 
     if (!connection) {
@@ -19,12 +22,11 @@ export async function GET() {
       );
     }
 
-    // Return only the dataBase field
     return NextResponse.json(
       { database: connection.dataBase, data: connection },
       { status: 200 }
     );
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
@@ -35,3 +37,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withLogging(connectionStatusHandler);

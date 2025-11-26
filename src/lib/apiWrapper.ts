@@ -6,7 +6,7 @@ type RouteContext = { params: Record<string, string | string[]> };
 
 type RouteHandler = (
   request: NextRequest | Request,
-  context: RouteContext  // ✅ Remove the optional ?
+  context: RouteContext
 ) => Promise<Response | NextResponse>;
 
 export function withLogging(handler: RouteHandler) {
@@ -16,10 +16,9 @@ export function withLogging(handler: RouteHandler) {
     const endpoint = url.pathname;
     const method = request.method;
 
-    console.log('🎯 API Wrapper: Handling', method, endpoint);
+    console.log('API Wrapper: Handling', method, endpoint);
 
     try {
-      // Call the actual handler
       const response = await handler(request, context);
       
       // Clone to read without consuming
@@ -27,7 +26,6 @@ export function withLogging(handler: RouteHandler) {
       const duration = Date.now() - startTime;
       const statusCode = response.status;
 
-      // Try to read body
       let body: any = null;
       try {
         const text = await clonedResponse.text();
@@ -35,10 +33,8 @@ export function withLogging(handler: RouteHandler) {
           body = JSON.parse(text);
         }
       } catch (e) {
-        // Not JSON or empty body
       }
 
-      // Determine log type
       let type: 'success' | 'error' | 'warning' | 'info' = 'info';
       let message = '';
 
@@ -53,7 +49,6 @@ export function withLogging(handler: RouteHandler) {
         message = body?.error || body?.message || 'Server error';
       }
 
-      // Log it
       const logCapture = getLogCapture();
       logCapture.addLog({
         type,
@@ -68,12 +63,13 @@ export function withLogging(handler: RouteHandler) {
         },
       });
 
-      console.log('✅ Logged:', { endpoint, method, statusCode, type, duration: `${duration}ms` });
+      console.log('Logged:', { endpoint, method, statusCode, type, duration: `${duration}ms` });
+
 
       return response;
     } catch (error: any) {
       const duration = Date.now() - startTime;
-      console.error('❌ API Error:', error);
+      console.error('API Error:', error);
 
       // Log the error
       const logCapture = getLogCapture();

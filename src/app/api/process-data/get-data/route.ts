@@ -30,7 +30,6 @@ async function handler(req: Request) {
   }
 }
 
-// Wrap the handler
 export const GET = withLogging(handler);
 
 async function optionsHandler() {

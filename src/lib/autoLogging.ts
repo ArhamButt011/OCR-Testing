@@ -13,21 +13,17 @@ export interface ApiResponseBody {
   error?: string;
   jobs?: unknown[];
   data?: unknown[];
-  [key: string]: unknown; // for extra optional fields
+  [key: string]: unknown; 
 }
 
-// Create async local storage
 export const requestContext = new AsyncLocalStorage<RequestContext>();
 
-console.log('🔧 Initializing auto-logging system...');
+console.log('Initializing auto-logging system...');
 
-// Initialize log capture first
 getLogCapture();
 
-// Store original NextResponse.json
 const originalJson = NextResponse.json.bind(NextResponse);
 
-// Override NextResponse.json
 (NextResponse as unknown as { json: (body: ApiResponseBody, init?: ResponseInit) => Response }).json = function (
   body: ApiResponseBody,
   init?: ResponseInit
@@ -35,7 +31,7 @@ const originalJson = NextResponse.json.bind(NextResponse);
   const statusCode = init?.status || 200;
   const context = requestContext.getStore();
 
-  console.log('🔍 NextResponse.json called:', {
+  console.log('NextResponse.json called:', {
     statusCode,
     hasContext: !!context,
     endpoint: context?.endpoint,
@@ -73,7 +69,7 @@ const originalJson = NextResponse.json.bind(NextResponse);
         },
       });
 
-      console.log('✅ Auto-logged:', {
+      console.log('Auto-logged:', {
         endpoint: context.endpoint,
         method: context.method,
         statusCode,
@@ -81,13 +77,13 @@ const originalJson = NextResponse.json.bind(NextResponse);
         duration: `${duration}ms`,
       });
     } catch (error) {
-      console.error('❌ Failed to auto-log:', error);
+      console.error('Failed to auto-log:', error);
     }
   } else {
-    console.warn('⚠️ No context available for:', { statusCode });
+    console.warn('No context available for:', { statusCode });
   }
 
   return originalJson(body, init);
 };
 
-console.log('✅ Auto-logging system initialized');
+console.log('Auto-logging system initialized');

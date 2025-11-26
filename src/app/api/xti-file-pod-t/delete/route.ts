@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import oracledb from "oracledb";
+import { withLogging } from "@/lib/apiWrapper";
 
-export async function DELETE(req: Request) {
+async function deleteFileHandler(
+  req: Request,
+  context?: any 
+): Promise<NextResponse> {
   let connection;
 
   try {
@@ -15,7 +19,6 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // Get Oracle DB connection
     connection = await oracledb.getConnection({
       user: `${process.env.ORACLE_DB_USER_NAME}`,
       password: `${process.env.ORACLE_DB_PASS}`,
@@ -29,7 +32,6 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // Begin transaction
     await connection.execute(
       `DELETE FROM xti_pod_stamp_reqrd_t WHERE file_id = :fileId`,
       { fileId }
@@ -59,3 +61,5 @@ export async function DELETE(req: Request) {
     );
   }
 }
+
+export const DELETE = withLogging(deleteFileHandler);

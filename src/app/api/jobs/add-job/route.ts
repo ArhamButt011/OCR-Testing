@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
@@ -15,7 +16,8 @@ interface PDFCriteria {
   toTime: Date;
 }
 
-export async function POST(req: Request) {
+// ---------- Original POST logic ----------
+async function postHandler(req: Request) {
   try {
     const jobsCollection = await getJobsCollection();
     const body = await req.json();
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
       !fromTime ||
       !toTime ||
       !everyTime ||
-     dayOffset === undefined ||
+      dayOffset === undefined ||
       dayOffset === null ||
       fetchLimit === undefined ||
       fetchLimit === null
@@ -42,13 +44,10 @@ export async function POST(req: Request) {
 
     const parseTime = (timeString: string): Date => {
       const [hours, minutes] = timeString.split(":").map(Number);
-
       const newDate = new Date(currentDate);
       newDate.setHours(hours, minutes, 0, 0);
-
       const timeZoneOffset = currentDate.getTimezoneOffset();
       newDate.setMinutes(newDate.getMinutes() - timeZoneOffset);
-
       return newDate;
     };
 
@@ -97,7 +96,8 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET(req: Request) {
+// ---------- Original GET logic ----------
+async function getHandler(req: Request) {
   try {
     const jobsCollection = await getJobsCollection();
     const url = new URL(req.url);
@@ -126,9 +126,6 @@ export async function GET(req: Request) {
       } else if (inactiveKeywords.some((keyword) => searchQuery === keyword)) {
         filter = { active: false };
       }
-      // else {
-      //   filter = { selectedDays: { $regex: searchQuery, $options: "i" } };
-      // }
     }
 
     const [jobs, totalJobs] = await Promise.all([
@@ -149,7 +146,8 @@ export async function GET(req: Request) {
   }
 }
 
-export async function PATCH(req: Request) {
+// ---------- Original PATCH logic ----------
+async function patchHandler(req: Request) {
   try {
     const jobsCollection = await getJobsCollection();
     const { id, active } = await req.json();
@@ -187,6 +185,13 @@ export async function PATCH(req: Request) {
   }
 }
 
-export async function OPTIONS() {
+// ---------- Original OPTIONS logic ----------
+async function optionsHandler() {
   return NextResponse.json({ allowedMethods: ["POST", "GET", "PATCH"] });
 }
+
+// ---------- Wrap all handlers with logging ----------
+export const POST = withLogging(postHandler);
+export const GET = withLogging(getHandler);
+export const PATCH = withLogging(patchHandler);
+export const OPTIONS = withLogging(optionsHandler);
