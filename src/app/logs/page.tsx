@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import Swal from "sweetalert2";
-
 import { IoIosArrowForward } from "react-icons/io";
 import { MdDelete } from "react-icons/md";
 import { FiSearch } from "react-icons/fi";
@@ -64,8 +63,6 @@ interface FormattedLog {
 
 export default function Page() {
   const [isFilterDropDownOpen, setIsFilterDropDownOpen] = useState(true);
-
-  // States For Filteration
   const [fileNameFilter, setFileNameFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
     const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -82,31 +79,22 @@ export default function Page() {
   const [totalPages, setTotalPages] = useState(1);
   const [allowPageOneFetch, setAllowPageOneFetch] = useState(false);
   const [applyFilters, setApplyFilters] = useState(false);
-
-  // Live Logs States (API + CV Combined)
   const [apiLogs, setApiLogs] = useState<LiveLogEntry[]>([]);
   const [cvLogs, setCVLogs] = useState<CVLogEntry[]>([]);
   const [combinedLogs, setCombinedLogs] = useState<CombinedLogEntry[]>([]);
-  
-  // Connection States
   const [apiConnected, setApiConnected] = useState(false);
   const [cvConnected, setCVConnected] = useState(false);
   const [cvConnectionError, setCVConnectionError] = useState<string>('');
   const [missingFiles, setMissingFiles] = useState<string[]>([]);
-  
-  // CV Configuration
   const [cvBasePath, setCVBasePath] = useState('/home/arham-hamid/Documents/POD_OCR_DEPLOY/logs');
   const [cvSources, setCVSources] = useState<string[]>(['all']);
   const [availableCVSources] = useState(['app', 'pixtral', 'lmdeploy_exec', 'lmdeploy_serve']);
-  
-  // Filters
   const [levelFilter, setLevelFilter] = useState<'all' | 'success' | 'error' | 'warning' | 'info'>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [maxLiveLogs, setMaxLiveLogs] = useState<number>(500);
   const [liveSearchTerm, setLiveSearchTerm] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
-  
   const logsEndRef = useRef<HTMLDivElement>(null);
   const apiEventSourceRef = useRef<EventSource | null>(null);
   const cvEventSourceRef = useRef<EventSource | null>(null);
@@ -118,7 +106,6 @@ export default function Page() {
 
   const { isExpanded } = useSidebar();
 
-  // Authentication
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -157,7 +144,6 @@ export default function Page() {
     setLoadingTable(false);
   }, [router]);
 
-  // Connect to API Logs SSE
   const connectAPILogs = useCallback(() => {
     if (apiEventSourceRef.current) {
       apiEventSourceRef.current.close();
@@ -199,7 +185,6 @@ export default function Page() {
     };
   }, [isPaused, maxLiveLogs]);
 
-  // Connect to CV Logs SSE with error handling
 const connectCVLogs = useCallback(() => {
   if (!cvBasePath) {
     console.warn('No base path set for CV logs');
@@ -243,7 +228,6 @@ const connectCVLogs = useCallback(() => {
     console.error('CV logs SSE error:', error);
     setCVConnected(false);
     
-    // Only show error if we haven't received data and haven't shown error yet
     if (!hasReceivedData && !hasShownError) {
       hasShownError = true;
       
@@ -282,9 +266,8 @@ const connectCVLogs = useCallback(() => {
     try {
       const data = JSON.parse(event.data);
       
-      console.log('📨 Received CV log data:', data);
+      console.log('Received CV log data:', data);
       
-      // Handle error messages from server
       if (data.type === 'error' || data.error) {
         setCVConnectionError(data.error);
         setCVConnected(false);
@@ -296,7 +279,6 @@ const connectCVLogs = useCallback(() => {
           let errorMessage = data.error;
           let errorDetails = '';
           
-          // Check for specific error types
           if (data.errorType === 'directory_not_found' || data.error.includes('does not exist')) {
             errorTitle = 'Directory Not Found';
             errorDetails = `
@@ -346,7 +328,6 @@ const connectCVLogs = useCallback(() => {
         return;
       }
       
-      // Handle missing files warning
       if (data.type === 'warning' && data.missingFiles && data.missingFiles.length > 0) {
         setMissingFiles(data.missingFiles);
         
@@ -392,7 +373,6 @@ const connectCVLogs = useCallback(() => {
   };
 }, [cvBasePath, cvSources, isPaused, maxLiveLogs]);
 
-  // Combine and sort logs
   useEffect(() => {
     const combined: CombinedLogEntry[] = [];
     
@@ -404,7 +384,6 @@ const connectCVLogs = useCallback(() => {
       combined.push({ ...log, logSource: 'cv' as const });
     });
     
-    // Sort by timestamp
     combined.sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
@@ -417,16 +396,14 @@ const connectCVLogs = useCallback(() => {
 useEffect(() => {
   if (!isAuthenticated) return;
   
-  // Only connect API logs automatically
   connectAPILogs();
 
   return () => {
     if (apiEventSourceRef.current) apiEventSourceRef.current.close();
     if (cvEventSourceRef.current) cvEventSourceRef.current.close();
   };
-}, [isAuthenticated, connectAPILogs]); // Remove connectCVLogs from dependencies
+}, [isAuthenticated, connectAPILogs]); 
 
-  // Auto scroll
   useEffect(() => {
     if (autoScroll && !isPaused) {
       logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -494,13 +471,10 @@ const applyBasePath = async () => {
             setCVBasePath(result.data.basePath);
             setCVSources(result.data.sources || ['all']);
             
-            // Auto-connect on first load if path exists
             if (isFirstLoad && result.data.basePath) {
               console.log('Auto-connecting CV logs on first load...');
               
-              // Small delay to ensure state is set
               setTimeout(() => {
-                // Manually trigger connection with saved path
                 const sourcesQuery = (result.data.sources || ['all']).includes('all') 
                   ? 'all' 
                   : (result.data.sources || ['all']).join(',');
@@ -682,15 +656,96 @@ const applyBasePath = async () => {
     { value: 'lmdeploy_serve', label: 'LMDeploy Serve' },
   ];
 
+
   useEffect(() => {
+    let shouldReconnect = false;
+    let newSources: string[] = [];
+    const previousSources = cvSources.join(',');
+
     if (serviceFilter === 'all') {
-      setCVSources(['all']);
+      newSources = ['all'];
+      shouldReconnect = previousSources !== 'all';
     } else if (serviceFilter === 'backend') {
-      setCVSources([]);
+      newSources = [];
+      shouldReconnect = cvSources.length > 0;
     } else if (['app', 'pixtral', 'lmdeploy_exec', 'lmdeploy_serve'].includes(serviceFilter)) {
-      setCVSources([serviceFilter]);
+      newSources = [serviceFilter];
+      shouldReconnect = previousSources !== serviceFilter;
     }
-  }, [serviceFilter]);
+
+    if (JSON.stringify(cvSources) !== JSON.stringify(newSources)) {
+      setCVSources(newSources);
+    }
+
+    if (shouldReconnect && isAuthenticated && !isFirstLoad && cvBasePath && cvConnected) {
+      console.log(`Service filter changed: ${previousSources} → ${newSources.join(',')}, reconnecting CV logs...`);
+      
+      if (cvEventSourceRef.current) {
+        cvEventSourceRef.current.close();
+      }
+      
+      setCVLogs([]);
+      
+      setTimeout(() => {
+        const sourcesQuery = newSources.includes('all') ? 'all' : newSources.join(',');
+        const url = `/api/cv-logs-stream?basePath=${encodeURIComponent(cvBasePath)}&sources=${sourcesQuery}`;
+
+        console.log('Reconnecting to CV logs:', url);
+        
+        const eventSource = new EventSource(url);
+        cvEventSourceRef.current = eventSource;
+
+        let hasReceivedData = false;
+
+        eventSource.onopen = () => {
+          console.log('Reconnected to CV log stream');
+          setCVConnected(true);
+          setCVConnectionError('');
+          setMissingFiles([]);
+        };
+
+        eventSource.onerror = (error) => {
+          console.error(' CV logs SSE error on reconnect:', error);
+          setCVConnected(false);
+        };
+
+        eventSource.onmessage = (event) => {
+          if (event.data.startsWith(':')) return;
+
+          hasReceivedData = true;
+          setCVConnectionError('');
+
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'error' || data.error) {
+              setCVConnectionError(data.error);
+              setCVConnected(false);
+              console.error(' CV logs error:', data.error);
+              return;
+            }
+            
+            if (data.type === 'warning' && data.missingFiles && data.missingFiles.length > 0) {
+              setMissingFiles(data.missingFiles);
+            }
+            
+            if (data.type === 'history') {
+              setCVLogs(data.logs.slice(-maxLiveLogs));
+            } else if (data.type === 'log') {
+              if (!isPaused) {
+                setCVLogs(prev => {
+                  const updated = [...prev, data.log];
+                  return updated.slice(-maxLiveLogs);
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Failed to parse CV log:', error);
+          }
+        };
+      }, 100);
+    }
+  }, [serviceFilter, isAuthenticated, isFirstLoad, cvBasePath, cvConnected, cvSources, isPaused, maxLiveLogs]);
 
   const filteredLogs = combinedLogs.filter(log => {
     const matchesLevel = levelFilter === 'all' || log.type === levelFilter;
