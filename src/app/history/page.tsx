@@ -169,7 +169,7 @@ function PageContent() {
                                         <td className="py-2 px-4 border-b text-center">
                                             <div
                                                 className={`inline-flex items-center justify-center gap-0 px-4 py-2 rounded-full text-sm font-medium ${history.recognitionStatus === "new"
-                                                    ? "bg-blue-100 text-blue-600"
+                                                    ? "bg-blue-100 text-primary"
                                                     : history.recognitionStatus === "inProgress"
                                                         ? "bg-yellow-100 text-yellow-600"
                                                         : history.recognitionStatus === "valid"
@@ -227,7 +227,7 @@ function PageContent() {
                                 disabled={currentPage === 1}
                                 className={`px-4 py-2 rounded-md ${currentPage === 1
                                     ? "bg-gray-300 cursor-not-allowed"
-                                    : "bg-blue-500 text-white hover:bg-blue-600"
+                                    : "bg-blue-500 text-white hover:bg-primary"
                                     }`}
                             >
                                 Previous
@@ -240,7 +240,7 @@ function PageContent() {
                                 disabled={currentPage === totalPages}
                                 className={`px-4 py-2 rounded-md ${currentPage === totalPages
                                     ? "bg-gray-300 cursor-not-allowed"
-                                    : "bg-blue-500 text-white hover:bg-blue-600"
+                                    : "bg-blue-500 text-white hover:bg-primary"
                                     }`}
                             >
                                 Next

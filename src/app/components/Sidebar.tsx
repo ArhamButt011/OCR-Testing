@@ -7,6 +7,7 @@ import Image from "next/image";
 import sideBarLogo from "../../../public/images/sidbar.svg";
 import { usePathname } from "next/navigation";
 import { FaClipboardList, FaHistory, FaUserPlus } from "react-icons/fa";
+import { TbTemplate } from "react-icons/tb";
 import { BsClipboard2CheckFill } from "react-icons/bs";
 import { IoSettingsSharp, IoLogOut } from "react-icons/io5";
 import { IoIosArrowForward } from "react-icons/io";
@@ -512,6 +513,40 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
               </Link>
             )}
 
+            {userRole === "admin" && (
+              <Link href="/templates">
+                <li
+                  className={`flex items-center mb-2 justify-start
+                        space-x-3 pl-5 pr-0 py-2 rounded-lg transition-all duration-300 ease-in-out ${
+                          isActive("/templates")
+                            ? "bg-gray-200"
+                            : "hover:bg-gray-200"
+                        }`}
+                >
+                  <span className="flex-shrink-0">
+                    <TbTemplate
+                      className={` ${
+                        isActive("/templates") ? "text-[#005B97]" : "text-[#7B849A]"
+                      } transition-all duration-300 ease-in-out text-2xl`}
+                    />
+                  </span>
+                  <span
+                    className={`${
+                      isActive("/templates") ? " text-gray-950" : "text-gray-400"
+                    } text-lg transition-all duration-300 ease-in-out`}
+                    style={{
+                      width: isExpanded ? "auto" : "0",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      opacity: isExpanded ? 1 : 0,
+                      transition: "opacity 0.3s ease, width 0.3s ease",
+                    }}
+                  >
+                    Templates
+                  </span>
+                </li>
+              </Link>
+            )}
             {userRole === "admin" && (
               <Link href="/logs">
                 <li

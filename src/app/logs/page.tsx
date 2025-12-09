@@ -1234,7 +1234,7 @@ const applyBasePath = async () => {
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`px-4 py-2 rounded-md ${currentPage === 1 ? "bg-gray-300 cursor-not-allowed" : "bg-blue-500 text-white hover:bg-blue-600"}`}
+                className={`px-4 py-2 rounded-md ${currentPage === 1 ? "bg-gray-300 cursor-not-allowed" : "bg-blue-500 text-white hover:bg-primary"}`}
               >
                 Previous
               </button>
@@ -1242,7 +1242,7 @@ const applyBasePath = async () => {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className={`px-4 py-2 rounded-md ${currentPage === totalPages ? "bg-gray-300 cursor-not-allowed" : "bg-blue-500 text-white hover:bg-blue-600"}`}
+                className={`px-4 py-2 rounded-md ${currentPage === totalPages ? "bg-gray-300 cursor-not-allowed" : "bg-blue-500 text-white hover:bg-primary"}`}
               >
                 Next
               </button>
@@ -1378,7 +1378,7 @@ const applyBasePath = async () => {
                   <div className="text-xs text-gray-500">Warnings</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{liveStats.info}</div>
+                  <div className="text-2xl font-bold text-primary">{liveStats.info}</div>
                   <div className="text-xs text-gray-500">Info/Success</div>
                 </div>
               </div>
@@ -1431,7 +1431,7 @@ const applyBasePath = async () => {
                         </div>
 
                         <details className="px-4 pb-3 overflow-auto max-w-7xl">
-                          <summary className="text-xs text-[#005B97] cursor-pointer hover:text-blue-700 select-none">
+                          <summary className="text-xs text-[#005B97] cursor-pointer hover:text-primary select-none">
                             View Details
                           </summary>
                           <pre className="mt-2 text-xs text-gray-600 bg-gray-50 p-3 rounded">
