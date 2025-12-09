@@ -1,10 +1,8 @@
 // src/app/api/templates/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import jwt from "jsonwebtoken";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
-const SECRET_KEY = process.env.JWT_SECRET as string;
 
 // ============== CREATE TEMPLATE ==============
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -81,9 +79,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       field_mapping: body.field_mapping,
       post_processing_rules: body.post_processing_rules || {},
       metadata: {
-        created_by: body.user_id,
         created_at: new Date(),
-        updated_by: body.user_id,
         updated_at: new Date(),
         usage_count: 0,
         success_rate: 0,
@@ -95,7 +91,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (body.draft_id) {
       await db.collection("template_drafts").deleteOne({
         draft_id: body.draft_id,
-        user_id: body.user_id,
       });
     }
 

@@ -1,17 +1,15 @@
 // src/app/api/templates/draft/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
-const SECRET_KEY = process.env.JWT_SECRET as string;
 
 // ============== SAVE/UPDATE DRAFT ==============
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const { draft_id, step_number, partial_data, user_id } = body;
+    const { draft_id, step_number, partial_data } = body;
 
     if (!step_number || step_number < 1 || step_number > 7) {
       return NextResponse.json(
@@ -30,7 +28,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (draft_id) {
       // Update existing draft
       const updateResult = await draftsCollection.updateOne(
-        { draft_id: draft_id, user_id },
+        { draft_id: draft_id },
         {
           $set: {
             step_number: step_number,
@@ -59,7 +57,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const newDraftId = uuidv4();
       const draftDoc = {
         draft_id: newDraftId,
-        user_id,
         step_number: step_number,
         partial_data: partial_data,
         metadata: {
@@ -95,7 +92,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(req.url);
     const draft_id = searchParams.get("draft_id");
-    const user_id = searchParams.get("user_id");
 
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -110,7 +106,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       // Get specific draft
       const draft = await draftsCollection.findOne({
         draft_id: draft_id,
-        user_id,
       });
 
       if (!draft) {
@@ -127,7 +122,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     } else {
       // Get all user drafts
       const drafts = await draftsCollection
-        .find({ user_id })
+        .find()
         .sort({ "metadata.last_saved_at": -1 })
         .toArray();
 
@@ -151,7 +146,6 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(req.url);
     const draft_id = searchParams.get("draft_id");
-    const user_id = searchParams.get("user_id");
 
     if (!draft_id) {
       return NextResponse.json(
@@ -166,7 +160,6 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
 
     const deleteResult = await draftsCollection.deleteOne({
       draft_id: draft_id,
-      user_id,
     });
 
     if (deleteResult.deletedCount === 0) {
