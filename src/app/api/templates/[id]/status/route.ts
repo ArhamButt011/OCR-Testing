@@ -1,7 +1,6 @@
 // src/app/api/templates/[id]/status/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import jwt from "jsonwebtoken";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const SECRET_KEY = process.env.JWT_SECRET as string;
@@ -13,7 +12,7 @@ export async function PATCH(
 ): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const { status, user_id } = body;
+    const { status } = body;
 
     const validStatuses = ["active", "inactive", "deprecated"];
     if (!status || !validStatuses.includes(status)) {
@@ -57,7 +56,6 @@ export async function PATCH(
       {
         $set: {
           status: status,
-          "metadata.updated_by": user_id,
           "metadata.updated_at": new Date(),
         },
       }

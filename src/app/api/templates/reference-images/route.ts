@@ -4,11 +4,9 @@ import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import jwt from "jsonwebtoken";
 import clientPromise from "@/lib/mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
-const SECRET_KEY = process.env.JWT_SECRET as string;
 const UPLOAD_DIR = path.join(process.cwd(), "public", "templates", "images");
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_IMAGES = 5;
@@ -110,23 +108,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
-    const token = req.headers.get("Authorization")?.split(" ")[1];
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const decoded = jwt.verify(token, SECRET_KEY) as {
-      id: string;
-      email: string;
-    };
-    const userId = decoded.id;
-
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const imagesCollection = db.collection("reference_images");
 
     const images = await imagesCollection
-      .find({ user_id: userId })
+      .find()
       .sort({ uploaded_at: -1 })
       .toArray();
 

@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { unlink } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import jwt from "jsonwebtoken";
 import clientPromise from "@/lib/mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";

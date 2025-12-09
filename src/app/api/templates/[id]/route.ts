@@ -1,10 +1,8 @@
 // src/app/api/templates/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import jwt from "jsonwebtoken";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
-const SECRET_KEY = process.env.JWT_SECRET as string;
 
 // ============== GET SINGLE TEMPLATE ==============
 export async function GET(
@@ -93,7 +91,6 @@ export async function PATCH(
       {
         $set: {
           ...body,
-          "metadata.updated_by": body.userId,
           "metadata.updated_at": new Date(),
         },
       }
