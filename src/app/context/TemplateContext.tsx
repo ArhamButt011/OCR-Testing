@@ -216,7 +216,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         },
         body: JSON.stringify({
           draft_id: draftId,
-          current_step: currentStep,
+          step_number: currentStep,
           total_steps: totalSteps,
           partial_data: templateData,
         }),
@@ -230,19 +230,18 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       
       if (!draftId && data.draft_id) {
         setDraftId(data.draft_id);
-        // Update URL with draft ID without navigation
-        window.history.replaceState(
-          null, 
-          '', 
-          `/admin/templates/create?draft=${data.draft_id}`
-        );
+        // window.history.replaceState(
+        //   null, 
+        //   '', 
+        //   `/admin/templates/create?draft=${data.draft_id}`
+        // );
       }
 
       setLastSaved(new Date());
       hasUnsavedChanges.current = false;
-      console.log('✅ Draft saved successfully');
+      console.log('Draft saved successfully');
     } catch (error) {
-      console.error('❌ Failed to save draft:', error);
+      console.error('Failed to save draft:', error);
     } finally {
       setIsSaving(false);
     }

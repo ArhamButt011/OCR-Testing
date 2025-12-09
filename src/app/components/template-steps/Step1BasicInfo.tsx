@@ -33,7 +33,7 @@ export const Step1BasicInfo: React.FC = () => {
           placeholder="STAMP_FEDEX_V1"
           className={`mt-1 block w-full rounded-md border ${
             errors.template_id ? 'border-red-300' : 'border-gray-300'
-          } px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500`}
+          } px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-primary`}
         />
         {errors.template_id && (
           <p className="mt-1 text-sm text-red-600">{errors.template_id}</p>
@@ -56,7 +56,7 @@ export const Step1BasicInfo: React.FC = () => {
           placeholder="FedEx POD Stamp"
           className={`mt-1 block w-full rounded-md border ${
             errors.template_name ? 'border-red-300' : 'border-gray-300'
-          } px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500`}
+          } px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-primary`}
         />
         {errors.template_name && (
           <p className="mt-1 text-sm text-red-600">{errors.template_name}</p>
@@ -77,7 +77,7 @@ export const Step1BasicInfo: React.FC = () => {
           onChange={(e) => handleChange('category', e.target.value)}
           className={`mt-1 block w-full rounded-md border ${
             errors.category ? 'border-red-300' : 'border-gray-300'
-          } px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500`}
+          } px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-primary`}
         >
           <option value="Stamp">Stamp</option>
           <option value="Notation">Notation</option>
@@ -99,10 +99,10 @@ export const Step1BasicInfo: React.FC = () => {
         <input
           type="text"
           id="version"
-          value={templateData.version || '1.0.0'}
+          value={templateData.version || ''}
           onChange={(e) => handleChange('version', e.target.value)}
           placeholder="1.0.0"
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-primary"
         />
         <p className="mt-1 text-xs text-gray-500">
           Semantic versioning (e.g., 1.0.0)
@@ -120,7 +120,7 @@ export const Step1BasicInfo: React.FC = () => {
           value={templateData.description || ''}
           onChange={(e) => handleChange('description', e.target.value)}
           placeholder="Template for FedEx Bill of Lading documents with receiving stamp area..."
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-primary"
         />
         <p className="mt-1 text-xs text-gray-500">
           Optional description of this template

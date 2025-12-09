@@ -1,142 +1,167 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
-import { useTemplate } from '@/app/context/TemplateContext';
-import Image from 'next/image';
+import React, { useState, useCallback } from "react";
+import { useTemplate } from "@/app/context/TemplateContext";
+import Image from "next/image";
 
 export const Step2ReferenceImages: React.FC = () => {
-  const { templateData, updateTemplateData, errors, setError, clearError } = useTemplate();
+  const { templateData, updateTemplateData, errors, setError, clearError } =
+    useTemplate();
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
+    {}
+  );
 
   const images = templateData.identification?.reference_images || [];
   const maxImages = 5;
-  console.log('Current reference images:', images);
+  console.log("Current reference images:", images);
 
-  const handleFileSelect = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const handleFileSelect = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
 
-    const currentCount = images.length;
-    const availableSlots = maxImages - currentCount;
+      const currentCount = images.length;
+      const availableSlots = maxImages - currentCount;
 
-    if (files.length > availableSlots) {
-      setError('reference_images', `You can only upload ${availableSlots} more image(s)`);
-      return;
-    }
-
-    // Validate files
-    const validFiles: File[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      // Check file type
-      if (!file.type.startsWith('image/')) {
-        setError('reference_images', `${file.name} is not an image file`);
-        continue;
+      if (files.length > availableSlots) {
+        setError(
+          "reference_images",
+          `You can only upload ${availableSlots} more image(s)`
+        );
+        return;
       }
 
-      // Check file size (10MB max)
-      if (file.size > 10 * 1024 * 1024) {
-        setError('reference_images', `${file.name} exceeds 10MB limit`);
-        continue;
-      }
+      // Validate files
+      const validFiles: File[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
 
-      validFiles.push(file);
-    }
-
-    if (validFiles.length === 0) return;
-
-    setUploading(true);
-    clearError('reference_images');
-
-    try {
-      // Create FormData
-      const formData = new FormData();
-      validFiles.forEach(file => {
-        formData.append('images', file);
-      });
-
-      // Upload with progress tracking
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = (e.loaded / e.total) * 100;
-          setUploadProgress(prev => ({
-            ...prev,
-            [validFiles[0].name]: percentComplete
-          }));
+        // Check file type
+        if (!file.type.startsWith("image/")) {
+          setError("reference_images", `${file.name} is not an image file`);
+          continue;
         }
-      });
 
-      const uploadPromise = new Promise<any>((resolve, reject) => {
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText));
-          } else {
-            reject(new Error('Upload failed'));
+        // Check file size (10MB max)
+        if (file.size > 10 * 1024 * 1024) {
+          setError("reference_images", `${file.name} exceeds 10MB limit`);
+          continue;
+        }
+
+        validFiles.push(file);
+      }
+
+      if (validFiles.length === 0) return;
+
+      setUploading(true);
+      clearError("reference_images");
+
+      try {
+        // Create FormData
+        const formData = new FormData();
+        validFiles.forEach((file) => {
+          formData.append("images", file);
+        });
+
+        // Upload with progress tracking
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            setUploadProgress((prev) => ({
+              ...prev,
+              [validFiles[0].name]: percentComplete,
+            }));
           }
         });
 
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+        const uploadPromise = new Promise<any>((resolve, reject) => {
+          xhr.addEventListener("load", () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(JSON.parse(xhr.responseText));
+            } else {
+              reject(new Error("Upload failed"));
+            }
+          });
 
-        xhr.open('POST', '/api/templates/reference-images');
-        xhr.send(formData);
-      });
+          xhr.addEventListener("error", () =>
+            reject(new Error("Upload failed"))
+          );
+          xhr.addEventListener("abort", () =>
+            reject(new Error("Upload cancelled"))
+          );
 
-      const response = await uploadPromise;
+          xhr.open("POST", "/api/templates/reference-images");
+          xhr.send(formData);
+        });
 
-      // Update template data with uploaded images
-      const newImages = response.images.map((img: any) => ({
-        image_id: img.image_id,
-        file_path: img.file_path,
-        preview: `/templates/reference-images/${img.image_id}`
-      }));
+        const response = await uploadPromise;
 
-      updateTemplateData({
-        identification: {
-          ...templateData.identification,
-          reference_images: [...images, ...newImages]
-        }
-      });
+        // Update template data with uploaded images
+        const newImages = response.images.map((img: any) => ({
+          image_id: img.image_id,
+          file_path: img.file_path,
+          preview: `/templates/reference-images/${img.image_id}`,
+        }));
 
-      console.log('✅ Images uploaded successfully');
-    } catch (error) {
-      console.error('❌ Upload failed:', error);
-      setError('reference_images', 'Failed to upload images');
-    } finally {
-      setUploading(false);
-      setUploadProgress({});
-    }
-  }, [images, templateData.identification, updateTemplateData, setError, clearError]);
+        updateTemplateData({
+          identification: {
+            ...templateData.identification,
+            reference_images: [...images, ...newImages],
+          },
+        });
 
-  const handleRemoveImage = useCallback(async (imageId: string) => {
-    try {
-      // Delete from server
-      const response = await fetch(`/api/templates/reference-images/${imageId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete image');
+        console.log("✅ Images uploaded successfully");
+      } catch (error) {
+        console.error("❌ Upload failed:", error);
+        setError("reference_images", "Failed to upload images");
+      } finally {
+        setUploading(false);
+        setUploadProgress({});
       }
+    },
+    [
+      images,
+      templateData.identification,
+      updateTemplateData,
+      setError,
+      clearError,
+    ]
+  );
 
-      // Update template data
-      const updatedImages = images.filter(img => img.image_id !== imageId);
-      updateTemplateData({
-        identification: {
-          ...templateData.identification,
-          reference_images: updatedImages
+  const handleRemoveImage = useCallback(
+    async (imageId: string) => {
+      try {
+        // Delete from server
+        const response = await fetch(
+          `/api/templates/reference-images/${imageId}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to delete image");
         }
-      });
 
-      console.log('✅ Image removed successfully');
-    } catch (error) {
-      console.error('❌ Failed to remove image:', error);
-      setError('reference_images', 'Failed to remove image');
-    }
-  }, [images, templateData.identification, updateTemplateData, setError]);
+        // Update template data
+        const updatedImages = images.filter((img) => img.image_id !== imageId);
+        updateTemplateData({
+          identification: {
+            ...templateData.identification,
+            reference_images: updatedImages,
+          },
+        });
+
+        console.log("✅ Image removed successfully");
+      } catch (error) {
+        console.error("❌ Failed to remove image:", error);
+        setError("reference_images", "Failed to remove image");
+      }
+    },
+    [images, templateData.identification, updateTemplateData, setError]
+  );
 
   return (
     <div className="space-y-6">
@@ -230,16 +255,13 @@ export const Step2ReferenceImages: React.FC = () => {
             Uploaded Images ({images.length})
           </h3>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            
             {images.map((image, index) => (
-                
               <div
                 key={image.image_id}
                 className="relative group rounded-lg border border-gray-300 overflow-hidden"
               >
                 <div className="aspect-square relative bg-gray-100">
-                    
-                  {image.file_path                                       && (
+                  {image.file_path && (
                     <Image
                       src={`${image.file_path}`}
                       alt={`Reference image ${index + 1}`}
@@ -248,15 +270,25 @@ export const Step2ReferenceImages: React.FC = () => {
                     />
                   )}
                 </div>
-                
+
                 {/* Remove Button */}
                 <button
                   onClick={() => handleRemoveImage(image.image_id)}
                   className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
                   title="Remove image"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
 
@@ -274,8 +306,16 @@ export const Step2ReferenceImages: React.FC = () => {
       <div className="rounded-md bg-blue-50 p-4">
         <div className="flex">
           <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            <svg
+              className="h-5 w-5 text-blue-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                clipRule="evenodd"
+              />
             </svg>
           </div>
           <div className="ml-3 flex-1">
@@ -285,8 +325,12 @@ export const Step2ReferenceImages: React.FC = () => {
             <div className="mt-2 text-sm text-primary">
               <ul className="list-disc space-y-1 pl-5">
                 <li>Upload clear, high-quality scans of sample documents</li>
-                <li>Include variations (different stamps, formats, conditions)</li>
-                <li>These images help the system identify matching documents</li>
+                <li>
+                  Include variations (different stamps, formats, conditions)
+                </li>
+                <li>
+                  These images help the system identify matching documents
+                </li>
                 <li>Minimum 1 image, maximum 5 images per template</li>
               </ul>
             </div>

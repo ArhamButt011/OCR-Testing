@@ -53,7 +53,7 @@ export const Step7Review: React.FC = () => {
       }
 
       alert('Template created and activated successfully!');
-      router.push('/admin/templates');
+      // router.push('/admin/templates');
     } catch (error: any) {
       console.error('Activation failed:', error);
       alert(error.message || 'Failed to activate template');
@@ -67,7 +67,7 @@ export const Step7Review: React.FC = () => {
     try {
       const templateId = await submitTemplate();
       alert('Template saved as inactive!');
-      router.push('/admin/templates');
+      // router.push('/admin/templates');
     } catch (error: any) {
       console.error('Save failed:', error);
       alert(error.message || 'Failed to save template');
@@ -130,8 +130,8 @@ export const Step7Review: React.FC = () => {
             <div className="mt-3 grid grid-cols-3 gap-2">
               {templateData.identification.reference_images.slice(0, 3).map((img, idx) => (
                 <div key={img.image_id} className="aspect-square bg-gray-100 rounded border border-gray-300 relative overflow-hidden">
-                  {img.preview && (
-                    <img src={img.preview} alt={`Ref ${idx + 1}`} className="w-full h-full object-cover" />
+                  {img.file_path && (
+                    <img src={img.file_path} alt={`Ref ${idx + 1}`} className="w-full h-full object-cover" />
                   )}
                 </div>
               ))}
