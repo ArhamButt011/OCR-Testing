@@ -1,14 +1,15 @@
 // src/app/api/templates/[id]/status/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const SECRET_KEY = process.env.JWT_SECRET as string;
 const AI_SERVER_URL = process.env.AI_SERVER_URL;
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+async function statusChangeHandler(
+  req: NextRequest | Request,
+  { params }: any
 ): Promise<NextResponse> {
   try {
     const body = await req.json();
@@ -132,3 +133,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withLogging(statusChangeHandler);

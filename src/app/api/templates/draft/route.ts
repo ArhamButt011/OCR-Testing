@@ -2,11 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { v4 as uuidv4 } from "uuid";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
 // ============== SAVE/UPDATE DRAFT ==============
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function createDraftHandler(
+  req: NextRequest | Request
+): Promise<NextResponse> {
   try {
     const body = await req.json();
     const { draft_id, step_number, partial_data } = body;
@@ -88,7 +91,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 // ============== GET USER DRAFTS ==============
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function getDraftHandlerGET(
+  req: NextRequest | Request
+): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(req.url);
     const draft_id = searchParams.get("draft_id");
@@ -142,7 +147,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 // ============== DELETE DRAFT ==============
-export async function DELETE(req: NextRequest): Promise<NextResponse> {
+async function deleteDraftHandlerDELETE(
+  req: NextRequest | Request
+): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(req.url);
     const draft_id = searchParams.get("draft_id");
@@ -182,3 +189,8 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+// Export wrapped handlers
+export const POST = withLogging(createDraftHandler);
+export const GET = withLogging(getDraftHandlerGET);
+export const DELETE = withLogging(deleteDraftHandlerDELETE);

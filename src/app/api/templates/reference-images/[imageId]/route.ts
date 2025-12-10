@@ -4,14 +4,15 @@ import { unlink } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const SECRET_KEY = process.env.JWT_SECRET as string;
 const UPLOAD_DIR = path.join(process.cwd(), "public", "templates", "images");
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { imageId: string } }
+export async function deleteImageHandler(
+  req: NextRequest | Request,
+  { params }: any
 ): Promise<NextResponse> {
   try {
     const client = await clientPromise;
@@ -53,3 +54,5 @@ export async function DELETE(
     );
   }
 }
+
+export const DELETE = withLogging(deleteImageHandler);

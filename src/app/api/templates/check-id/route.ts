@@ -1,10 +1,13 @@
 // src/app/api/templates/check-id/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export async function checkIdHandler(
+  req: NextRequest | Request
+): Promise<NextResponse> {
   try {
     const body = await req.json();
     const { template_id } = body;
@@ -49,3 +52,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+export const GET = withLogging(checkIdHandler);

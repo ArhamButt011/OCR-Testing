@@ -1,6 +1,7 @@
 // src/app/api/templates/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
@@ -125,7 +126,9 @@ function validateRegionConfig(regionConfig: any): string[] {
 }
 
 // ============== CREATE TEMPLATE ==============
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function createTemplateHandler(
+  req: NextRequest | Request
+): Promise<NextResponse> {
   try {
     const body = await req.json();
 
@@ -236,7 +239,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 // ============== LIST TEMPLATES ==============
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function listTemplatesHandler(
+  req: NextRequest | Request
+): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -312,3 +317,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+// Export wrapped handlers
+export const POST = withLogging(createTemplateHandler);
+export const GET = withLogging(listTemplatesHandler);

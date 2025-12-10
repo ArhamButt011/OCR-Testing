@@ -1,6 +1,7 @@
 // src/app/api/templates/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
@@ -119,9 +120,9 @@ function validateRegionConfig(regionConfig: any): string[] {
 }
 
 // ============== GET SINGLE TEMPLATE ==============
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+async function getSingleTemplateHandler(
+  req: NextRequest | Request,
+  { params }: any
 ): Promise<NextResponse> {
   try {
     const client = await clientPromise;
@@ -153,9 +154,9 @@ export async function GET(
 }
 
 // ============== UPDATE TEMPLATE ==============
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+async function updateTemplateHandler(
+  req: NextRequest | Request,
+  { params }: any
 ): Promise<NextResponse> {
   try {
     const body = await req.json();
@@ -250,9 +251,9 @@ export async function PATCH(
 }
 
 // ============== DELETE TEMPLATE ==============
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+async function deleteTemplateHandler(
+  req: NextRequest | Request,
+  { params }: any
 ): Promise<NextResponse> {
   try {
     const client = await clientPromise;
@@ -306,3 +307,8 @@ export async function DELETE(
     );
   }
 }
+
+// Export wrapped handlers
+export const GET = withLogging(getSingleTemplateHandler);
+export const PATCH = withLogging(updateTemplateHandler);
+export const DELETE = withLogging(deleteTemplateHandler);
