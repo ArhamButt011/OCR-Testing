@@ -228,6 +228,14 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
 
   const saveDraft = useCallback(async () => {
+    // Don't save drafts when editing existing templates
+    // Drafts are only for creating new templates
+    if (isEditMode) {
+      console.log('⏭️ Skipping draft save - in edit mode');
+      hasUnsavedChanges.current = false;
+      return;
+    }
+    
     if (!hasUnsavedChanges.current) return;
     
     setIsSaving(true);
@@ -243,6 +251,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       };
       
       let response;
+      console.log('💾 Saving draft:', { draftId, isEditMode });
       
       if (draftId) {
         // ✅ UPDATE existing draft using PATCH with query param
@@ -291,7 +300,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [draftId, currentStep, templateData]);
+  }, [draftId, currentStep, templateData, isEditMode]);
 
   // Debounced auto-save effect
   useEffect(() => {
@@ -334,11 +343,14 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       
       // Set the draft ID from response
       setDraftId(data._id);
-      setCurrentStep(data.current_step || 1);
+      setCurrentStep(data.step_number || data.current_step || 1);
       
-      // Load the partial data (which may include _id from previous template)
+      // Load the partial data
       setTemplateData(data.partial_data || {});
-      setLastSaved(new Date(data.metadata?.last_saved_at || data.updated_at));
+      setLastSaved(new Date(data.updated_at || data.metadata?.last_saved_at));
+      
+      // Draft mode - not edit mode
+      setIsEditMode(false);
       
       console.log('✅ Draft loaded successfully');
     } catch (error) {
@@ -379,7 +391,8 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       
       // Set template data WITH _id
       setTemplateData(template);
-      setIsEditMode(true);
+      setIsEditMode(true); // ✅ Enable edit mode
+      setDraftId(null);    // ✅ Clear any draft ID
       setCurrentStep(1);
       
       console.log('✅ Template loaded for editing:', templateId);
@@ -590,8 +603,8 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         console.log('✅ Template created successfully:', result);
       }
 
-      // Delete draft after successful creation/update
-      if (draftId) {
+      // Delete draft after successful creation (only if not in edit mode)
+      if (draftId && !isEditMode) {
         console.log('🗑️ Deleting draft:', draftId);
         await fetch(`/api/templates/draft?draft_id=${draftId}`, {
           method: 'DELETE',

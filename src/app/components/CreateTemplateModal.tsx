@@ -193,7 +193,7 @@ function ModalContentInner({ onClose, isEditMode }: { onClose: () => void; isEdi
         </button>
 
         <div className="flex items-center gap-3">
-          <button
+         {!isEditMode&& <button
             onClick={() => saveDraft()}
             className="inline-flex items-center px-4 py-2 border border-primary rounded-md text-sm font-medium text-primary bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
           >
@@ -201,7 +201,7 @@ function ModalContentInner({ onClose, isEditMode }: { onClose: () => void; isEdi
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
             </svg>
             Save Draft
-          </button>
+          </button>}
 
           {currentStep < totalSteps ? (
             <button
