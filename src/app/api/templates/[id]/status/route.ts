@@ -1,14 +1,15 @@
 // src/app/api/templates/[id]/status/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const SECRET_KEY = process.env.JWT_SECRET as string;
 const AI_SERVER_URL = process.env.AI_SERVER_URL;
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+async function statusChangeHandler(
+  req: NextRequest | Request,
+  { params }: any
 ): Promise<NextResponse> {
   try {
     const body = await req.json();
@@ -41,15 +42,30 @@ export async function PATCH(
 
     const currentStatus = template.status;
 
-    if (currentStatus === "deprecated" && status === "active") {
+    // Rule 1: Deprecated templates cannot change status (final state)
+    if (currentStatus === "deprecated") {
       return NextResponse.json(
         {
           error:
-            "Cannot reactivate deprecated templates. Create a new version instead.",
+            "Deprecated templates cannot be changed. Once deprecated, a template remains deprecated permanently. Create a new template instead.",
         },
         { status: 403 }
       );
     }
+
+    // Rule 2: Active templates can only become inactive (not deprecated directly)
+    if (currentStatus === "active" && status === "deprecated") {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot deprecate an active template. Set template to inactive first, then deprecate.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Rule 3: Active <-> Inactive transitions are allowed (no validation needed)
+    // Rule 4: Inactive -> Deprecated is allowed (no validation needed)
 
     const updateResult = await templatesCollection.updateOne(
       { template_id: params.id },
@@ -117,3 +133,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withLogging(statusChangeHandler);

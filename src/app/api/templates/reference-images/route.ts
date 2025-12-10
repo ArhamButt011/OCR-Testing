@@ -5,6 +5,7 @@ import { existsSync } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import clientPromise from "@/lib/mongodb";
+import { withLogging } from "@/lib/apiWrapper";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const UPLOAD_DIR = path.join(process.cwd(), "public", "templates", "images");
@@ -18,7 +19,9 @@ const ALLOWED_TYPES = [
   "image/webp",
 ];
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export async function uploadImageHandler(
+  req: NextRequest | Request
+): Promise<NextResponse> {
   try {
     if (!existsSync(UPLOAD_DIR)) {
       await mkdir(UPLOAD_DIR, { recursive: true });
@@ -106,7 +109,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+export async function getImageHandler(
+  req: NextRequest | Request
+): Promise<NextResponse> {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -130,3 +135,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+export const POST = withLogging(uploadImageHandler);
+export const GET = withLogging(getImageHandler);
