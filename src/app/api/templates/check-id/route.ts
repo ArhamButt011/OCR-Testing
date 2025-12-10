@@ -53,4 +53,4 @@ export async function checkIdHandler(
   }
 }
 
-export const GET = withLogging(checkIdHandler);
+export const POST = withLogging(checkIdHandler);
