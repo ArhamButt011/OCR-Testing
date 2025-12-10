@@ -142,19 +142,16 @@ export async function DELETE(
       );
     }
 
-    if (currentTemplate.status === "active") {
-      const { searchParams } = new URL(req.url);
-      const forceDelete = searchParams.get("force") === "true";
-
-      if (!forceDelete) {
-        return NextResponse.json(
-          {
-            error:
-              "Cannot delete active template. Deactivate it first or use force=true query parameter.",
-          },
-          { status: 403 }
-        );
-      }
+    // Only allow deletion of deprecated templates
+    if (currentTemplate.status !== "deprecated") {
+      return NextResponse.json(
+        {
+          error:
+            "Only deprecated templates can be deleted. Current status: " +
+            currentTemplate.status,
+        },
+        { status: 403 }
+      );
     }
 
     const deleteResult = await templatesCollection.deleteOne({
