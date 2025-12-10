@@ -49,11 +49,12 @@ async function createDraftHandler(
       },
     };
 
-    await draftsCollection.insertOne(draftDoc);
+    const insertResult = await draftsCollection.insertOne(draftDoc);
 
     return NextResponse.json(
       {
         success: true,
+        _id: insertResult.insertedId.toString(),
         draft_id: newDraftId,
         step_number: step_number,
         message: "Draft created successfully",
