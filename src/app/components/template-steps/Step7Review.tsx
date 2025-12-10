@@ -41,10 +41,10 @@ export const Step7Review: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const templateId = await submitTemplate();
+      const templateRes= await submitTemplate();
       
       // Activate the template
-      const activateResponse = await fetch(`/api/templates/${templateId}/activate`, {
+      const activateResponse = await fetch(`/api/templates/${templateRes?.templateId}/activate`, {
         method: 'POST',
       });
 
@@ -52,8 +52,7 @@ export const Step7Review: React.FC = () => {
         throw new Error('Failed to activate template');
       }
 
-      alert('Template created and activated successfully!');
-      // router.push('/admin/templates');
+      alert('Template created and activated successfully!', );
     } catch (error: any) {
       console.error('Activation failed:', error);
       alert(error.message || 'Failed to activate template');
@@ -65,9 +64,8 @@ export const Step7Review: React.FC = () => {
   const handleSaveInactive = async () => {
     setIsSubmitting(true);
     try {
-      const templateId = await submitTemplate();
-      alert('Template saved as inactive!');
-      // router.push('/admin/templates');
+      const templateRes = await submitTemplate();
+      alert(`Template saved as inactive with template id ${templateRes?.template_id}, and version ${templateRes?.version}`);
     } catch (error: any) {
       console.error('Save failed:', error);
       alert(error.message || 'Failed to save template');

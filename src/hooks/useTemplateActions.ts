@@ -2,13 +2,11 @@
 "use client";
 
 import { useState } from 'react';
+import axios from 'axios';
 
 export const useTemplateActions = (onRefresh: () => void) => {
   const [loading, setLoading] = useState(false);
 
-  /**
-   * Get user ID from JWT token
-   */
   const getUserId = (): string => {
     try {
       const token = localStorage.getItem("token");
@@ -30,11 +28,6 @@ export const useTemplateActions = (onRefresh: () => void) => {
     }
   };
 
-  /**
-   * Update template status using your API endpoint
-   * PATCH /api/templates/{id}/status
-   * Body: { status: "active" | "inactive" | "deprecated", user_id: string }
-   */
   const updateTemplateStatus = async (
     templateId: string, 
     status: "active" | "inactive" | "deprecated"
@@ -43,35 +36,24 @@ export const useTemplateActions = (onRefresh: () => void) => {
       setLoading(true);
       const userId = getUserId();
 
-      const response = await fetch(`/api/templates/${templateId}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          status,
-          user_id: userId,
-        }),
+      const response = await axios.patch(`/api/templates/${templateId}/status`, {
+        status,
+        // user_id: userId,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update template status");
-      }
-
-      return data;
+      return response.data;
     } catch (error) {
       console.error("Failed to update template status:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(error.response.data?.error || "Failed to update template status");
+      }
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Activate a template (set status to "active")
-   */
+
   const handleActivate = async (templateId: string) => {
     if (!confirm("Activate this template? It will be used for OCR processing.")) {
       return;
@@ -79,10 +61,10 @@ export const useTemplateActions = (onRefresh: () => void) => {
 
     try {
       const result = await updateTemplateStatus(templateId, "active");
+      console.log("result",result)
       alert(result.message || "Template activated successfully!");
       onRefresh();
     } catch (error: any) {
-      // Handle specific error for deprecated templates
       if (error.message.includes("deprecated")) {
         alert(
           "Cannot reactivate deprecated templates. Please create a new version instead."
@@ -93,9 +75,7 @@ export const useTemplateActions = (onRefresh: () => void) => {
     }
   };
 
-  /**
-   * Deactivate a template (set status to "inactive")
-   */
+ 
   const handleDeactivate = async (templateId: string) => {
     if (!confirm("Deactivate this template? It will no longer be used for OCR processing.")) {
       return;
@@ -110,10 +90,7 @@ export const useTemplateActions = (onRefresh: () => void) => {
     }
   };
 
-  /**
-   * Deprecate a template (set status to "deprecated")
-   * Note: Deprecated templates cannot be reactivated
-   */
+  
   const handleDeprecate = async (templateId: string) => {
     if (!confirm(
       "Deprecate this template? This action cannot be undone. The template will no longer be used for OCR processing and cannot be reactivated."
@@ -130,9 +107,6 @@ export const useTemplateActions = (onRefresh: () => void) => {
     }
   };
 
-  /**
-   * Delete a template
-   */
   const handleDelete = async (templateId: string) => {
     if (!confirm("Delete this template? This action cannot be undone.")) {
       return;
@@ -140,21 +114,17 @@ export const useTemplateActions = (onRefresh: () => void) => {
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/templates/${templateId}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to delete template");
-      }
-
+      await axios.delete(`/api/templates/${templateId}`);
+      
       alert("Template deleted successfully!");
       onRefresh();
     } catch (error: any) {
       console.error("Failed to delete template:", error);
-      alert(`Failed to delete template: ${error.message}`);
+      if (axios.isAxiosError(error) && error.response) {
+        alert(`Failed to delete template: ${error.response.data?.error || error.message}`);
+      } else {
+        alert(`Failed to delete template: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }

@@ -14,21 +14,29 @@ export interface ReferenceImage {
   preview?: string;
 }
 
+// FR-004 AC-004-3: Ratio-based coordinates (0-1 scale) for resolution independence
 export interface CoordinateRegion {
   region_name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x1_ratio: number;  // Left edge position (0 = far left, 1 = far right)
+  y1_ratio: number;  // Top edge position (0 = top, 1 = bottom)
+  x2_ratio: number;  // Right edge position (0 = far left, 1 = far right)
+  y2_ratio: number;  // Bottom edge position (0 = top, 1 = bottom)
+  confidence_threshold?: number; // FR-004 AC-004-2: Optional per-region confidence override
+}
+
+// FR-004 AC-004-2: YOLO class with per-region confidence threshold
+export interface YoloClass {
+  class_id: string;
+  region_name: string;
+  confidence_threshold?: number; // Optional override of global confidence (default: 0.60)
 }
 
 export interface YoloConfig {
   model_name: string;
   model_path: string;
-  confidence_threshold: number;
+  confidence_threshold: number; // FR-004 AC-004-2: Global default (0.60)
   iou_threshold?: number;
-  classes_to_detect: string[];
-  class_mapping: Record<string, string>;
+  classes: YoloClass[]; // Changed from class_mapping to support per-region confidence
 }
 
 export interface HybridConfig {
@@ -143,7 +151,7 @@ interface TemplateContextType {
   draftId: string | null;
   isSaving: boolean;
   lastSaved: Date | null;
-  errors: Record<string, string>;
+  errors: Record<string, any>; // Changed from string to any to support nested errors
   
   // Actions
   setCurrentStep: (step: number) => void;
@@ -155,6 +163,7 @@ interface TemplateContextType {
   resetTemplate: () => void;
   setError: (field: string, error: string) => void;
   clearError: (field: string) => void;
+  setErrors: (errors: Record<string, any>) => void; // New method to set multiple errors
 }
 
 // ============================================================================
@@ -216,7 +225,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         },
         body: JSON.stringify({
           draft_id: draftId,
-          step_number: currentStep,
+          current_step: currentStep,
           total_steps: totalSteps,
           partial_data: templateData,
         }),
@@ -230,18 +239,19 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       
       if (!draftId && data.draft_id) {
         setDraftId(data.draft_id);
-        // window.history.replaceState(
-        //   null, 
-        //   '', 
-        //   `/admin/templates/create?draft=${data.draft_id}`
-        // );
+        // Update URL with draft ID without navigation
+        window.history.replaceState(
+          null, 
+          '', 
+          `/admin/templates/create?draft=${data.draft_id}`
+        );
       }
 
       setLastSaved(new Date());
       hasUnsavedChanges.current = false;
-      console.log('Draft saved successfully');
+      console.log('✅ Draft saved successfully');
     } catch (error) {
-      console.error('Failed to save draft:', error);
+      console.error('❌ Failed to save draft:', error);
     } finally {
       setIsSaving(false);
     }
@@ -326,6 +336,10 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
           newErrors.template_id = 'Template ID is required';
         } else if (!/^[A-Z0-9_]+$/.test(templateData.template_id)) {
           newErrors.template_id = 'Template ID must contain only uppercase letters, numbers, and underscores';
+        } else if (errors.template_id) {
+          // Preserve existing error from uniqueness check
+          // If there's an error already set (from async uniqueness validation), keep it
+          newErrors.template_id = errors.template_id;
         }
         
         if (!templateData.template_name) {
@@ -368,8 +382,34 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         break;
 
       case 5: // Prompts
+        // Check if prompts exist
         if (!templateData.prompts || Object.keys(templateData.prompts).length === 0) {
           newErrors.prompts = 'At least 1 region prompt is required';
+        } else {
+          // Check each prompt for completeness
+          const promptErrors: any = {};
+          Object.entries(templateData.prompts).forEach(([region, promptConfig]) => {
+            if (!promptConfig.prompt_text || promptConfig.prompt_text.trim() === '') {
+              promptErrors[region] = { ...promptErrors[region], prompt_text: 'Prompt text is required' };
+            }
+            
+            if (!promptConfig.expected_output_schema || Object.keys(promptConfig.expected_output_schema).length === 0) {
+              promptErrors[region] = { ...promptErrors[region], schema: 'Expected output schema is required' };
+            }
+          });
+          
+          // If there are any prompt errors, block navigation
+          if (Object.keys(promptErrors).length > 0) {
+            newErrors.prompts = promptErrors;
+          }
+          
+          // Also check if there are existing schema validation errors from the component
+          if (errors.prompts && typeof errors.prompts === 'object') {
+            const hasSchemaErrors = Object.values(errors.prompts).some((err: any) => err && err.schema);
+            if (hasSchemaErrors) {
+              newErrors.prompts = errors.prompts;
+            }
+          }
         }
         break;
 
@@ -386,7 +426,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [templateData]);
+  }, [templateData, errors]);
 
   // ============================================================================
   // SUBMIT TEMPLATE
@@ -502,6 +542,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     resetTemplate,
     setError,
     clearError,
+    setErrors, // Add setErrors method
   };
 
   return (
