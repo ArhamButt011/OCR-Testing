@@ -17,6 +17,7 @@ interface CreateTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
   draftId?: string;
+  templateId?: string; // NEW: For edit mode
 }
 
 /**
@@ -63,7 +64,7 @@ const ModalPortal: React.FC<{
 /* --------------------------
    ModalContent (the internal content)
    -------------------------- */
-function ModalContentInner({ onClose }: { onClose: () => void }) {
+function ModalContentInner({ onClose, isEditMode }: { onClose: () => void; isEditMode: boolean }) {
   const {
     currentStep,
     setCurrentStep,
@@ -106,10 +107,12 @@ function ModalContentInner({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="flex flex-col h-full min-h-[60vh]">
-      {/* Modal Header */}
+      {/* Modal Header - UPDATED with dynamic title */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="flex-1 pr-4">
-          <h2 className="text-xl font-semibold text-gray-900">Create OCR Template</h2>
+          <h2 className="text-xl font-semibold text-gray-900">
+            {isEditMode ? "Edit OCR Template" : "Create OCR Template"}
+          </h2>
           <p className="text-sm text-gray-600 mt-1">
             Step {currentStep} of {totalSteps}: {steps[currentStep - 1].name}
           </p>
@@ -220,11 +223,19 @@ function ModalContentInner({ onClose }: { onClose: () => void }) {
 /* --------------------------
    Exported CreateTemplateModal that uses Portal + TemplateProvider
    -------------------------- */
-export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({ isOpen, onClose, draftId }) => {
+export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  draftId,
+  templateId // NEW
+}) => {
   return (
     <ModalPortal isOpen={isOpen} onClose={onClose} buttonContent="Close" isBilling={true}>
-      <TemplateProvider initialDraftId={draftId}>
-        <ModalContentInner onClose={onClose} />
+      <TemplateProvider 
+        initialDraftId={draftId}
+        initialTemplateId={templateId} // NEW: Pass templateId for edit mode
+      >
+        <ModalContentInner onClose={onClose} isEditMode={!!templateId} />
       </TemplateProvider>
     </ModalPortal>
   );

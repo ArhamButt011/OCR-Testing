@@ -58,10 +58,13 @@ export interface PromptPostProcessing {
     description?: string;
   }>;
   validations?: Array<{
+    rule_name: string;
     field: string;
-    validate: string;
+    condition: string;
+    action: string;
+    message?: string;
     reject_values?: any[];
-    action?: string;
+    validate?: string;
     reason?: string;
   }>;
 }
@@ -152,18 +155,20 @@ interface TemplateContextType {
   isSaving: boolean;
   lastSaved: Date | null;
   errors: Record<string, any>; // Changed from string to any to support nested errors
+  isEditMode: boolean; // New: track if editing existing template
   
   // Actions
   setCurrentStep: (step: number) => void;
   updateTemplateData: (data: Partial<TemplateData>) => void;
   saveDraft: () => Promise<void>;
   loadDraft: (draftId: string) => Promise<void>;
+  loadTemplate: (templateId: string) => Promise<void>; // New: load existing template for editing
   validateStep: (step: number) => boolean;
   submitTemplate: () => Promise<string>;
   resetTemplate: () => void;
   setError: (field: string, error: string) => void;
   clearError: (field: string) => void;
-  setErrors: (errors: Record<string, any>) => void; // New method to set multiple errors
+  setErrors: (errors: Record<string, any>) => void;
 }
 
 // ============================================================================
@@ -187,11 +192,13 @@ export const useTemplate = () => {
 interface TemplateProviderProps {
   children: React.ReactNode;
   initialDraftId?: string;
+  initialTemplateId?: string; // New: for editing existing template
 }
 
 export const TemplateProvider: React.FC<TemplateProviderProps> = ({ 
   children, 
-  initialDraftId 
+  initialDraftId,
+  initialTemplateId 
 }) => {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -204,6 +211,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isEditMode, setIsEditMode] = useState(!!initialTemplateId);
   
   // Debounce timer ref
   const saveTimerRef = useRef<NodeJS.Timeout>();
@@ -225,7 +233,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         },
         body: JSON.stringify({
           draft_id: draftId,
-          current_step: currentStep,
+          step_number: currentStep,
           total_steps: totalSteps,
           partial_data: templateData,
         }),
@@ -239,12 +247,6 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       
       if (!draftId && data.draft_id) {
         setDraftId(data.draft_id);
-        // Update URL with draft ID without navigation
-        window.history.replaceState(
-          null, 
-          '', 
-          `/admin/templates/create?draft=${data.draft_id}`
-        );
       }
 
       setLastSaved(new Date());
@@ -304,12 +306,47 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     }
   }, []);
 
-  // Load initial draft if provided
+  // ============================================================================
+  // LOAD TEMPLATE FOR EDITING
+  // ============================================================================
+
+  const loadTemplate = useCallback(async (templateId: string) => {
+    try {
+      const response = await fetch(`/api/templates/${templateId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to load template');
+      }
+
+      const data = await response.json();
+      
+      // Extract template from response wrapper if it exists
+      const template = data.template || data;
+      
+      // Remove MongoDB _id field if present
+      if (template._id) {
+        delete template._id;
+      }
+      
+      setTemplateData(template);
+      setIsEditMode(true);
+      setCurrentStep(1);
+      
+      console.log('✅ Template loaded for editing:', templateId, template);
+    } catch (error) {
+      console.error('❌ Failed to load template:', error);
+      throw error;
+    }
+  }, []);
+
+  // Load initial draft or template if provided
   useEffect(() => {
     if (initialDraftId) {
       loadDraft(initialDraftId);
+    } else if (initialTemplateId) {
+      loadTemplate(initialTemplateId);
     }
-  }, [initialDraftId, loadDraft]);
+  }, [initialDraftId, initialTemplateId, loadDraft, loadTemplate]);
 
   // ============================================================================
   // UPDATE TEMPLATE DATA
@@ -338,7 +375,6 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
           newErrors.template_id = 'Template ID must contain only uppercase letters, numbers, and underscores';
         } else if (errors.template_id) {
           // Preserve existing error from uniqueness check
-          // If there's an error already set (from async uniqueness validation), keep it
           newErrors.template_id = errors.template_id;
         }
         
@@ -382,11 +418,9 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         break;
 
       case 5: // Prompts
-        // Check if prompts exist
         if (!templateData.prompts || Object.keys(templateData.prompts).length === 0) {
           newErrors.prompts = 'At least 1 region prompt is required';
         } else {
-          // Check each prompt for completeness
           const promptErrors: any = {};
           Object.entries(templateData.prompts).forEach(([region, promptConfig]) => {
             if (!promptConfig.prompt_text || promptConfig.prompt_text.trim() === '') {
@@ -398,12 +432,10 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
             }
           });
           
-          // If there are any prompt errors, block navigation
           if (Object.keys(promptErrors).length > 0) {
             newErrors.prompts = promptErrors;
           }
           
-          // Also check if there are existing schema validation errors from the component
           if (errors.prompts && typeof errors.prompts === 'object') {
             const hasSchemaErrors = Object.values(errors.prompts).some((err: any) => err && err.schema);
             if (hasSchemaErrors) {
@@ -420,7 +452,6 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         break;
 
       case 7: // Review
-        // All validations from previous steps
         break;
     }
 
@@ -452,42 +483,63 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
       if (!validateResponse.ok) {
         const error = await validateResponse.json();
-        throw new Error(error.detail || 'Template validation failed');
+        throw new Error(error.error || 'Template validation failed');
       }
 
-      // Create template
-      const createResponse = await fetch('/api/templates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...templateData,
-          status: 'inactive', // Start as inactive
-        }),
-      });
+      let result;
 
-      if (!createResponse.ok) {
-        const error = await createResponse.json();
-        throw new Error(error.detail || 'Failed to create template');
+      if (isEditMode && templateData.template_id) {
+        // Update existing template
+        const updateResponse = await fetch(`/api/templates/${templateData.template_id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(templateData),
+        });
+
+        if (!updateResponse.ok) {
+          const error = await updateResponse.json();
+          throw new Error(error.error || 'Failed to update template');
+        }
+
+        result = await updateResponse.json();
+        console.log('✅ Template updated successfully:', result.template_id);
+      } else {
+        // Create new template
+        const createResponse = await fetch('/api/templates', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...templateData,
+            status: 'inactive',
+          }),
+        });
+
+        if (!createResponse.ok) {
+          const error = await createResponse.json();
+          throw new Error(error.error || 'Failed to create template');
+        }
+
+        result = await createResponse.json();
+        console.log('✅ Template created successfully:', result.template_id);
       }
 
-      const result = await createResponse.json();
-
-      // Delete draft after successful creation
+      // Delete draft after successful creation/update
       if (draftId) {
         await fetch(`/api/templates/draft?draft_id=${draftId}`, {
           method: 'DELETE',
         });
       }
 
-      console.log('✅ Template created successfully:', result.template_id);
-      return result.template_id;
+      return result;
     } catch (error) {
       console.error('❌ Failed to submit template:', error);
       throw error;
     }
-  }, [templateData, draftId, validateStep]);
+  }, [templateData, draftId, validateStep, isEditMode]);
 
   // ============================================================================
   // RESET TEMPLATE
@@ -501,6 +553,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     setCurrentStep(1);
     setDraftId(null);
     setErrors({});
+    setIsEditMode(false);
     hasUnsavedChanges.current = false;
     setLastSaved(null);
   }, []);
@@ -533,16 +586,18 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     isSaving,
     lastSaved,
     errors,
+    isEditMode,
     setCurrentStep,
     updateTemplateData,
     saveDraft,
     loadDraft,
+    loadTemplate,
     validateStep,
     submitTemplate,
     resetTemplate,
     setError,
     clearError,
-    setErrors, // Add setErrors method
+    setErrors,
   };
 
   return (

@@ -29,6 +29,7 @@ interface TemplateTableProps {
   onDeactivate: (templateId: string) => void;
   onDeprecate: (templateId: string) => void;
   onDelete: (templateId: string) => void;
+  onEdit: (templateId: string) => void; // NEW
 }
 
 export const TemplateTable: React.FC<TemplateTableProps> = ({
@@ -40,6 +41,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   onDeactivate,
   onDeprecate,
   onDelete,
+  onEdit, // NEW
 }) => {
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -182,6 +184,15 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-3">
+                    {/* NEW: Edit Button - Always visible */}
+                    <button
+                      onClick={() => onEdit(template.template_id)}
+                      className="text-blue-600 hover:text-blue-900 font-medium"
+                      title="Edit template"
+                    >
+                      Edit
+                    </button>
+                    
                     {/* FR-013 AC-013-3: Quick Actions */}
                     
                     {/* Inactive templates: Show Activate */}

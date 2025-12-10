@@ -34,6 +34,7 @@ export default function TemplatesPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDraftId, setSelectedDraftId] = useState<string | undefined>();
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(); // NEW
 
   // Auth check
   useEffect(() => {
@@ -128,9 +129,26 @@ export default function TemplatesPage() {
     handleDelete,
   } = useTemplateActions(fetchTemplates);
 
+  // NEW: Handle create new template
   const handleCreateNew = () => {
     setSelectedDraftId(undefined);
+    setSelectedTemplateId(undefined);
     setIsModalOpen(true);
+  };
+
+  // NEW: Handle edit template
+  const handleEdit = (templateId: string) => {
+    setSelectedDraftId(undefined);
+    setSelectedTemplateId(templateId);
+    setIsModalOpen(true);
+  };
+
+  // NEW: Handle modal close
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedDraftId(undefined);
+    setSelectedTemplateId(undefined);
+    fetchTemplates(); // Refresh list after create/edit
   };
 
   const handleSidebarStateChange = (newState: boolean) => {
@@ -212,6 +230,7 @@ export default function TemplatesPage() {
                     onDeactivate={handleDeactivate}
                     onDeprecate={handleDeprecate}
                     onDelete={handleDelete}
+                    onEdit={handleEdit} // NEW: Pass edit handler
                   />
 
                   {/* Pagination - AC-013-6 */}
@@ -234,14 +253,12 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      {/* Create Template Modal */}
+      {/* Create/Edit Template Modal - UPDATED */}
       <CreateTemplateModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          fetchTemplates();
-        }}
+        onClose={handleModalClose}
         draftId={selectedDraftId}
+        templateId={selectedTemplateId} // NEW: Pass template ID for edit mode
       />
     </>
   );

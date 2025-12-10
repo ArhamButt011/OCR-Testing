@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useTemplate } from '@/app/context/TemplateContext';
 import { useRouter } from 'next/navigation';
 
@@ -14,15 +15,12 @@ export const Step7Review: React.FC = () => {
   const handleTestTemplate = async () => {
     setIsTesting(true);
     try {
-      const response = await fetch('/api/templates/validate', {
-        method: 'POST',
+      const response = await axios.post('/api/templates/validate', templateData, {
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(templateData),
       });
 
-      const result = await response.json();
-      setTestResults(result);
-    } catch (error) {
+      setTestResults(response.data);
+    } catch (error: any) {
       console.error('Test failed:', error);
       setTestResults({ valid: false, errors: ['Test failed'] });
     } finally {
@@ -41,21 +39,31 @@ export const Step7Review: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const templateRes= await submitTemplate();
-      
-      // Activate the template
-      const activateResponse = await fetch(`/api/templates/${templateRes?.templateId}/activate`, {
-        method: 'POST',
-      });
+      const templateRes = await submitTemplate();
 
-      if (!activateResponse.ok) {
+      const templateId = templateRes?.template_id;
+      if (!templateId) {
+        throw new Error('Template ID not returned from submitTemplate');
+      }
+
+      // Use axios to PATCH the status with the required body
+      const activateResponse = await axios.patch(
+        `/api/templates/${templateId}/status`,
+        { status: 'active' },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      // axios treats non-2xx as thrown errors, but double-check
+      if (activateResponse.status < 200 || activateResponse.status >= 300) {
         throw new Error('Failed to activate template');
       }
 
-      alert('Template created and activated successfully!', );
+      alert('Template created and activated successfully!');
+      // Optionally navigate to a different page:
+      // router.push(`/templates/${templateId}`);
     } catch (error: any) {
       console.error('Activation failed:', error);
-      alert(error.message || 'Failed to activate template');
+      alert(error?.response?.data?.message || error.message || 'Failed to activate template');
     } finally {
       setIsSubmitting(false);
     }
@@ -231,7 +239,7 @@ export const Step7Review: React.FC = () => {
           <div className="space-y-1 max-h-40 overflow-y-auto">
             {Object.entries(templateData.field_mapping || {}).map(([target, mapping]) => (
               <div key={target} className="text-xs font-mono bg-gray-50 px-3 py-2 rounded border border-gray-200">
-                <span className="text-primary">{mapping.source_field}</span>
+                <span className="text-primary">{(mapping as any).source_field}</span>
                 {' → '}
                 <span className="text-green-600">{target}</span>
               </div>
