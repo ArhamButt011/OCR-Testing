@@ -118,8 +118,10 @@ export interface PostProcessingRules {
 }
 
 export interface TemplateData {
+  // MongoDB document ID (internal use only)
+  _id?: string;
+  
   // Step 1: Basic Info
-  _id?: string; // MongoDB document ID
   template_id?: string;
   template_name?: string;
   category?: 'Stamp' | 'Notation' | 'Receipt';
@@ -145,6 +147,9 @@ export interface TemplateData {
   
   // Step 7: Post-Processing Rules (optional)
   post_processing_rules?: PostProcessingRules;
+  
+  // Status (managed separately)
+  status?: 'active' | 'inactive' | 'deprecated';
 }
 
 interface TemplateContextType {
@@ -155,15 +160,15 @@ interface TemplateContextType {
   draftId: string | null;
   isSaving: boolean;
   lastSaved: Date | null;
-  errors: Record<string, any>; // Changed from string to any to support nested errors
-  isEditMode: boolean; // New: track if editing existing template
+  errors: Record<string, any>;
+  isEditMode: boolean;
   
   // Actions
   setCurrentStep: (step: number) => void;
   updateTemplateData: (data: Partial<TemplateData>) => void;
   saveDraft: () => Promise<void>;
   loadDraft: (draftId: string) => Promise<void>;
-  loadTemplate: (templateId: string) => Promise<void>; // New: load existing template for editing
+  loadTemplate: (templateId: string) => Promise<void>;
   validateStep: (step: number) => boolean;
   submitTemplate: () => Promise<string>;
   resetTemplate: () => void;
@@ -193,7 +198,7 @@ export const useTemplate = () => {
 interface TemplateProviderProps {
   children: React.ReactNode;
   initialDraftId?: string;
-  initialTemplateId?: string; // New: for editing existing template
+  initialTemplateId?: string;
 }
 
 export const TemplateProvider: React.FC<TemplateProviderProps> = ({ 
@@ -227,27 +232,55 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     
     setIsSaving(true);
     try {
-      const response = await fetch('/api/templates/draft', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          draft_id: draftId,
-          step_number: currentStep,
-          total_steps: totalSteps,
-          partial_data: templateData,
-        }),
-      });
+      // Prepare draft data (exclude _id from body)
+      const { _id, ...draftData } = templateData;
+      
+      // Prepare request body (same for create and update)
+      const requestBody = {
+        step_number: currentStep,
+        total_steps: totalSteps,
+        partial_data: draftData,
+      };
+      
+      let response;
+      
+      if (draftId) {
+        // ✅ UPDATE existing draft using PATCH with query param
+        console.log('💾 Updating draft:', draftId);
+        
+        response = await fetch(`/api/templates/draft?draft_id=${draftId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else {
+        // ✅ CREATE new draft using POST
+        console.log('💾 Creating new draft');
+        
+        response = await fetch('/api/templates/draft', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
 
       if (!response.ok) {
-        throw new Error('Failed to save draft');
+        const errorData = await response.json();
+        console.error('❌ Draft save failed:', errorData);
+        throw new Error(errorData.error || 'Failed to save draft');
       }
 
       const data = await response.json();
+      console.log('📝 Draft save response:', data);
       
+      // Update draftId if this is a new draft
       if (!draftId && data._id) {
         setDraftId(data._id);
+        console.log('✅ New draft created with ID:', data._id);
       }
 
       setLastSaved(new Date());
@@ -287,6 +320,8 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
 
   const loadDraft = useCallback(async (id: string) => {
+    console.log('📂 Loading draft:', id);
+    
     try {
       const response = await fetch(`/api/templates/draft?draft_id=${id}`);
       
@@ -294,12 +329,16 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         throw new Error('Failed to load draft');
       }
 
-      const draft = await response.json();
+      const data = await response.json();
+      console.log('📥 Draft loaded:', data);
       
-      setDraftId(draft._id);
-      setCurrentStep(draft.current_step || 1);
-      setTemplateData(draft.partial_data || {});
-      setLastSaved(new Date(draft.metadata.last_saved_at));
+      // Set the draft ID from response
+      setDraftId(data._id);
+      setCurrentStep(data.current_step || 1);
+      
+      // Load the partial data (which may include _id from previous template)
+      setTemplateData(data.partial_data || {});
+      setLastSaved(new Date(data.metadata?.last_saved_at || data.updated_at));
       
       console.log('✅ Draft loaded successfully');
     } catch (error) {
@@ -312,6 +351,8 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
 
   const loadTemplate = useCallback(async (templateId: string) => {
+    console.log('📄 Loading template for editing:', templateId);
+    
     try {
       const response = await fetch(`/api/templates/${templateId}`);
       
@@ -320,20 +361,28 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       }
 
       const data = await response.json();
+      console.log('📥 API Response:', data);
       
       // Extract template from response wrapper if it exists
+      // API returns: { success: true, template: {...} }
       const template = data.template || data;
       
-      // Remove MongoDB _id field if present
-      if (template._id) {
-        delete template._id;
+      console.log('📦 Extracted template:', template);
+      
+      // IMPORTANT: Keep the _id for editing (needed for PATCH request)
+      // Just remove metadata if present
+      if (template.metadata) {
+        delete template.metadata;
       }
       
+      console.log('✨ Final template data (with _id):', template);
+      
+      // Set template data WITH _id
       setTemplateData(template);
       setIsEditMode(true);
       setCurrentStep(1);
       
-      console.log('✅ Template loaded for editing:', templateId, template);
+      console.log('✅ Template loaded for editing:', templateId);
     } catch (error) {
       console.error('❌ Failed to load template:', error);
       throw error;
@@ -342,9 +391,13 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
   // Load initial draft or template if provided
   useEffect(() => {
+    console.log('🔍 Initial load check:', { initialDraftId, initialTemplateId });
+    
     if (initialDraftId) {
+      console.log('📝 Loading draft:', initialDraftId);
       loadDraft(initialDraftId);
     } else if (initialTemplateId) {
+      console.log('📄 Loading template:', initialTemplateId);
       loadTemplate(initialTemplateId);
     }
   }, [initialDraftId, initialTemplateId, loadDraft, loadTemplate]);
@@ -354,8 +407,10 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
 
   const updateTemplateData = useCallback((data: Partial<TemplateData>) => {
+    console.log('📝 Updating template data:', data);
     setTemplateData(prev => {
       const updated = { ...prev, ...data };
+      console.log('📊 New template data state:', updated);
       hasUnsavedChanges.current = true;
       return updated;
     });
@@ -473,13 +528,16 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         }
       }
 
+      // Prepare request body (exclude _id)
+      const { _id, ...templateBody } = templateData;
+
       // First validate template structure
       const validateResponse = await fetch('/api/templates/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(templateData),
+        body: JSON.stringify(templateBody),
       });
 
       if (!validateResponse.ok) {
@@ -489,14 +547,16 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
       let result;
 
-      if (isEditMode && templateData._id) {
-        // Update existing template
-        const updateResponse = await fetch(`/api/templates/${templateData._id}`, {
+      if (isEditMode && _id) {
+        // Update existing template using _id
+        console.log('📤 Updating template with _id:', _id);
+        
+        const updateResponse = await fetch(`/api/templates/${_id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(templateData),
+          body: JSON.stringify(templateBody), // Send without _id
         });
 
         if (!updateResponse.ok) {
@@ -505,17 +565,19 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         }
 
         result = await updateResponse.json();
-        console.log('✅ Template updated successfully:', result.template_id);
+        console.log('✅ Template updated successfully:', result);
       } else {
         // Create new template
+        console.log('📤 Creating new template');
+        
         const createResponse = await fetch('/api/templates', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            ...templateData,
-            status: 'inactive',
+            ...templateBody,
+            status: 'inactive', // New templates start as inactive
           }),
         });
 
@@ -525,14 +587,16 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         }
 
         result = await createResponse.json();
-        console.log('✅ Template created successfully:', result.template_id);
+        console.log('✅ Template created successfully:', result);
       }
 
       // Delete draft after successful creation/update
       if (draftId) {
+        console.log('🗑️ Deleting draft:', draftId);
         await fetch(`/api/templates/draft?draft_id=${draftId}`, {
           method: 'DELETE',
         });
+        console.log('✅ Draft deleted');
       }
 
       return result;
