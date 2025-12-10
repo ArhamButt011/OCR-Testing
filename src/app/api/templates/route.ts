@@ -25,9 +25,9 @@ function validateRegionConfig(regionConfig: any): string[] {
     if (!regionConfig.yolo_config) {
       errors.push("yolo_config is required for yolo/hybrid method");
     } else {
-      if (!regionConfig.yolo_config.model_path) {
-        errors.push("yolo_config.model_path is required");
-      }
+      // if (!regionConfig.yolo_config.model_path) {
+      //   errors.push("yolo_config.model_path is required");
+      // }
       if (
         regionConfig.yolo_config.confidence_threshold === undefined ||
         regionConfig.yolo_config.confidence_threshold < 0 ||
