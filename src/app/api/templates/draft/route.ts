@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { v4 as uuidv4 } from "uuid";
 import { withLogging } from "@/lib/apiWrapper";
+import { ObjectId } from "mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
@@ -13,6 +14,13 @@ async function createDraftHandler(
   try {
     const body = await req.json();
     const { draft_id, step_number, partial_data } = body;
+
+    if (!draft_id || !ObjectId.isValid(draft_id)) {
+      return NextResponse.json(
+        { error: "Invalid or missing ID." },
+        { status: 400 }
+      );
+    }
 
     if (!step_number || step_number < 1 || step_number > 7) {
       return NextResponse.json(
@@ -31,11 +39,11 @@ async function createDraftHandler(
     if (draft_id) {
       // Update existing draft
       const updateResult = await draftsCollection.updateOne(
-        { draft_id: draft_id },
+        { _id: ObjectId.createFromHexString(draft_id) },
         {
           $set: {
-            step_number: step_number,
-            partial_data: partial_data,
+            step_number,
+            partial_data,
             "metadata.last_saved_at": now,
             "metadata.expires_at": expiresAt,
           },
@@ -98,6 +106,13 @@ async function getDraftHandlerGET(
     const { searchParams } = new URL(req.url);
     const draft_id = searchParams.get("draft_id");
 
+    if (!draft_id || !ObjectId.isValid(draft_id)) {
+      return NextResponse.json(
+        { error: "Invalid or missing ID." },
+        { status: 400 }
+      );
+    }
+
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const draftsCollection = db.collection("template_drafts");
@@ -110,7 +125,7 @@ async function getDraftHandlerGET(
     if (draft_id) {
       // Get specific draft
       const draft = await draftsCollection.findOne({
-        draft_id: draft_id,
+        _id: ObjectId.createFromHexString(draft_id),
       });
 
       if (!draft) {
@@ -154,6 +169,13 @@ async function deleteDraftHandlerDELETE(
     const { searchParams } = new URL(req.url);
     const draft_id = searchParams.get("draft_id");
 
+    if (!draft_id || !ObjectId.isValid(draft_id)) {
+      return NextResponse.json(
+        { error: "Invalid or missing ID." },
+        { status: 400 }
+      );
+    }
+
     if (!draft_id) {
       return NextResponse.json(
         { error: "draft_id is required" },
@@ -166,7 +188,7 @@ async function deleteDraftHandlerDELETE(
     const draftsCollection = db.collection("template_drafts");
 
     const deleteResult = await draftsCollection.deleteOne({
-      draft_id: draft_id,
+      _id: ObjectId.createFromHexString(draft_id),
     });
 
     if (deleteResult.deletedCount === 0) {
