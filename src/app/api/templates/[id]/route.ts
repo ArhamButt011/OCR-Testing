@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { withLogging } from "@/lib/apiWrapper";
+import { ObjectId } from "mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
@@ -129,8 +130,15 @@ async function getSingleTemplateHandler(
     const db = client.db(DB_NAME);
     const templatesCollection = db.collection("templates");
 
+    if (!params.id || !ObjectId.isValid(params.id)) {
+      return NextResponse.json(
+        { error: "Invalid or missing ID." },
+        { status: 400 }
+      );
+    }
+
     const template = await templatesCollection.findOne({
-      template_id: params.id,
+      _id: ObjectId.createFromHexString(params.id),
     });
 
     if (!template) {
@@ -161,7 +169,14 @@ async function updateTemplateHandler(
   try {
     const body = await req.json();
 
-    // FR-004: Validate region_config if provided
+    if (!params.id || !ObjectId.isValid(params.id)) {
+      return NextResponse.json(
+        { error: "Invalid or missing ID." },
+        { status: 400 }
+      );
+    }
+
+    // Validate region_config if provided
     if (body.region_config) {
       const validationErrors = validateRegionConfig(body.region_config);
       if (validationErrors.length > 0) {
@@ -180,7 +195,7 @@ async function updateTemplateHandler(
     const templatesCollection = db.collection("templates");
 
     const currentTemplate = await templatesCollection.findOne({
-      template_id: params.id,
+      _id: ObjectId.createFromHexString(params.id),
     });
 
     if (!currentTemplate) {
@@ -216,7 +231,7 @@ async function updateTemplateHandler(
     delete body.force_update;
 
     const updateResult = await templatesCollection.updateOne(
-      { template_id: params.id },
+      { _id: ObjectId.createFromHexString(params.id) },
       {
         $set: {
           ...body,
@@ -233,7 +248,7 @@ async function updateTemplateHandler(
     }
 
     const updatedTemplate = await templatesCollection.findOne({
-      template_id: params.id,
+      _id: ObjectId.createFromHexString(params.id),
     });
 
     return NextResponse.json({
@@ -260,8 +275,15 @@ async function deleteTemplateHandler(
     const db = client.db(DB_NAME);
     const templatesCollection = db.collection("templates");
 
+    if (!params.id || !ObjectId.isValid(params.id)) {
+      return NextResponse.json(
+        { error: "Invalid or missing ID." },
+        { status: 400 }
+      );
+    }
+
     const currentTemplate = await templatesCollection.findOne({
-      template_id: params.id,
+      _id: ObjectId.createFromHexString(params.id),
     });
 
     if (!currentTemplate) {
@@ -284,7 +306,7 @@ async function deleteTemplateHandler(
     }
 
     const deleteResult = await templatesCollection.deleteOne({
-      template_id: params.id,
+      _id: ObjectId.createFromHexString(params.id),
     });
 
     if (deleteResult.deletedCount === 0) {

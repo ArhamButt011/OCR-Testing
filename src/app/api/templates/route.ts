@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { withLogging } from "@/lib/apiWrapper";
+import { ObjectId } from "mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
@@ -132,6 +133,13 @@ async function createTemplateHandler(
   try {
     const body = await req.json();
 
+    if (!ObjectId.isValid(body.draft_id)) {
+      return NextResponse.json(
+        { error: "Invalid or missing ID." },
+        { status: 400 }
+      );
+    }
+
     const requiredFields = [
       "template_id",
       "template_name",
@@ -213,7 +221,7 @@ async function createTemplateHandler(
 
     if (body.draft_id) {
       await db.collection("template_drafts").deleteOne({
-        draft_id: body.draft_id,
+        _id: ObjectId.createFromHexString(body.draft_id),
       });
     }
 

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { withLogging } from "@/lib/apiWrapper";
+import { ObjectId } from "mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const SECRET_KEY = process.env.JWT_SECRET as string;
@@ -14,6 +15,13 @@ async function statusChangeHandler(
   try {
     const body = await req.json();
     const { status } = body;
+
+    if (!params.id || !ObjectId.isValid(params.id)) {
+      return NextResponse.json(
+        { error: "Invalid or missing ID." },
+        { status: 400 }
+      );
+    }
 
     const validStatuses = ["active", "inactive", "deprecated"];
     if (!status || !validStatuses.includes(status)) {
@@ -30,7 +38,7 @@ async function statusChangeHandler(
     const templatesCollection = db.collection("templates");
 
     const template = await templatesCollection.findOne({
-      template_id: params.id,
+      _id: ObjectId.createFromHexString(params.id),
     });
 
     if (!template) {
@@ -68,7 +76,7 @@ async function statusChangeHandler(
     // Rule 4: Inactive -> Deprecated is allowed (no validation needed)
 
     const updateResult = await templatesCollection.updateOne(
-      { template_id: params.id },
+      { _id: ObjectId.createFromHexString(params.id) },
       {
         $set: {
           status: status,
