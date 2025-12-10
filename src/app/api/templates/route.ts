@@ -133,7 +133,7 @@ async function createTemplateHandler(
   try {
     const body = await req.json();
 
-    if (!ObjectId.isValid(body.draft_id)) {
+    if (body.draft_id && !ObjectId.isValid(body.draft_id)) {
       return NextResponse.json(
         { error: "Invalid or missing ID." },
         { status: 400 }
