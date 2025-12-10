@@ -14,12 +14,6 @@ export const Step1BasicInfo: React.FC = () => {
     message: string;
   } | null>(null);
   const [checkTimeout, setCheckTimeout] = useState<NodeJS.Timeout | null>(null);
-
-  /**
-   * Check template ID uniqueness with your API using axios
-   * POST /api/templates/check-id
-   * Body: { template_id: "STAMP_FEDEX_V1" }
-   */
   const checkTemplateIdUniqueness = useCallback(async (templateId: string) => {
     if (!templateId || templateId.length < 3) {
       setIdCheckResult(null);

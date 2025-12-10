@@ -119,6 +119,7 @@ export interface PostProcessingRules {
 
 export interface TemplateData {
   // Step 1: Basic Info
+  _id?: string; // MongoDB document ID
   template_id?: string;
   template_name?: string;
   category?: 'Stamp' | 'Notation' | 'Receipt';
@@ -245,8 +246,8 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
       const data = await response.json();
       
-      if (!draftId && data.draft_id) {
-        setDraftId(data.draft_id);
+      if (!draftId && data._id) {
+        setDraftId(data._id);
       }
 
       setLastSaved(new Date());
@@ -295,7 +296,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
       const draft = await response.json();
       
-      setDraftId(draft.draft_id);
+      setDraftId(draft._id);
       setCurrentStep(draft.current_step || 1);
       setTemplateData(draft.partial_data || {});
       setLastSaved(new Date(draft.metadata.last_saved_at));
@@ -488,9 +489,9 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
       let result;
 
-      if (isEditMode && templateData.template_id) {
+      if (isEditMode && templateData._id) {
         // Update existing template
-        const updateResponse = await fetch(`/api/templates/${templateData.template_id}`, {
+        const updateResponse = await fetch(`/api/templates/${templateData._id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
