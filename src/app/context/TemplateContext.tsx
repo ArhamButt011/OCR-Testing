@@ -1,7 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
+import { useRouter } from "next/navigation";
 
 // ============================================================================
 // TYPES
@@ -14,38 +21,36 @@ export interface ReferenceImage {
   preview?: string;
 }
 
-// FR-004 AC-004-3: Ratio-based coordinates (0-1 scale) for resolution independence
 export interface CoordinateRegion {
   region_name: string;
-  x1_ratio: number;  // Left edge position (0 = far left, 1 = far right)
-  y1_ratio: number;  // Top edge position (0 = top, 1 = bottom)
-  x2_ratio: number;  // Right edge position (0 = far left, 1 = far right)
-  y2_ratio: number;  // Bottom edge position (0 = top, 1 = bottom)
-  confidence_threshold?: number; // FR-004 AC-004-2: Optional per-region confidence override
+  x1_ratio: number;
+  y1_ratio: number;
+  x2_ratio: number;
+  y2_ratio: number;
+  confidence_threshold?: number;
 }
 
-// FR-004 AC-004-2: YOLO class with per-region confidence threshold
 export interface YoloClass {
   class_id: string;
   region_name: string;
-  confidence_threshold?: number; // Optional override of global confidence (default: 0.60)
+  confidence_threshold?: number;
 }
 
 export interface YoloConfig {
   model_name: string;
   model_path: string;
-  confidence_threshold: number; // FR-004 AC-004-2: Global default (0.60)
+  confidence_threshold: number;
   iou_threshold?: number;
-  classes: YoloClass[]; // Changed from class_mapping to support per-region confidence
+  classes: YoloClass[];
 }
 
 export interface HybridConfig {
-  primary_method: 'yolo' | 'coordinates';
-  fallback_method: 'yolo' | 'coordinates';
+  primary_method: "yolo" | "coordinates";
+  fallback_method: "yolo" | "coordinates";
 }
 
 export interface RegionConfig {
-  detection_method: 'yolo' | 'coordinates' | 'hybrid';
+  detection_method: "yolo" | "coordinates" | "hybrid";
   coordinate_regions?: CoordinateRegion[];
   yolo_config?: YoloConfig;
   hybrid_config?: HybridConfig;
@@ -78,7 +83,7 @@ export interface RegionPrompt {
 export interface FieldMapping {
   source_field: string;
   target_field: string;
-  data_type: 'string' | 'integer' | 'float' | 'boolean' | 'date';
+  data_type: "string" | "integer" | "float" | "boolean" | "date";
   required?: boolean;
   transformation?: {
     map?: Record<string, any>;
@@ -118,42 +123,26 @@ export interface PostProcessingRules {
 }
 
 export interface TemplateData {
-  // MongoDB document ID (internal use only)
   _id?: string;
-  
+
   // Step 1: Basic Info
   template_id?: string;
   template_name?: string;
-  category?: 'Stamp' | 'Notation' | 'Receipt';
+  category?: "Stamp" | "Notation" | "Receipt";
   version?: string;
   description?: string;
-  
-  // Step 2: Reference Images (handled separately)
-  
-  // Step 3: Identification
   identification?: {
     reference_images?: ReferenceImage[];
     text_patterns?: string[];
   };
-  
-  // Step 4: Region Configuration
   region_config?: RegionConfig;
-  
-  // Step 5: Prompts
   prompts?: Record<string, RegionPrompt>;
-  
-  // Step 6: Field Mapping
   field_mapping?: Record<string, FieldMapping>;
-  
-  // Step 7: Post-Processing Rules (optional)
   post_processing_rules?: PostProcessingRules;
-  
-  // Status (managed separately)
-  status?: 'active' | 'inactive' | 'deprecated';
+  status?: "active" | "inactive" | "deprecated";
 }
 
 interface TemplateContextType {
-  // State
   currentStep: number;
   totalSteps: number;
   templateData: TemplateData;
@@ -162,15 +151,14 @@ interface TemplateContextType {
   lastSaved: Date | null;
   errors: Record<string, any>;
   isEditMode: boolean;
-  
-  // Actions
+  originalDraftId: string | null;
   setCurrentStep: (step: number) => void;
   updateTemplateData: (data: Partial<TemplateData>) => void;
   saveDraft: () => Promise<void>;
   loadDraft: (draftId: string) => Promise<void>;
   loadTemplate: (templateId: string) => Promise<void>;
   validateStep: (step: number) => boolean;
-  submitTemplate: () => Promise<string>;
+  submitTemplate: () => Promise<any>;
   resetTemplate: () => void;
   setError: (field: string, error: string) => void;
   clearError: (field: string) => void;
@@ -181,12 +169,14 @@ interface TemplateContextType {
 // CONTEXT
 // ============================================================================
 
-const TemplateContext = createContext<TemplateContextType | undefined>(undefined);
+const TemplateContext = createContext<TemplateContextType | undefined>(
+  undefined
+);
 
 export const useTemplate = () => {
   const context = useContext(TemplateContext);
   if (!context) {
-    throw new Error('useTemplate must be used within TemplateProvider');
+    throw new Error("useTemplate must be used within TemplateProvider");
   }
   return context;
 };
@@ -201,25 +191,25 @@ interface TemplateProviderProps {
   initialTemplateId?: string;
 }
 
-export const TemplateProvider: React.FC<TemplateProviderProps> = ({ 
-  children, 
+export const TemplateProvider: React.FC<TemplateProviderProps> = ({
+  children,
   initialDraftId,
-  initialTemplateId 
+  initialTemplateId,
 }) => {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 7;
   const [templateData, setTemplateData] = useState<TemplateData>({
-    version: '1.0.0',
-    category: 'Stamp',
+    version: "1.0.0",
+    category: "Stamp",
   });
   const [draftId, setDraftId] = useState<string | null>(initialDraftId || null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isEditMode, setIsEditMode] = useState(!!initialTemplateId);
-  
-  // Debounce timer ref
+  const [originalDraftId, setOriginalDraftId] = useState<string | null>(null);
+
   const saveTimerRef = useRef<NodeJS.Timeout>();
   const hasUnsavedChanges = useRef(false);
 
@@ -228,50 +218,39 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
 
   const saveDraft = useCallback(async () => {
-    // Don't save drafts when editing existing templates
-    // Drafts are only for creating new templates
     if (isEditMode) {
-      console.log('⏭️ Skipping draft save - in edit mode');
+      console.log("Skipping draft save - in edit mode");
       hasUnsavedChanges.current = false;
       return;
     }
-    
+
     if (!hasUnsavedChanges.current) return;
-    
+
     setIsSaving(true);
     try {
-      // Prepare draft data (exclude _id from body)
       const { _id, ...draftData } = templateData;
-      
-      // Prepare request body (same for create and update)
+
       const requestBody = {
         step_number: currentStep,
         total_steps: totalSteps,
         partial_data: draftData,
       };
-      
+
       let response;
-      console.log('💾 Saving draft:', { draftId, isEditMode });
-      
+
       if (draftId) {
-        // ✅ UPDATE existing draft using PATCH with query param
-        console.log('💾 Updating draft:', draftId);
-        
         response = await fetch(`/api/templates/draft?draft_id=${draftId}`, {
-          method: 'PATCH',
+          method: "PATCH",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(requestBody),
         });
       } else {
-        // ✅ CREATE new draft using POST
-        console.log('💾 Creating new draft');
-        
-        response = await fetch('/api/templates/draft', {
-          method: 'POST',
+        response = await fetch("/api/templates/draft", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(requestBody),
         });
@@ -279,38 +258,34 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ Draft save failed:', errorData);
-        throw new Error(errorData.error || 'Failed to save draft');
+        console.error("Draft save failed:", errorData);
+        throw new Error(errorData.error || "Failed to save draft");
       }
 
       const data = await response.json();
-      console.log('📝 Draft save response:', data);
-      
-      // Update draftId if this is a new draft
+      console.log(" Draft save response:", data);
+
       if (!draftId && data._id) {
         setDraftId(data._id);
-        console.log('✅ New draft created with ID:', data._id);
+        console.log("New draft created with ID:", data._id);
       }
 
       setLastSaved(new Date());
       hasUnsavedChanges.current = false;
-      console.log('✅ Draft saved successfully');
+      console.log("Draft saved successfully");
     } catch (error) {
-      console.error('❌ Failed to save draft:', error);
+      console.error("Failed to save draft:", error);
     } finally {
       setIsSaving(false);
     }
   }, [draftId, currentStep, templateData, isEditMode]);
 
-  // Debounced auto-save effect
   useEffect(() => {
     if (hasUnsavedChanges.current) {
-      // Clear existing timer
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
       }
 
-      // Set new timer (2 seconds debounce)
       saveTimerRef.current = setTimeout(() => {
         saveDraft();
       }, 2000);
@@ -324,93 +299,79 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     };
   }, [templateData, saveDraft]);
 
-  // ============================================================================
-  // LOAD DRAFT
-  // ============================================================================
-
   const loadDraft = useCallback(async (id: string) => {
-    console.log('📂 Loading draft:', id);
-    
     try {
       const response = await fetch(`/api/templates/draft?draft_id=${id}`);
-      
+
       if (!response.ok) {
-        throw new Error('Failed to load draft');
+        throw new Error("Failed to load draft");
       }
 
       const data = await response.json();
-      console.log('📥 Draft loaded:', data);
-      
-      // Set the draft ID from response
-      setDraftId(data._id);
-      setCurrentStep(data.step_number || data.current_step || 1);
-      
-      // Load the partial data
-      setTemplateData(data.partial_data || {});
-      setLastSaved(new Date(data.updated_at || data.metadata?.last_saved_at));
-      
+      console.log("Draft API response:", data);
+
+      const draft = data.draft || data;
+
+      console.log("Extracted draft:", draft);
+
+      setOriginalDraftId(draft._id);
+      console.log(" Stored originalDraftId:", draft._id);
+
+      setDraftId(draft._id);
+
+      const stepNumber = draft.step_number || draft.current_step || 1;
+      setCurrentStep(stepNumber);
+
+      const partialData = draft.partial_data || {};
+      console.log(" Loading partial data into form:", partialData);
+      setTemplateData(partialData);
+
+      // Set last saved time
+      const lastSavedTime = draft.metadata?.last_saved_at || draft.updated_at;
+      if (lastSavedTime) {
+        setLastSaved(new Date(lastSavedTime));
+      }
+
       // Draft mode - not edit mode
       setIsEditMode(false);
-      
-      console.log('✅ Draft loaded successfully');
+
+      console.log("Draft loaded successfully - form should be pre-filled now");
     } catch (error) {
-      console.error('❌ Failed to load draft:', error);
-    }
-  }, []);
-
-  // ============================================================================
-  // LOAD TEMPLATE FOR EDITING
-  // ============================================================================
-
-  const loadTemplate = useCallback(async (templateId: string) => {
-    console.log('📄 Loading template for editing:', templateId);
-    
-    try {
-      const response = await fetch(`/api/templates/${templateId}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to load template');
-      }
-
-      const data = await response.json();
-      console.log('📥 API Response:', data);
-      
-      // Extract template from response wrapper if it exists
-      // API returns: { success: true, template: {...} }
-      const template = data.template || data;
-      
-      console.log('📦 Extracted template:', template);
-      
-      // IMPORTANT: Keep the _id for editing (needed for PATCH request)
-      // Just remove metadata if present
-      if (template.metadata) {
-        delete template.metadata;
-      }
-      
-      console.log('✨ Final template data (with _id):', template);
-      
-      // Set template data WITH _id
-      setTemplateData(template);
-      setIsEditMode(true); // ✅ Enable edit mode
-      setDraftId(null);    // ✅ Clear any draft ID
-      setCurrentStep(1);
-      
-      console.log('✅ Template loaded for editing:', templateId);
-    } catch (error) {
-      console.error('❌ Failed to load template:', error);
+      console.error("Failed to load draft:", error);
       throw error;
     }
   }, []);
 
-  // Load initial draft or template if provided
+  const loadTemplate = useCallback(async (templateId: string) => {
+    try {
+      const response = await fetch(`/api/templates/${templateId}`);
+      if (!response.ok) {
+        throw new Error("Failed to load template");
+      }
+      const data = await response.json();
+      const template = data.template || data;
+      if (template.metadata) {
+        delete template.metadata;
+      }
+
+      console.log("Final template data (with _id):", template);
+
+      // Set template data WITH _id
+      setTemplateData(template);
+      setIsEditMode(true);
+      setDraftId(null);
+      setOriginalDraftId(null);
+      setCurrentStep(1);
+    } catch (error) {
+      console.error("Failed to load template:", error);
+      throw error;
+    }
+  }, []);
+
   useEffect(() => {
-    console.log('🔍 Initial load check:', { initialDraftId, initialTemplateId });
-    
     if (initialDraftId) {
-      console.log('📝 Loading draft:', initialDraftId);
       loadDraft(initialDraftId);
     } else if (initialTemplateId) {
-      console.log('📄 Loading template:', initialTemplateId);
       loadTemplate(initialTemplateId);
     }
   }, [initialDraftId, initialTemplateId, loadDraft, loadTemplate]);
@@ -420,10 +381,8 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
 
   const updateTemplateData = useCallback((data: Partial<TemplateData>) => {
-    console.log('📝 Updating template data:', data);
-    setTemplateData(prev => {
+    setTemplateData((prev) => {
       const updated = { ...prev, ...data };
-      console.log('📊 New template data state:', updated);
       hasUnsavedChanges.current = true;
       return updated;
     });
@@ -433,191 +392,214 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // VALIDATION
   // ============================================================================
 
-  const validateStep = useCallback((step: number): boolean => {
-    const newErrors: Record<string, string> = {};
+  const validateStep = useCallback(
+    (step: number): boolean => {
+      const newErrors: Record<string, string> = {};
 
-    switch (step) {
-      case 1: // Basic Info
-        if (!templateData.template_id) {
-          newErrors.template_id = 'Template ID is required';
-        } else if (!/^[A-Z0-9_]+$/.test(templateData.template_id)) {
-          newErrors.template_id = 'Template ID must contain only uppercase letters, numbers, and underscores';
-        } else if (errors.template_id) {
-          // Preserve existing error from uniqueness check
-          newErrors.template_id = errors.template_id;
-        }
-        
-        if (!templateData.template_name) {
-          newErrors.template_name = 'Template name is required';
-        }
-        
-        if (!templateData.category) {
-          newErrors.category = 'Category is required';
-        }
-        break;
-
-      case 2: // Reference Images
-        const imageCount = templateData.identification?.reference_images?.length || 0;
-        if (imageCount === 0) {
-          newErrors.reference_images = 'At least 1 reference image is required';
-        }
-        break;
-
-      case 3: // Identification
-        const patternCount = templateData.identification?.text_patterns?.length || 0;
-        if (patternCount === 0) {
-          newErrors.text_patterns = 'At least 1 text pattern is required';
-        }
-        break;
-
-      case 4: // Region Configuration
-        if (!templateData.region_config?.detection_method) {
-          newErrors.detection_method = 'Detection method is required';
-        }
-        
-        if (templateData.region_config?.detection_method === 'coordinates' && 
-            !templateData.region_config?.coordinate_regions?.length) {
-          newErrors.coordinate_regions = 'At least 1 coordinate region is required';
-        }
-        
-        if (templateData.region_config?.detection_method === 'yolo' && 
-            !templateData.region_config?.yolo_config) {
-          newErrors.yolo_config = 'YOLO configuration is required';
-        }
-        break;
-
-      case 5: // Prompts
-        if (!templateData.prompts || Object.keys(templateData.prompts).length === 0) {
-          newErrors.prompts = 'At least 1 region prompt is required';
-        } else {
-          const promptErrors: any = {};
-          Object.entries(templateData.prompts).forEach(([region, promptConfig]) => {
-            if (!promptConfig.prompt_text || promptConfig.prompt_text.trim() === '') {
-              promptErrors[region] = { ...promptErrors[region], prompt_text: 'Prompt text is required' };
-            }
-            
-            if (!promptConfig.expected_output_schema || Object.keys(promptConfig.expected_output_schema).length === 0) {
-              promptErrors[region] = { ...promptErrors[region], schema: 'Expected output schema is required' };
-            }
-          });
-          
-          if (Object.keys(promptErrors).length > 0) {
-            newErrors.prompts = promptErrors;
+      switch (step) {
+        case 1:
+          if (!templateData.template_id) {
+            newErrors.template_id = "Template ID is required";
+          } else if (!/^[A-Z0-9_]+$/.test(templateData.template_id)) {
+            newErrors.template_id =
+              "Template ID must contain only uppercase letters, numbers, and underscores";
+          } else if (errors.template_id) {
+            newErrors.template_id = errors.template_id;
           }
-          
-          if (errors.prompts && typeof errors.prompts === 'object') {
-            const hasSchemaErrors = Object.values(errors.prompts).some((err: any) => err && err.schema);
-            if (hasSchemaErrors) {
-              newErrors.prompts = errors.prompts;
+
+          if (!templateData.template_name) {
+            newErrors.template_name = "Template name is required";
+          }
+
+          if (!templateData.category) {
+            newErrors.category = "Category is required";
+          }
+          break;
+
+        case 2:
+          const imageCount =
+            templateData.identification?.reference_images?.length || 0;
+          if (imageCount === 0) {
+            newErrors.reference_images =
+              "At least 1 reference image is required";
+          }
+          break;
+
+        case 3:
+          const patternCount =
+            templateData.identification?.text_patterns?.length || 0;
+          if (patternCount === 0) {
+            newErrors.text_patterns = "At least 1 text pattern is required";
+          }
+          break;
+
+        case 4:
+          if (!templateData.region_config?.detection_method) {
+            newErrors.detection_method = "Detection method is required";
+          }
+
+          if (
+            templateData.region_config?.detection_method === "coordinates" &&
+            !templateData.region_config?.coordinate_regions?.length
+          ) {
+            newErrors.coordinate_regions =
+              "At least 1 coordinate region is required";
+          }
+
+          if (
+            templateData.region_config?.detection_method === "yolo" &&
+            !templateData.region_config?.yolo_config
+          ) {
+            newErrors.yolo_config = "YOLO configuration is required";
+          }
+          break;
+
+        case 5:
+          if (
+            !templateData.prompts ||
+            Object.keys(templateData.prompts).length === 0
+          ) {
+            newErrors.prompts = "At least 1 region prompt is required";
+          } else {
+            const promptErrors: any = {};
+            Object.entries(templateData.prompts).forEach(
+              ([region, promptConfig]) => {
+                if (
+                  !promptConfig.prompt_text ||
+                  promptConfig.prompt_text.trim() === ""
+                ) {
+                  promptErrors[region] = {
+                    ...promptErrors[region],
+                    prompt_text: "Prompt text is required",
+                  };
+                }
+
+                if (
+                  !promptConfig.expected_output_schema ||
+                  Object.keys(promptConfig.expected_output_schema).length === 0
+                ) {
+                  promptErrors[region] = {
+                    ...promptErrors[region],
+                    schema: "Expected output schema is required",
+                  };
+                }
+              }
+            );
+
+            if (Object.keys(promptErrors).length > 0) {
+              newErrors.prompts = promptErrors;
+            }
+
+            if (errors.prompts && typeof errors.prompts === "object") {
+              const hasSchemaErrors = Object.values(errors.prompts).some(
+                (err: any) => err && err.schema
+              );
+              if (hasSchemaErrors) {
+                newErrors.prompts = errors.prompts;
+              }
             }
           }
-        }
-        break;
+          break;
 
-      case 6: // Field Mapping
-        if (!templateData.field_mapping || Object.keys(templateData.field_mapping).length === 0) {
-          newErrors.field_mapping = 'At least 1 field mapping is required';
-        }
-        break;
+        case 6:
+          if (
+            !templateData.field_mapping ||
+            Object.keys(templateData.field_mapping).length === 0
+          ) {
+            newErrors.field_mapping = "At least 1 field mapping is required";
+          }
+          break;
 
-      case 7: // Review
-        break;
-    }
+        case 7: // Review
+          break;
+      }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [templateData, errors]);
-
-  // ============================================================================
-  // SUBMIT TEMPLATE
-  // ============================================================================
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    },
+    [templateData, errors]
+  );
 
   const submitTemplate = useCallback(async (): Promise<string> => {
     try {
-      // Validate all steps
       for (let step = 1; step <= 6; step++) {
         if (!validateStep(step)) {
           throw new Error(`Validation failed at step ${step}`);
         }
       }
-
-      // Prepare request body (exclude _id)
       const { _id, ...templateBody } = templateData;
 
-      // First validate template structure
-      const validateResponse = await fetch('/api/templates/validate', {
-        method: 'POST',
+      const validateResponse = await fetch("/api/templates/validate", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(templateBody),
       });
 
       if (!validateResponse.ok) {
         const error = await validateResponse.json();
-        throw new Error(error.error || 'Template validation failed');
+        throw new Error(error.error || "Template validation failed");
       }
 
       let result;
 
       if (isEditMode && _id) {
-        // Update existing template using _id
-        console.log('📤 Updating template with _id:', _id);
-        
         const updateResponse = await fetch(`/api/templates/${_id}`, {
-          method: 'PATCH',
+          method: "PATCH",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify(templateBody), // Send without _id
+          body: JSON.stringify(templateBody),
         });
 
         if (!updateResponse.ok) {
           const error = await updateResponse.json();
-          throw new Error(error.error || 'Failed to update template');
+          throw new Error(error.error || "Failed to update template");
         }
 
         result = await updateResponse.json();
-        console.log('✅ Template updated successfully:', result);
       } else {
-        // Create new template
-        console.log('📤 Creating new template');
-        
-        const createResponse = await fetch('/api/templates', {
-          method: 'POST',
+        const createBody = {
+          ...templateBody,
+          status: "inactive",
+          ...(originalDraftId && { draft_id: originalDraftId }),
+        };
+        const createResponse = await fetch("/api/templates", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            ...templateBody,
-            status: 'inactive', // New templates start as inactive
-          }),
+          body: JSON.stringify(createBody),
         });
 
         if (!createResponse.ok) {
           const error = await createResponse.json();
-          throw new Error(error.error || 'Failed to create template');
+          throw new Error(error.error || "Failed to create template");
         }
 
         result = await createResponse.json();
-        console.log('✅ Template created successfully:', result);
       }
 
-      // Delete draft after successful creation (only if not in edit mode)
-      if (draftId && !isEditMode) {
-        console.log('🗑️ Deleting draft:', draftId);
-        await fetch(`/api/templates/draft?draft_id=${draftId}`, {
-          method: 'DELETE',
-        });
-        console.log('✅ Draft deleted');
-      }
+      // if (draftId && !isEditMode) {
+      //   console.log('Deleting draft:', draftId);
+      //   try {
+      //     await fetch(`/api/templates/draft?draft_id=${draftId}`, {
+      //       method: 'DELETE',
+      //     });
+      //   } catch (error) {
+      //     console.log('Draft deletion failed (may have been deleted by backend):', error);
+      //   }
+      // }
+
+      setOriginalDraftId(null);
 
       return result;
     } catch (error) {
-      console.error('❌ Failed to submit template:', error);
+      console.error("Failed to submit template:", error);
       throw error;
     }
-  }, [templateData, draftId, validateStep, isEditMode]);
+  }, [templateData, draftId, validateStep, isEditMode, originalDraftId]);
 
   // ============================================================================
   // RESET TEMPLATE
@@ -625,13 +607,14 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
   const resetTemplate = useCallback(() => {
     setTemplateData({
-      version: '1.0.0',
-      category: 'Stamp',
+      version: "1.0.0",
+      category: "Stamp",
     });
     setCurrentStep(1);
     setDraftId(null);
     setErrors({});
     setIsEditMode(false);
+    setOriginalDraftId(null);
     hasUnsavedChanges.current = false;
     setLastSaved(null);
   }, []);
@@ -641,11 +624,11 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
 
   const setError = useCallback((field: string, error: string) => {
-    setErrors(prev => ({ ...prev, [field]: error }));
+    setErrors((prev) => ({ ...prev, [field]: error }));
   }, []);
 
   const clearError = useCallback((field: string) => {
-    setErrors(prev => {
+    setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors[field];
       return newErrors;
@@ -665,6 +648,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     lastSaved,
     errors,
     isEditMode,
+    originalDraftId,
     setCurrentStep,
     updateTemplateData,
     saveDraft,

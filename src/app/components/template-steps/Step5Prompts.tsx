@@ -418,7 +418,6 @@ Output JSON only.`}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Example: <code className="bg-gray-100 px-1 rounded">field in [value1, value2]</code> or <code className="bg-gray-100 px-1 rounded">field {'>'} 100</code>
                       </p>
                     </div>
 
@@ -515,13 +514,6 @@ Output JSON only.`}
                   </div>
                 )}
 
-                {/* Help Text */}
-                <div className="rounded-md bg-purple-100 p-3">
-                  <p className="text-xs text-purple-800">
-                    <strong>💡 Post-processing rules</strong> help clean and validate extracted data. 
-                    For example, reject known OCR misreads like "226" for total_received.
-                  </p>
-                </div>
               </div>
             )}
           </div>
@@ -597,29 +589,6 @@ Output JSON only.`}
             })}
           </div>
         )}
-      </div>
-
-      {/* Info Box */}
-      <div className="rounded-md bg-blue-50 p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">Prompt Configuration Tips</h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <ul className="list-disc space-y-1 pl-5">
-                <li>Write clear, specific instructions for the VLM</li>
-                <li>Define exact field names and types in JSON schema</li>
-                <li>Add post-processing rules to handle known OCR errors</li>
-                <li>Use conditions like: <code className="bg-blue-100 px-1 rounded">field in [bad_value1, bad_value2]</code></li>
-                <li>Configure ALL regions before proceeding to next step</li>
-              </ul>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -40,27 +40,19 @@ export const Step7Review: React.FC = () => {
     setIsSubmitting(true);
     try {
       const templateRes = await submitTemplate();
-
       const templateId = templateRes?.template_id;
       if (!templateId) {
         throw new Error('Template ID not returned from submitTemplate');
       }
-
-      // Use axios to PATCH the status with the required body
       const activateResponse = await axios.patch(
         `/api/templates/${templateId}/status`,
         { status: 'active' },
         { headers: { 'Content-Type': 'application/json' } }
       );
-
-      // axios treats non-2xx as thrown errors, but double-check
       if (activateResponse.status < 200 || activateResponse.status >= 300) {
         throw new Error('Failed to activate template');
       }
-
       alert('Template created and activated successfully!');
-      // Optionally navigate to a different page:
-      // router.push(`/templates/${templateId}`);
     } catch (error: any) {
       console.error('Activation failed:', error);
       alert(error?.response?.data?.message || error.message || 'Failed to activate template');

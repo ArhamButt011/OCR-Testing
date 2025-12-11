@@ -111,30 +111,7 @@ export const Step3Identification: React.FC = () => {
         </p>
       </div>
 
-      {/* Common Patterns Examples */}
-      <div className="rounded-md bg-blue-50 p-4">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">
-          Common Pattern Examples
-        </h3>
-        <div className="space-y-2 text-sm text-primary">
-          <div className="font-mono bg-white rounded px-2 py-1">
-            BILL OF LADING
-            <span className="text-gray-500 ml-2">→ Match exact text</span>
-          </div>
-          <div className="font-mono bg-white rounded px-2 py-1">
-            Bill of Lading:\s*\d{'{7,9}'}
-            <span className="text-gray-500 ml-2">→ Match "Bill of Lading: 17537106"</span>
-          </div>
-          <div className="font-mono bg-white rounded px-2 py-1">
-            RECEIVING STAMP AREA
-            <span className="text-gray-500 ml-2">→ Match stamp area header</span>
-          </div>
-          <div className="font-mono bg-white rounded px-2 py-1">
-            (FedEx|FEDEX|Fed\s*Ex)
-            <span className="text-gray-500 ml-2">→ Match carrier variations</span>
-          </div>
-        </div>
-      </div>
+  
     </div>
   );
 };

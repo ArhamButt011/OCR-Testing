@@ -17,13 +17,8 @@ interface CreateTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
   draftId?: string;
-  templateId?: string; // NEW: For edit mode
+  templateId?: string; 
 }
-
-/**
- * Lightweight Portal Modal component (based on your snippet).
- * Kept local so file is self-contained — or you can move it into a shared component file.
- */
 const ModalPortal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -61,9 +56,6 @@ const ModalPortal: React.FC<{
   );
 };
 
-/* --------------------------
-   ModalContent (the internal content)
-   -------------------------- */
 function ModalContentInner({ onClose, isEditMode }: { onClose: () => void; isEditMode: boolean }) {
   const {
     currentStep,
@@ -72,6 +64,7 @@ function ModalContentInner({ onClose, isEditMode }: { onClose: () => void; isEdi
     validateStep,
     saveDraft,
     isSaving,
+    originalDraftId,
     lastSaved
   } = useTemplate();
 
