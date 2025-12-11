@@ -78,13 +78,6 @@ async function getDraftHandlerGET(
     const { searchParams } = new URL(req.url);
     const draft_id = searchParams.get("draft_id");
 
-    if (!draft_id || !ObjectId.isValid(draft_id)) {
-      return NextResponse.json(
-        { error: "Invalid or missing ID." },
-        { status: 400 }
-      );
-    }
-
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const draftsCollection = db.collection("template_drafts");
@@ -94,8 +87,15 @@ async function getDraftHandlerGET(
       "metadata.expires_at": { $lt: new Date() },
     });
 
+    // If draft_id is provided, return specific draft
     if (draft_id) {
-      // Get specific draft
+      if (!ObjectId.isValid(draft_id)) {
+        return NextResponse.json(
+          { error: "Invalid draft ID." },
+          { status: 400 }
+        );
+      }
+
       const draft = await draftsCollection.findOne({
         _id: ObjectId.createFromHexString(draft_id),
       });
@@ -111,19 +111,56 @@ async function getDraftHandlerGET(
         success: true,
         draft,
       });
-    } else {
-      // Get all user drafts
-      const drafts = await draftsCollection
-        .find()
-        .sort({ "metadata.last_saved_at": -1 })
-        .toArray();
-
-      return NextResponse.json({
-        success: true,
-        drafts,
-        count: drafts.length,
-      });
     }
+
+    // Otherwise, return paginated list of drafts
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
+    const searchQuery = searchParams.get("search") || "";
+    const sortBy = searchParams.get("sortBy") || "metadata.last_saved_at";
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
+
+    const filter: any = {};
+
+    // Search by template_id or template_name
+    if (searchQuery) {
+      filter.$or = [
+        { template_id: { $regex: searchQuery, $options: "i" } },
+        { template_name: { $regex: searchQuery, $options: "i" } },
+      ];
+    }
+
+    // Pagination
+    const skip = (page - 1) * limit;
+
+    // Sort options
+    const sortOptions: any = { [sortBy]: sortOrder };
+
+    const [drafts, total] = await Promise.all([
+      draftsCollection
+        .find(filter)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+      draftsCollection.countDocuments(filter),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      drafts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      filters: {
+        search: searchQuery,
+        sortBy,
+        sortOrder: sortOrder === 1 ? "asc" : "desc",
+      },
+    });
   } catch (error) {
     console.error("Error fetching drafts:", error);
     return NextResponse.json(
