@@ -18,6 +18,8 @@ import { useRouter } from "next/navigation";
 import { IoIosArrowDroprightCircle } from "react-icons/io";
 import { useSidebar } from "../context/SidebarContext";
 import { CiBoxList } from "react-icons/ci";
+import { SiGoogleanalytics } from "react-icons/si";
+
 
 interface SidebarProps {
   onStateChange: (newState: boolean) => void;
@@ -593,6 +595,40 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                   </ul>
                 )}
               </>
+            )}
+            {userRole === "admin" && (
+              <Link href="/analytics">
+                <li
+                  className={`flex items-center mb-2 mt-2 justify-start
+                                     space-x-3 pl-5 pr-0 py-2 rounded-lg transition-all duration-300 ease-in-out ${
+                                       isActive("/analytics")
+                                         ? "bg-gray-200"
+                                         : "hover:bg-gray-200"
+                                     }`}
+                >
+                  <span className="flex-shrink-0">
+                    <SiGoogleanalytics
+                      className={` ${
+                        isActive("/analytics") ? "text-[#005B97]" : "text-[#7B849A]"
+                      } transition-all duration-300 ease-in-out text-2xl`}
+                    />
+                  </span>
+                  <span
+                    className={`${
+                      isActive("/analytics") ? " text-gray-950" : "text-gray-400"
+                    } text-lg transition-all duration-300 ease-in-out`}
+                    style={{
+                      width: isExpanded ? "auto" : "0",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      opacity: isExpanded ? 1 : 0,
+                      transition: "opacity 0.3s ease, width 0.3s ease",
+                    }}
+                  >
+                    Analytics
+                  </span>
+                </li>
+              </Link>
             )}
 
             {userRole === "admin" && (
