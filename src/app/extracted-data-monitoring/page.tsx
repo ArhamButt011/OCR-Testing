@@ -216,7 +216,7 @@ const MasterPage = () => {
   const [db, setDb] = useState<string>();
 
   const finalOptions = [
-    { status: "new", color: "text-blue-600", bgColor: "bg-blue-100" },
+    { status: "new", color: "text-primary", bgColor: "bg-blue-100" },
     {
       status: "inProgress",
       color: "text-yellow-600",
@@ -242,7 +242,7 @@ const MasterPage = () => {
     { status: "denied", color: "text-[#AF9918]", bgColor: "bg-[#faf1be]" },
   ];
   const recognitionOptions = [
-    { status: "new", color: "text-blue-600", bgColor: "bg-blue-100" },
+    { status: "new", color: "text-primary", bgColor: "bg-blue-100" },
     {
       status: "inProgress",
       color: "text-yellow-600",
@@ -258,7 +258,7 @@ const MasterPage = () => {
     { status: "sent", color: "text-green-600", bgColor: "bg-green-100" },
   ];
   const breakdownOptions = [
-    { status: "none", color: "text-blue-600", bgColor: "bg-blue-100" },
+    { status: "none", color: "text-primary", bgColor: "bg-blue-100" },
     { status: "damaged", color: "text-yellow-600", bgColor: "bg-yellow-100" },
     { status: "shortage", color: "text-green-600", bgColor: "bg-green-100" },
     { status: "overage", color: "text-[#AF9918]", bgColor: "bg-[#faf1be]" },
@@ -1987,7 +1987,7 @@ const MasterPage = () => {
                 <button
                   className={`rounded-lg px-6 py-2 w-full md:w-auto ${
                     selectedRows.length === 0
-                      ? "cursor-not-allowed bg-gray-400 border border-gray-400"
+                      ? "cursor-not-allowed bg-gray-400 border border-gray-400 text-white"
                       : "bg-[#005B971A] text-[#005B97] border border-[#005B971A]"
                   }`}
                 >
@@ -2514,7 +2514,7 @@ const MasterPage = () => {
                                       : ""
                                   } ${
                                     job.finalStatus === "new"
-                                      ? "bg-blue-100 text-blue-600"
+                                      ? "bg-blue-100 text-primary"
                                       : job.finalStatus === "inProgress"
                                       ? "bg-yellow-100 text-yellow-600"
                                       : job.finalStatus === "valid"
@@ -2674,7 +2674,7 @@ const MasterPage = () => {
                                       : ""
                                   } ${
                                     job.recognitionStatus === "new"
-                                      ? "bg-blue-100 text-blue-600"
+                                      ? "bg-blue-100 text-primary"
                                       : job.recognitionStatus === "inProgress"
                                       ? "bg-yellow-100 text-yellow-600"
                                       : job.recognitionStatus === "valid"
@@ -2757,7 +2757,7 @@ const MasterPage = () => {
                                       : ""
                                   } ${
                                     job.breakdownReason === "none"
-                                      ? "bg-blue-100 text-blue-600"
+                                      ? "bg-blue-100 text-primary"
                                       : job.breakdownReason === "damaged"
                                       ? "bg-yellow-100 text-yellow-600"
                                       : job.breakdownReason === "shortage"
@@ -2815,7 +2815,7 @@ const MasterPage = () => {
                   className={`px-4 py-2 rounded-md ${
                     currentPage === 1
                       ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+                      : "bg-blue-500 text-white hover:bg-primary"
                   }`}
                 >
                   Previous
@@ -2829,7 +2829,7 @@ const MasterPage = () => {
                   className={`px-4 py-2 rounded-md ${
                     currentPage === totalPages
                       ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+                      : "bg-blue-500 text-white hover:bg-primary"
                   }`}
                 >
                   Next
