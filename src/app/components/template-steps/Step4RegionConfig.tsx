@@ -243,19 +243,14 @@ export const Step4RegionConfig: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Region Detection Configuration</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          FR-004: Configure OCR region detection with ratio-based coordinates and per-region confidence thresholds
-        </p>
       </div>
 
-      {/* FR-004 AC-004-1: Detection Method Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">
-          Detection Method * <span className="text-xs text-gray-500">(FR-004 AC-004-1)</span>
+          Detection Method *
         </label>
         
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {/* YOLO Option */}
           <div
             onClick={() => handleMethodChange('yolo')}
             className={`relative rounded-lg border-2 p-4 cursor-pointer transition-all ${
@@ -269,7 +264,7 @@ export const Step4RegionConfig: React.FC = () => {
                 type="radio"
                 checked={selectedMethod === 'yolo'}
                 onChange={() => handleMethodChange('yolo')}
-                className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 text-primary border-gray-300 focus:ring-blue-500"
               />
               <label className="ml-3">
                 <span className="block text-sm font-medium text-gray-900">
@@ -296,7 +291,7 @@ export const Step4RegionConfig: React.FC = () => {
                 type="radio"
                 checked={selectedMethod === 'coordinates'}
                 onChange={() => handleMethodChange('coordinates')}
-                className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 text-primary border-gray-300 focus:ring-blue-500"
               />
               <label className="ml-3">
                 <span className="block text-sm font-medium text-gray-900">
@@ -323,7 +318,7 @@ export const Step4RegionConfig: React.FC = () => {
                 type="radio"
                 checked={selectedMethod === 'hybrid'}
                 onChange={() => handleMethodChange('hybrid')}
-                className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 text-primary border-gray-300 focus:ring-blue-500"
               />
               <label className="ml-3">
                 <span className="block text-sm font-medium text-gray-900 flex items-center">
@@ -378,7 +373,7 @@ export const Step4RegionConfig: React.FC = () => {
             {/* FR-004 AC-004-2: Global Confidence Threshold (default 0.60) */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Global Confidence Threshold * <span className="text-xs text-gray-500">(AC-004-2: Default 0.60)</span>
+                Global Confidence Threshold *
               </label>
               <input
                 type="number"
@@ -409,13 +404,13 @@ export const Step4RegionConfig: React.FC = () => {
           {/* FR-004 AC-004-2: YOLO Classes with Per-Region Confidence */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              YOLO Classes <span className="text-xs text-gray-500">(AC-004-2: Per-Region Confidence)</span>
+              YOLO Classes
             </label>
 
             {!isAddingClass && (
               <button
                 onClick={() => setIsAddingClass(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 mb-3"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary mb-3"
               >
                 <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -488,7 +483,7 @@ export const Step4RegionConfig: React.FC = () => {
                   </button>
                   <button
                     onClick={addOrUpdateYoloClass}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary"
                   >
                     {editingClassId ? 'Update Class' : 'Add Class'}
                   </button>
@@ -522,7 +517,7 @@ export const Step4RegionConfig: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-right">
                           <button
                             onClick={() => editYoloClass(yoloClass.class_id)}
-                            className="text-blue-600 hover:text-blue-700 mr-3"
+                            className="text-primary hover:text-primary mr-3"
                           >
                             Edit
                           </button>
@@ -547,7 +542,7 @@ export const Step4RegionConfig: React.FC = () => {
       {(selectedMethod === 'coordinates' || selectedMethod === 'hybrid') && (
         <div className="rounded-lg border-2 border-orange-300 bg-orange-50 p-6 space-y-4">
           <h3 className="text-lg font-medium text-gray-900">
-            Coordinate Regions <span className="text-xs text-gray-500">(AC-004-3: Ratio-Based 0-1 Scale)</span>
+            Coordinate Regions
           </h3>
           <p className="text-sm text-gray-600">
             {selectedMethod === 'hybrid' 
@@ -589,7 +584,7 @@ export const Step4RegionConfig: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    x1_ratio * <span className="text-xs text-gray-500">(left edge, 0-1)</span>
+                    x1 * 
                   </label>
                   <input
                     type="number"
@@ -600,12 +595,12 @@ export const Step4RegionConfig: React.FC = () => {
                     onChange={(e) => setNewRegion({ ...newRegion, x1_ratio: parseFloat(e.target.value) || 0 })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
                   />
-                  <p className="mt-1 text-xs text-gray-500">0 = far left, 1 = far right</p>
+                
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    y1_ratio * <span className="text-xs text-gray-500">(top edge, 0-1)</span>
+                    y1 * 
                   </label>
                   <input
                     type="number"
@@ -616,12 +611,11 @@ export const Step4RegionConfig: React.FC = () => {
                     onChange={(e) => setNewRegion({ ...newRegion, y1_ratio: parseFloat(e.target.value) || 0 })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
                   />
-                  <p className="mt-1 text-xs text-gray-500">0 = top, 1 = bottom</p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    x2_ratio * <span className="text-xs text-gray-500">(right edge, 0-1)</span>
+                    x2 *
                   </label>
                   <input
                     type="number"
@@ -632,12 +626,11 @@ export const Step4RegionConfig: React.FC = () => {
                     onChange={(e) => setNewRegion({ ...newRegion, x2_ratio: parseFloat(e.target.value) || 0 })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Must be {'>'} x1_ratio</p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    y2_ratio * <span className="text-xs text-gray-500">(bottom edge, 0-1)</span>
+                    y2 *
                   </label>
                   <input
                     type="number"
@@ -648,10 +641,8 @@ export const Step4RegionConfig: React.FC = () => {
                     onChange={(e) => setNewRegion({ ...newRegion, y2_ratio: parseFloat(e.target.value) || 0 })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Must be {'>'} y1_ratio</p>
                 </div>
 
-                {/* Confidence Threshold - Show for BOTH coordinates and hybrid modes */}
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Confidence Threshold {selectedMethod === 'hybrid' ? '(optional, for fallback)' : '(optional)'}
@@ -731,7 +722,7 @@ export const Step4RegionConfig: React.FC = () => {
                       <td className="px-4 py-3 text-sm text-right">
                         <button
                           onClick={() => editRegion(index)}
-                          className="text-blue-600 hover:text-blue-700 mr-3"
+                          className="text-primary hover:text-primary mr-3"
                         >
                           Edit
                         </button>
@@ -766,53 +757,8 @@ export const Step4RegionConfig: React.FC = () => {
               </div>
             </div>
           )}
-
-          {/* Example Visual Guide */}
-          <div className="bg-white border border-orange-200 rounded-md p-4">
-            <h4 className="text-sm font-medium text-gray-900 mb-2">📐 Ratio Position Guide</h4>
-            <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
-              <div>
-                <strong>Example: Bottom-right stamp</strong>
-                <ul className="mt-1 space-y-1 list-disc list-inside">
-                  <li>x1_ratio: 0.70 (starts 70% from left)</li>
-                  <li>y1_ratio: 0.80 (starts 80% from top)</li>
-                  <li>x2_ratio: 0.95 (ends 95% from left)</li>
-                  <li>y2_ratio: 0.95 (ends 95% from top)</li>
-                </ul>
-              </div>
-              <div>
-                <strong>Example: Center signature</strong>
-                <ul className="mt-1 space-y-1 list-disc list-inside">
-                  <li>x1_ratio: 0.40 (starts 40% from left)</li>
-                  <li>y1_ratio: 0.45 (starts 45% from top)</li>
-                  <li>x2_ratio: 0.60 (ends 60% from left)</li>
-                  <li>y2_ratio: 0.55 (ends 55% from top)</li>
-                </ul>
-              </div>
-            </div>
-          </div>
         </div>
       )}
-
-      {/* FR-004: Info Box */}
-      <div className="rounded-md bg-blue-50 border border-blue-200 p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">FR-004 Implementation Guide</h3>
-            <div className="mt-2 text-sm text-blue-700 space-y-1">
-              <p><strong>AC-004-1 (Methods):</strong> YOLO (model-based), Coordinates (fixed ratios), Hybrid (YOLO + fallback)</p>
-              <p><strong>AC-004-2 (Confidence):</strong> Global default 0.60, customizable per-region for YOLO classes and coordinate fallbacks</p>
-              <p><strong>AC-004-3 (Ratio Coordinates):</strong> All coordinates use 0-1 scale (x1_ratio, y1_ratio, x2_ratio, y2_ratio) for resolution independence</p>
-              <p className="mt-2 font-medium">💡 <strong>Hybrid Mode Best Practice:</strong> Set YOLO as primary with coordinate fallback for maximum reliability</p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

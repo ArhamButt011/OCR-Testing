@@ -34,8 +34,10 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
   const { isExpanded, toggleSidebar } = useSidebar();
   const [isImageLoaded, setIsImageLoaded] = useState(true);
 
-  const [secondaryIp, setSecondaryIp] = useState("");
+  // NEW: templates collapse state
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
 
+  const [secondaryIp, setSecondaryIp] = useState("");
   const [ip, setIp] = useState("");
   const [remember, setRemember] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -513,44 +515,90 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
               </Link>
             )}
 
+            {/* ---------- TEMPLATES COLLAPSIBLE GROUP ---------- */}
             {userRole === "admin" && (
-              <Link href="/templates">
+              <>
                 <li
-                  className={`flex items-center mb-2 justify-start
-                        space-x-3 pl-5 pr-0 py-2 rounded-lg transition-all duration-300 ease-in-out ${
-                          isActive("/templates")
-                            ? "bg-gray-200"
-                            : "hover:bg-gray-200"
-                        }`}
+                  onClick={() => setIsTemplatesOpen(!isTemplatesOpen)}
+                  className={`flex items-center mb-2 justify-between pl-5 pr-4 py-2 rounded-lg cursor-pointer transition-all duration-300 ease-in-out ${
+                    isActive("/templates") || isActive("/drafts")
+                      ? "bg-gray-200"
+                      : "hover:bg-gray-200"
+                  }`}
                 >
-                  <span className="flex-shrink-0">
+                  <div className="flex items-center space-x-3">
                     <TbTemplate
-                      className={` ${
-                        isActive("/templates") ? "text-[#005B97]" : "text-[#7B849A]"
+                      className={`${
+                        isActive("/templates") || isActive("/drafts")
+                          ? "text-[#005B97]"
+                          : "text-[#7B849A]"
                       } transition-all duration-300 ease-in-out text-2xl`}
                     />
-                  </span>
-                  <span
-                    className={`${
-                      isActive("/templates") ? " text-gray-950" : "text-gray-400"
-                    } text-lg transition-all duration-300 ease-in-out`}
-                    style={{
-                      width: isExpanded ? "auto" : "0",
-                      overflow: "hidden",
-                      whiteSpace: "nowrap",
-                      opacity: isExpanded ? 1 : 0,
-                      transition: "opacity 0.3s ease, width 0.3s ease",
-                    }}
-                  >
-                    Templates
-                  </span>
+                    <span
+                      className={`${
+                        isActive("/templates") || isActive("/drafts")
+                          ? " text-gray-950"
+                          : "text-gray-400"
+                      } text-lg transition-all duration-300 ease-in-out`}
+                      style={{
+                        width: isExpanded ? "auto" : "0",
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        opacity: isExpanded ? 1 : 0,
+                        transition: "opacity 0.3s ease, width 0.3s ease",
+                      }}
+                    >
+                      Templates
+                    </span>
+                  </div>
+
+                  {/* arrow */}
+                  {isExpanded && (
+                    <IoIosArrowForward
+                      className={`text-lg text-gray-600 transform transition-transform duration-300 ease-in-out ${
+                        isTemplatesOpen ? "rotate-90" : ""
+                      }`}
+                    />
+                  )}
                 </li>
-              </Link>
+
+                {/* Submenu: only show when sidebar expanded and templates open */}
+                {isExpanded && isTemplatesOpen && (
+                  <ul className="ml-12 space-y-2 transition-all duration-300">
+                    <li>
+                      <Link
+                        href="/templates"
+                        className={`block py-1 pl-2 pr-0 rounded-md text-[15px] ${
+                          isActive("/templates")
+                            ? "text-[#005B97] font-semibold"
+                            : "text-gray-500"
+                        } hover:text-[#005B97]`}
+                      >
+                        Manage
+                      </Link>
+                    </li>
+
+                    <li>
+                      <Link
+                        href="/drafts"
+                        className={`block py-1 pl-2 pr-0 rounded-md text-[15px] ${
+                          isActive("/drafts")
+                            ? "text-[#005B97] font-semibold"
+                            : "text-gray-500"
+                        } hover:text-[#005B97]`}
+                      >
+                        Drafts
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </>
             )}
+
             {userRole === "admin" && (
               <Link href="/logs">
                 <li
-                  className={`flex items-center mb-2 justify-start
+                  className={`flex items-center mb-2 mt-2 justify-start
                                      space-x-3 pl-5 pr-0 py-2 rounded-lg transition-all duration-300 ease-in-out ${
                                        isActive("/logs")
                                          ? "bg-gray-200"
