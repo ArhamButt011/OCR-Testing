@@ -23,26 +23,23 @@ export const TemplatePagination: React.FC<TemplatePaginationProps> = ({
   const startIndex = (currentPage - 1) * itemsPerPage + 1;
   const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
 
+
   const getPageNumbers = () => {
     const pages: number[] = [];
     
     if (totalPages <= 5) {
-      // Show all pages if 5 or fewer
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
     } else if (currentPage <= 3) {
-      // Near start: show 1-5
       for (let i = 1; i <= 5; i++) {
         pages.push(i);
       }
     } else if (currentPage >= totalPages - 2) {
-      // Near end: show last 5
       for (let i = totalPages - 4; i <= totalPages; i++) {
         pages.push(i);
       }
     } else {
-      // Middle: show current-2 to current+2
       for (let i = currentPage - 2; i <= currentPage + 2; i++) {
         pages.push(i);
       }

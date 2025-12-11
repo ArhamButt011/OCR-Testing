@@ -100,7 +100,10 @@ function ModalContentInner({ onClose, isEditMode }: { onClose: () => void; isEdi
   };
 
   const handleClose = () => {
-    if (confirm("Are you sure you want to close? Your progress has been auto-saved.")) {
+    if (!isEditMode && confirm("Are you sure you want to close? Your progress has been auto-saved.")) {
+      onClose();
+    }
+    else{
       onClose();
     }
   };

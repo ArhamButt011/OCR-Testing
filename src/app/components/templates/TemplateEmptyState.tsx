@@ -4,7 +4,7 @@
 import React from 'react';
 
 interface TemplateEmptyStateProps {
-  hasFilters: boolean;
+  hasFilters: string | boolean;
   onCreateNew: () => void;
 }
 

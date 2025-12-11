@@ -23,14 +23,14 @@ export type SortDirection = 'asc' | 'desc';
 
 interface TemplateTableProps {
   templates: Template[];
-  sortField: SortField;
+  sortField: string;
   sortDirection: SortDirection;
-  onSort: (field: SortField) => void;
+  onSort: (field: string) => void; 
   onActivate: (templateId: string) => void;
   onDeactivate: (templateId: string) => void;
   onDeprecate: (templateId: string) => void;
   onDelete: (templateId: string) => void;
-  onEdit: (templateId: string) => void; // NEW
+  onEdit: (templateId: string) => void;
 }
 
 export const TemplateTable: React.FC<TemplateTableProps> = ({
@@ -45,7 +45,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   onEdit,
 }) => {
 
-  console.log("Rendering TemplateTable with templates:", templates);
+  
   const getStatusBadge = (status: string) => {
     const styles = {
       active: "bg-green-100 text-green-800",
@@ -64,7 +64,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
     );
   };
 
-  const renderSortIcon = (field: SortField) => {
+  const renderSortIcon = (field: string) => {
     if (sortField !== field) {
       return (
         <svg className="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,7 +86,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="w-full overflow-x-auto grid grid-cols-1">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -136,23 +136,23 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
 
               {/* Documents Processed - Sortable */}
               <th
-                onClick={() => onSort('documents_processed')}
+                onClick={() => onSort('metadata.usage_count')}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Documents Processed
-                  {renderSortIcon('documents_processed')}
+                  {renderSortIcon('metadata.usage_count')}
                 </div>
               </th>
 
               {/* Accuracy Rate - Sortable */}
               <th
-                onClick={() => onSort('accuracy_rate')}
+                onClick={() => onSort('metadata.success_rate')}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Accuracy Rate
-                  {renderSortIcon('accuracy_rate')}
+                  {renderSortIcon('metadata.success_rate')}
                 </div>
               </th>
 
@@ -164,7 +164,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {templates.map((template) => (
-              <tr key={template.template_id} className="hover:bg-gray-50">
+              <tr key={template._id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                   {template.template_id}
                 </td>
@@ -187,7 +187,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-3">
-                    {/* NEW: Edit Button - Always visible */}
+                    {/* Edit Button - Always visible */}
                     <button
                       onClick={() => onEdit(template._id)}
                       className="text-blue-600 hover:text-blue-900 font-medium"
@@ -195,8 +195,6 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                     >
                       Edit
                     </button>
-                    
-                    {/* FR-013 AC-013-3: Quick Actions */}
                     
                     {/* Inactive templates: Show Activate */}
                     {template.status === 'inactive' && (
@@ -229,7 +227,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                       </>
                     )}
                     
-                    {/* Deprecated templates: Show warning and Reactivate (will fail with message) */}
+                    {/* Deprecated templates: Show warning and Reactivate */}
                     {template.status === 'deprecated' && (
                       <>
                         <button
