@@ -287,22 +287,68 @@ async function listTemplatesHandler(
     // Pagination
     const skip = (page - 1) * limit;
 
-    // Sortable columns
-    const sortOptions: any = { [sortBy]: sortOrder };
+    // ✅ Use MongoDB aggregation pipeline for efficient join
+    const templatesWithUsageCount = await templatesCollection
+      .aggregate([
+        // Stage 1: Match filters (status, category, search)
+        { $match: filter },
 
-    const [templates, total] = await Promise.all([
-      templatesCollection
-        .find(filter)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
-      templatesCollection.countDocuments(filter),
-    ]);
+        // Stage 2: Sort
+        { $sort: { [sortBy]: sortOrder } },
+
+        // Stage 3: Pagination
+        { $skip: skip },
+        { $limit: limit },
+
+        // Stage 4: Convert _id to string for lookup
+        {
+          $addFields: {
+            template_id_string: { $toString: "$_id" },
+          },
+        },
+
+        // Stage 5: Lookup usage count from mockData
+        {
+          $lookup: {
+            from: "mockData",
+            let: { templateId: "$template_id_string" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$template_id", "$$templateId"] },
+                },
+              },
+              { $count: "count" },
+            ],
+            as: "usage_data",
+          },
+        },
+
+        // Stage 6: Extract usage count and add to metadata
+        {
+          $addFields: {
+            "metadata.usage_count": {
+              $ifNull: [{ $arrayElemAt: ["$usage_data.count", 0] }, 0],
+            },
+          },
+        },
+
+        // Stage 7: Remove temporary fields
+        {
+          $project: {
+            template_id_string: 0,
+            usage_data: 0,
+          },
+        },
+      ])
+      .toArray();
+
+    // Get total count (separate query)
+    const total = await templatesCollection.countDocuments(filter);
 
     return NextResponse.json({
       success: true,
-      templates,
+      templates: templatesWithUsageCount,
       pagination: {
         page,
         limit,
