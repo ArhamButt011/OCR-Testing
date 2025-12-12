@@ -1,13 +1,15 @@
 // src/app/admin/components/drafts/DraftTable.tsx
 "use client";
 
-import React from 'react';
-import { Draft } from '../../drafts/page';
+import React from "react";
+import { Draft } from "../../drafts/page";
+import { MdDelete } from "react-icons/md";
+import {  BiSolidEditAlt } from "react-icons/bi";
 
 interface DraftTableProps {
   drafts: Draft[];
   sortField: string;
-  sortDirection: 'asc' | 'desc';
+  sortDirection: "asc" | "desc";
   onSort: (field: string) => void;
   onEdit: (draftId: string) => void;
   onDelete: (draftId: string) => void;
@@ -21,10 +23,10 @@ export const DraftTable: React.FC<DraftTableProps> = ({
   onEdit,
   onDelete,
 }) => {
-
   const getCategoryBadge = (category?: string) => {
-    if (!category) return <span className="text-gray-400 text-sm">Not set</span>;
-    
+    if (!category)
+      return <span className="text-gray-400 text-sm">Not set</span>;
+
     const styles = {
       Stamp: "bg-blue-100 text-blue-800",
       Notation: "bg-purple-100 text-purple-800",
@@ -45,7 +47,7 @@ export const DraftTable: React.FC<DraftTableProps> = ({
   const getProgressBadge = (stepNumber: number) => {
     const totalSteps = 7;
     const percentage = ((stepNumber / totalSteps) * 100).toFixed(0);
-    
+
     return (
       <div className="flex items-center gap-2">
         <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
@@ -54,36 +56,68 @@ export const DraftTable: React.FC<DraftTableProps> = ({
             style={{ width: `${percentage}%` }}
           />
         </div>
-        <span className="text-xs text-gray-600 font-medium whitespace-nowrap">{stepNumber}/7</span>
+        <span className="text-xs text-gray-600 font-medium whitespace-nowrap">
+          {stepNumber}/7
+        </span>
       </div>
     );
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const renderSortIcon = (field: string) => {
     if (sortField !== field) {
       return (
-        <svg className="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        <svg
+          className="w-4 h-4 ml-1 text-gray-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+          />
         </svg>
       );
     }
-    
-    return sortDirection === 'asc' ? (
-      <svg className="w-4 h-4 ml-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+
+    return sortDirection === "asc" ? (
+      <svg
+        className="w-4 h-4 ml-1 text-primary"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 15l7-7 7 7"
+        />
       </svg>
     ) : (
-      <svg className="w-4 h-4 ml-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      <svg
+        className="w-4 h-4 ml-1 text-primary"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 9l-7 7-7-7"
+        />
       </svg>
     );
   };
@@ -96,67 +130,67 @@ export const DraftTable: React.FC<DraftTableProps> = ({
             <tr>
               {/* Template ID - Sortable */}
               <th
-                onClick={() => onSort('partial_data.template_id')}
+                onClick={() => onSort("partial_data.template_id")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Template ID
-                  {renderSortIcon('partial_data.template_id')}
+                  {renderSortIcon("partial_data.template_id")}
                 </div>
               </th>
 
               {/* Name - Sortable */}
               <th
-                onClick={() => onSort('partial_data.template_name')}
+                onClick={() => onSort("partial_data.template_name")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Name
-                  {renderSortIcon('partial_data.template_name')}
+                  {renderSortIcon("partial_data.template_name")}
                 </div>
               </th>
 
               {/* Category - Sortable */}
               <th
-                onClick={() => onSort('partial_data.category')}
+                onClick={() => onSort("partial_data.category")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Category
-                  {renderSortIcon('partial_data.category')}
+                  {renderSortIcon("partial_data.category")}
                 </div>
               </th>
 
               {/* Progress - Sortable */}
               <th
-                onClick={() => onSort('step_number')}
+                onClick={() => onSort("step_number")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Progress
-                  {renderSortIcon('step_number')}
+                  {renderSortIcon("step_number")}
                 </div>
               </th>
 
               {/* Last Saved - Sortable */}
               <th
-                onClick={() => onSort('metadata.last_saved_at')}
+                onClick={() => onSort("metadata.last_saved_at")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Last Saved
-                  {renderSortIcon('metadata.last_saved_at')}
+                  {renderSortIcon("metadata.last_saved_at")}
                 </div>
               </th>
 
               {/* Expires - Sortable */}
               <th
-                onClick={() => onSort('metadata.expires_at')}
+                onClick={() => onSort("metadata.expires_at")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Expires
-                  {renderSortIcon('metadata.expires_at')}
+                  {renderSortIcon("metadata.expires_at")}
                 </div>
               </th>
 
@@ -199,16 +233,12 @@ export const DraftTable: React.FC<DraftTableProps> = ({
                       className="text-blue-600 hover:text-blue-900 font-medium"
                       title="Continue editing draft"
                     >
-                      Edit
+                      <BiSolidEditAlt className="fill-[#005B97] text-2xl" />
                     </button>
-                    
+
                     {/* Delete button */}
-                    <button
-                      onClick={() => onDelete(draft._id)}
-                      className="text-red-600 hover:text-red-900 font-medium"
-                      title="Delete draft"
-                    >
-                      Delete
+                    <button onClick={() => onDelete(draft._id)}>
+                      <MdDelete className="fill-[red] text-2xl" />
                     </button>
                   </div>
                 </td>

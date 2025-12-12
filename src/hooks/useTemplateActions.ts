@@ -1,8 +1,10 @@
 // src/app/admin/hooks/useTemplateActions.ts
 "use client";
 
-import { useState } from 'react';
-import axios from 'axios';
+import { useState } from "react";
+import axios from "axios";
+import Swal from "sweetalert2";
+import { toast } from "react-toastify";
 
 export const useTemplateActions = (onRefresh: () => void) => {
   const [loading, setLoading] = useState(false);
@@ -29,23 +31,28 @@ export const useTemplateActions = (onRefresh: () => void) => {
   };
 
   const updateTemplateStatus = async (
-    templateId: string, 
+    templateId: string,
     status: "active" | "inactive" | "deprecated"
   ) => {
     try {
       setLoading(true);
       const userId = getUserId();
 
-      const response = await axios.patch(`/api/templates/${templateId}/status`, {
-        status,
-        // user_id: userId,
-      });
+      const response = await axios.patch(
+        `/api/templates/${templateId}/status`,
+        {
+          status,
+          // user_id: userId,
+        }
+      );
 
       return response.data;
     } catch (error) {
       console.error("Failed to update template status:", error);
       if (axios.isAxiosError(error) && error.response) {
-        throw new Error(error.response.data?.error || "Failed to update template status");
+        throw new Error(
+          error.response.data?.error || "Failed to update template status"
+        );
       }
       throw error;
     } finally {
@@ -53,77 +60,115 @@ export const useTemplateActions = (onRefresh: () => void) => {
     }
   };
 
-
   const handleActivate = async (templateId: string) => {
-    if (!confirm("Activate this template? It will be used for OCR processing.")) {
+    const result = await Swal.fire({
+      title: "Activate Template",
+      text: "Activate this template? It will be used for OCR processing.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#005B97",
+      cancelButtonColor: "#F0F1F3",
+      cancelButtonText: "Cancel",
+      confirmButtonText: "Yes, Activate",
+    });
+    if (!result.isConfirmed) {
       return;
     }
 
     try {
       const result = await updateTemplateStatus(templateId, "active");
-      console.log("result",result)
-      alert(result.message || "Template activated successfully!");
+      console.log("result", result);
+      toast.success(result.message || "Template activated successfully!");
       onRefresh();
     } catch (error: any) {
       if (error.message.includes("deprecated")) {
-        alert(
+        toast.error(
           "Cannot reactivate deprecated templates. Please create a new version instead."
         );
       } else {
-        alert(`Failed to activate template: ${error.message}`);
+        toast.error(`Failed to activate template: ${error.message}`);
       }
     }
   };
 
- 
   const handleDeactivate = async (templateId: string) => {
-    if (!confirm("Deactivate this template? It will no longer be used for OCR processing.")) {
+    const result = await Swal.fire({
+      title: "Deactivate Template",
+      text: "Deactivate this template? It will no longer be used for OCR processing.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#005B97",
+      cancelButtonColor: "#F0F1F3",
+      cancelButtonText: "Cancel",
+      confirmButtonText: "Yes, Deactivate ",
+    });
+    if (!result.isConfirmed) {
       return;
     }
 
     try {
       const result = await updateTemplateStatus(templateId, "inactive");
-      alert(result.message || "Template deactivated successfully!");
+      toast.success(result.message || "Template deactivated successfully!");
       onRefresh();
     } catch (error: any) {
-      alert(`Failed to deactivate template: ${error.message}`);
+      toast.error(`Failed to deactivate template: ${error.message}`);
     }
   };
 
-  
   const handleDeprecate = async (templateId: string) => {
-    if (!confirm(
-      "Deprecate this template? This action cannot be undone. The template will no longer be used for OCR processing and cannot be reactivated."
-    )) {
+    const result = await Swal.fire({
+      title: "Deprecate Template",
+      text: "Deprecate this template? This action cannot be undone. The template will no longer be used for OCR processing and cannot be reactivated.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#005B97",
+      cancelButtonColor: "#F0F1F3",
+      cancelButtonText: "Cancel",
+      confirmButtonText: "Yes, Deprecate",
+    });
+    if (!result.isConfirmed) {
       return;
     }
-
     try {
       const result = await updateTemplateStatus(templateId, "deprecated");
-      alert(result.message || "Template deprecated successfully!");
+      toast.success(result.message || "Template deprecated successfully!");
       onRefresh();
     } catch (error: any) {
-      alert(`Failed to deprecate template: ${error.message}`);
+      toast.error(`Failed to deprecate template: ${error.message}`);
     }
   };
 
   const handleDelete = async (templateId: string) => {
-    if (!confirm("Delete this template? This action cannot be undone.")) {
+    const result = await Swal.fire({
+      title: "Delete Template",
+      text: "Delete this template? This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#005B97",
+      cancelButtonColor: "#F0F1F3",
+      cancelButtonText: "Cancel",
+      confirmButtonText: "Delete",
+    });
+
+    if (!result.isConfirmed) {
       return;
     }
-
     try {
       setLoading(true);
       await axios.delete(`/api/templates/${templateId}`);
-      
-      alert("Template deleted successfully!");
+
+      toast.success("Template deleted successfully!");
       onRefresh();
     } catch (error: any) {
       console.error("Failed to delete template:", error);
       if (axios.isAxiosError(error) && error.response) {
-        alert(`Failed to delete template: ${error.response.data?.error || error.message}`);
+        toast.error(
+          `Failed to delete template: ${
+            error.response.data?.error || error.message
+          }`
+        );
       } else {
-        alert(`Failed to delete template: ${error.message}`);
+        toast.error(`Failed to delete template: ${error.message}`);
       }
     } finally {
       setLoading(false);

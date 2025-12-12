@@ -17,6 +17,8 @@ import { DraftPagination } from "../components/drafts/DraftPagination";
 import { DraftEmptyState } from "../components/drafts/DraftEmptyState";
 import { DraftLoadingState } from "../components/drafts/DraftLoadingState";
 import { CreateTemplateModal } from "../components/CreateTemplateModal";
+import Swal from "sweetalert2";
+import { toast } from "react-toastify";
 
 export interface Draft {
   _id: string;
@@ -180,12 +182,22 @@ export default function DraftsPage() {
 
   // Handle delete draft
   const handleDelete = async (draftId: string) => {
-    if (!confirm("Are you sure you want to delete this draft?")) {
-      return;
-    }
+
+       const result = await Swal.fire({
+          title: "Delete Draft",
+          text: "Are you sure you want to delete this draft?",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#005B97",
+          cancelButtonColor: "#F0F1F3",
+          cancelButtonText: "Cancel",
+          confirmButtonText: "Delete",
+        });
+        if (!result.isConfirmed) {
+          return;
+        }
 
     try {
-      console.log("🗑️ Deleting draft:", draftId);
 
       const response = await fetch(
         `/api/templates/draft?draft_id=${draftId}`,
@@ -195,28 +207,24 @@ export default function DraftsPage() {
       );
 
       if (response.ok) {
-        console.log("✅ Draft deleted successfully");
 
-        // Update state immediately without refetching
         setDrafts((prevDrafts) =>
           prevDrafts.filter((draft) => draft._id !== draftId)
         );
         setTotalItems((prev) => prev - 1);
 
-        // Show success message
-        alert("Draft deleted successfully");
+        toast.success("Draft deleted successfully");
       } else {
         const error = await response.json();
         console.error("❌ Failed to delete draft:", error);
-        alert(error.error || "Failed to delete draft");
+        toast.error(error.error || "Failed to delete draft");
       }
     } catch (error) {
       console.error("❌ Error deleting draft:", error);
-      alert("Failed to delete draft");
+      toast.error("Failed to delete draft");
     }
   };
 
-  // Handle modal close
   const handleModalClose = () => {
     setIsModalOpen(false);
     setSelectedDraftId(undefined);
