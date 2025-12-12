@@ -445,7 +445,7 @@ function toYesNoY(val) {
 function toProcessedRecord(d, fileId, job, fileData, base_url) {
   if (!fileData || !fileData.FILE_NAME) return null;
 
-  // Fix: Validate and sanitize FILE_NAME to prevent missing protocol errors
+    // Fix: Validate and sanitize FILE_NAME to prevent missing protocol errors
   const fileName = fileData.FILE_NAME || "";
   if (!fileName) {
     console.warn(`Missing FILE_NAME for fileId: ${fileId}`);
@@ -527,6 +527,17 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
     firstOf(d, ["Seal_Intact", "SealIntact", "Seal_Status"], "no")
   );
 
+  // ✅ Extract new fields from OCR response
+  const confidence = firstOf(d, ["Confidence", "confidence"], 0.0);
+  const processingTime = toInt(
+    firstOf(d, ["Processing_Time", "processing_time", "ProcessingTime"], 0)
+  );
+  const templateId = firstOf(
+    d,
+    ["Template_ID", "template_id", "TemplateID"],
+    null
+  );
+
   return {
     _id: fileId,
     jobId: job._id,
@@ -560,6 +571,11 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
     cargoDescription: "Processed from OCR API.",
     none: "N",
     sealIntact,
+
+    // ✅ NEW FIELDS
+    confidence: parseFloat(confidence) || 0.0,
+    processing_time: processingTime,
+    template_id: templateId,
   };
 }
 

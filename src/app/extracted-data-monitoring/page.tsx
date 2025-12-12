@@ -111,6 +111,11 @@ interface ProcessedData {
   deliveryDate: string;
   jobId: string | null;
   noOfPages: number;
+
+  // ✅ NEW FIELDS
+  confidence?: number;
+  processing_time?: number;
+  template_id?: string | null;
 }
 
 interface OcrJob {
@@ -904,6 +909,10 @@ const MasterPage = () => {
                     : data?.Seal_Intact === "no"
                     ? "N"
                     : data?.Seal_Intact,
+                    // ✅ NEW FIELDS
+                confidence: data?.Confidence || data?.confidence || 0.0,
+                processing_time: data?.Processing_Time || data?.processing_time || 0,
+                template_id: data?.Template_ID || data?.template_id || null,
               };
             });
 
