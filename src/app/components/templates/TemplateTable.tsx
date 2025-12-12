@@ -1,7 +1,9 @@
 // src/app/admin/components/templates/TemplateTable.tsx
 "use client";
 
-import React from 'react';
+import React from "react";
+import { BiSolidEditAlt } from "react-icons/bi";
+import { MdDelete } from "react-icons/md";
 
 export interface Template {
   _id: string;
@@ -18,14 +20,20 @@ export interface Template {
   };
 }
 
-export type SortField = 'template_id' | 'template_name' | 'category' | 'status' | 'documents_processed' | 'accuracy_rate';
-export type SortDirection = 'asc' | 'desc';
+export type SortField =
+  | "template_id"
+  | "template_name"
+  | "category"
+  | "status"
+  | "documents_processed"
+  | "accuracy_rate";
+export type SortDirection = "asc" | "desc";
 
 interface TemplateTableProps {
   templates: Template[];
   sortField: string;
   sortDirection: SortDirection;
-  onSort: (field: string) => void; 
+  onSort: (field: string) => void;
   onActivate: (templateId: string) => void;
   onDeactivate: (templateId: string) => void;
   onDeprecate: (templateId: string) => void;
@@ -44,8 +52,6 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   onDelete,
   onEdit,
 }) => {
-
-  
   const getStatusBadge = (status: string) => {
     const styles = {
       active: "bg-green-100 text-green-800",
@@ -67,19 +73,49 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   const renderSortIcon = (field: string) => {
     if (sortField !== field) {
       return (
-        <svg className="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        <svg
+          className="w-4 h-4 ml-1 text-gray-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+          />
         </svg>
       );
     }
-    
-    return sortDirection === 'asc' ? (
-      <svg className="w-4 h-4 ml-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+
+    return sortDirection === "asc" ? (
+      <svg
+        className="w-4 h-4 ml-1 text-primary"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 15l7-7 7 7"
+        />
       </svg>
     ) : (
-      <svg className="w-4 h-4 ml-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      <svg
+        className="w-4 h-4 ml-1 text-primary"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 9l-7 7-7-7"
+        />
       </svg>
     );
   };
@@ -92,67 +128,67 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
             <tr>
               {/* Template ID - Sortable */}
               <th
-                onClick={() => onSort('template_id')}
+                onClick={() => onSort("template_id")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Template ID
-                  {renderSortIcon('template_id')}
+                  {renderSortIcon("template_id")}
                 </div>
               </th>
 
               {/* Name - Sortable */}
               <th
-                onClick={() => onSort('template_name')}
+                onClick={() => onSort("template_name")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Name
-                  {renderSortIcon('template_name')}
+                  {renderSortIcon("template_name")}
                 </div>
               </th>
 
               {/* Category - Sortable */}
               <th
-                onClick={() => onSort('category')}
+                onClick={() => onSort("category")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Category
-                  {renderSortIcon('category')}
+                  {renderSortIcon("category")}
                 </div>
               </th>
 
               {/* Status - Sortable */}
               <th
-                onClick={() => onSort('status')}
+                onClick={() => onSort("status")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Status
-                  {renderSortIcon('status')}
+                  {renderSortIcon("status")}
                 </div>
               </th>
 
               {/* Documents Processed - Sortable */}
               <th
-                onClick={() => onSort('metadata.usage_count')}
+                onClick={() => onSort("metadata.usage_count")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Documents Processed
-                  {renderSortIcon('metadata.usage_count')}
+                  {renderSortIcon("metadata.usage_count")}
                 </div>
               </th>
 
               {/* Accuracy Rate - Sortable */}
               <th
-                onClick={() => onSort('metadata.success_rate')}
+                onClick={() => onSort("metadata.success_rate")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center">
                   Accuracy Rate
-                  {renderSortIcon('metadata.success_rate')}
+                  {renderSortIcon("metadata.success_rate")}
                 </div>
               </th>
 
@@ -178,12 +214,12 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                   {getStatusBadge(template.status)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {template.metadata.usage_count?.toLocaleString() || '0'}
+                  {template.metadata.usage_count?.toLocaleString() || "0"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {template.metadata.success_rate !== undefined
                     ? `${(template.metadata.success_rate * 100).toFixed(1)}%`
-                    : 'N/A'}
+                    : "N/A"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-3">
@@ -193,11 +229,11 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                       className="text-blue-600 hover:text-blue-900 font-medium"
                       title="Edit template"
                     >
-                      Edit
+                      <BiSolidEditAlt className="fill-[#005B97] text-2xl" />
                     </button>
-                    
+
                     {/* Inactive templates: Show Activate */}
-                    {template.status === 'inactive' && (
+                    {template.status === "inactive" && (
                       <button
                         onClick={() => onActivate(template._id)}
                         className="text-green-600 hover:text-green-900 font-medium"
@@ -206,9 +242,9 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                         Activate
                       </button>
                     )}
-                    
+
                     {/* Active templates: Show Deactivate and Deprecate */}
-                    {template.status === 'active' && (
+                    {template.status === "active" && (
                       <>
                         <button
                           onClick={() => onDeactivate(template._id)}
@@ -226,9 +262,9 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                         </button>
                       </>
                     )}
-                    
+
                     {/* Deprecated templates: Show warning and Reactivate */}
-                    {template.status === 'deprecated' && (
+                    {template.status === "deprecated" && (
                       <>
                         <button
                           onClick={() => onActivate(template._id)}
@@ -242,14 +278,10 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                         </span>
                       </>
                     )}
-                    
+
                     {/* Delete button for all templates */}
-                    <button
-                      onClick={() => onDelete(template._id)}
-                      className="text-red-600 hover:text-red-900 font-medium"
-                      title="Delete template"
-                    >
-                      Delete
+                    <button onClick={() => onDelete(template._id)}>
+                      <MdDelete className="fill-[red] text-2xl" />
                     </button>
                   </div>
                 </td>

@@ -12,6 +12,8 @@ export const Step7Review: React.FC = () => {
   const [testResults, setTestResults] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
 
+  console.log('Review Step - Template Data:', templateData);
+
   const handleTestTemplate = async () => {
     setIsTesting(true);
     try {
