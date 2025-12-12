@@ -293,13 +293,43 @@ async function deleteTemplateHandler(
       );
     }
 
-    // Only allow deletion of deprecated templates
-    if (currentTemplate.status !== "deprecated") {
+    // Allow deletion of deprecated templates (without checking usage count)
+    if (currentTemplate.status === "deprecated") {
+      // Deprecated templates can be deleted regardless of usage_count
+      const deleteResult = await templatesCollection.deleteOne({
+        _id: ObjectId.createFromHexString(params.id),
+      });
+
+      if (deleteResult.deletedCount === 0) {
+        return NextResponse.json(
+          { error: "Template not found" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        template_id: params.id,
+        message: "Template deleted successfully",
+      });
+    }
+
+    // For inactive templates, check usage_count must be 0
+    if (currentTemplate.status === "inactive") {
+      if (currentTemplate.metadata?.usage_count !== 0) {
+        return NextResponse.json(
+          {
+            error: `Inactive templates can only be deleted when usage_count is 0. Current usage_count: ${currentTemplate.metadata?.usage_count}`,
+          },
+          { status: 403 }
+        );
+      }
+      // usage_count is 0, proceed with deletion below
+    } else {
+      // Status is neither deprecated nor inactive
       return NextResponse.json(
         {
-          error:
-            "Only deprecated templates can be deleted. Current status: " +
-            currentTemplate.status,
+          error: `Only deprecated or inactive templates can be deleted. Current status: ${currentTemplate.status}`,
         },
         { status: 403 }
       );
