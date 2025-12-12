@@ -129,6 +129,7 @@ async function getSingleTemplateHandler(
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const templatesCollection = db.collection("templates");
+    const mockDataCollection = db.collection("mockData");
 
     if (!params.id || !ObjectId.isValid(params.id)) {
       return NextResponse.json(
@@ -148,9 +149,25 @@ async function getSingleTemplateHandler(
       );
     }
 
+    // Get actual usage count from mockData table
+    const usageCount = await mockDataCollection.countDocuments({
+      template_id: params.id,
+    });
+
+    console.log(`Template ${params.id} usage count from mockData: ${usageCount}`);
+
+    // Add usage count to template metadata
+    const templateWithUsageCount = {
+      ...template,
+      metadata: {
+        ...template.metadata,
+        usage_count: usageCount, // Real-time count from mockData
+      },
+    };
+
     return NextResponse.json({
       success: true,
-      template,
+      template: templateWithUsageCount,
     });
   } catch (error) {
     console.error("Error fetching template:", error);
@@ -274,6 +291,7 @@ async function deleteTemplateHandler(
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const templatesCollection = db.collection("templates");
+    const mockDataCollection = db.collection("mockData");
 
     if (!params.id || !ObjectId.isValid(params.id)) {
       return NextResponse.json(
@@ -293,18 +311,34 @@ async function deleteTemplateHandler(
       );
     }
 
-    // Only allow deletion of deprecated templates
-    if (currentTemplate.status !== "deprecated") {
+    // Get actual usage count from mockData table
+    const usageCount = await mockDataCollection.countDocuments({
+      template_id: params.id,
+    });
+
+    console.log(`Template ${params.id} usage count from mockData: ${usageCount}`);
+
+    // Allow deletion only if status is deprecated or inactive
+    if (currentTemplate.status !== "deprecated" && currentTemplate.status !== "inactive") {
       return NextResponse.json(
         {
-          error:
-            "Only deprecated templates can be deleted. Current status: " +
-            currentTemplate.status,
+          error: `Only deprecated or inactive templates can be deleted. Current status: ${currentTemplate.status}`,
         },
         { status: 403 }
       );
     }
 
+    // Check usage count must be 0 for both deprecated and inactive templates
+    if (usageCount !== 0) {
+      return NextResponse.json(
+        {
+          error: `Template can only be deleted when usage count is 0. Current usage count: ${usageCount} document(s) are using this template.`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // Usage count is 0, proceed with deletion
     const deleteResult = await templatesCollection.deleteOne({
       _id: ObjectId.createFromHexString(params.id),
     });
@@ -320,6 +354,7 @@ async function deleteTemplateHandler(
       success: true,
       template_id: params.id,
       message: "Template deleted successfully",
+      usage_count: usageCount,
     });
   } catch (error) {
     console.error("Error deleting template:", error);
