@@ -1,25 +1,19 @@
-// src/app/admin/templates/page.tsx
+// src/app/templates/page.tsx
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-
-// Context & Layout
 import { useSidebar } from "../context/SidebarContext";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Spinner from "../components/Spinner";
-
-// Template Components
+import { Pagination } from "../components/common/Pagination";
+import { LoadingState } from "../components/common/LoadingState";
+import { EmptyState } from "../components/common/EmptyState";
 import { TemplateSearchBar } from "../components/templates/TemplateSearchBar";
 import { TemplateTable } from "../components/templates/TemplateTable";
 import type { Template } from "../components/templates/TemplateTable";
-import { TemplatePagination } from "../components/templates/TemplatePagination";
-import { TemplateEmptyState } from "../components/templates/TemplateEmptyState";
-import { TemplateLoadingState } from "../components/templates/TemplateLoadingState";
 import { CreateTemplateModal } from "../components/CreateTemplateModal";
-
-// Hooks
 import { useTemplateActions } from "@/hooks/useTemplateActions";
 
 export default function TemplatesPage() {
@@ -212,7 +206,6 @@ export default function TemplatesPage() {
     setIsModalOpen(false);
     setSelectedDraftId(undefined);
     setSelectedTemplateId(undefined);
-    // fetchTemplates(); // Refresh list after create/edit
   };
 
   const handleSidebarStateChange = (newState: boolean) => {
@@ -226,7 +219,6 @@ export default function TemplatesPage() {
   return (
     <>
       <div className="flex flex-col lg:flex-row h-screen bg-white">
-    
         <div className="">
           <Sidebar onStateChange={handleSidebarStateChange} />
         </div>
@@ -295,11 +287,29 @@ export default function TemplatesPage() {
 
               {/* Table or Empty State */}
               {loading ? (
-                <TemplateLoadingState />
+                <LoadingState type="skeleton-table" rows={10} />
               ) : templates.length === 0 ? (
-                <TemplateEmptyState
-                  hasFilters={hasActiveFilters}
-                  onCreateNew={handleCreateNew}
+                <EmptyState
+                  icon="template"
+                  title="No templates found"
+                  description={
+                    hasActiveFilters
+                      ? "Try adjusting your filters"
+                      : "Get started by creating a new template"
+                  }
+                  action={
+                    !hasActiveFilters
+                      ? {
+                          label: "Create Template",
+                          onClick: handleCreateNew,
+                          icon: (
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          ),
+                        }
+                      : undefined
+                  }
                 />
               ) : (
                 <>
@@ -317,13 +327,15 @@ export default function TemplatesPage() {
 
                   {/* Pagination */}
                   <div className="mt-4">
-                    <TemplatePagination
+                    <Pagination
                       currentPage={currentPage}
                       totalPages={totalPages}
                       itemsPerPage={itemsPerPage}
                       totalItems={totalItems}
                       onPageChange={setCurrentPage}
                       onItemsPerPageChange={handleItemsPerPageChange}
+                      showItemsPerPage={true}
+                      showItemsInfo={true}
                     />
                   </div>
                 </>

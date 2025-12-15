@@ -2,8 +2,10 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { BiSolidEditAlt } from "react-icons/bi";
 import { MdDelete } from "react-icons/md";
+import { AiOutlineEye } from "react-icons/ai";
 
 export interface Template {
   _id: string;
@@ -52,6 +54,8 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   onDelete,
   onEdit,
 }) => {
+  const router = useRouter();
+
   const getStatusBadge = (status: string) => {
     const styles = {
       active: "bg-green-100 text-green-800",
@@ -118,6 +122,10 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
         />
       </svg>
     );
+  };
+
+  const handleViewDetails = (templateId: string) => {
+    router.push(`/templates/${templateId}`);
   };
 
   return (
@@ -222,7 +230,16 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                     : "N/A"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <div className="flex justify-end gap-3">
+                  <div className="flex justify-end gap-3 items-center">
+                    {/* Details Button - Always visible */}
+                    <button
+                      onClick={() => handleViewDetails(template._id)}
+                      className="text-primary hover:text-primary-dark"
+                      title="View template details"
+                    >
+                      <AiOutlineEye className="text-2xl" />
+                    </button>
+
                     {/* Edit Button - Always visible */}
                     <button
                       onClick={() => onEdit(template._id)}
@@ -234,13 +251,22 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
 
                     {/* Inactive templates: Show Activate */}
                     {template.status === "inactive" && (
+                      <div className="flex gap-2">
                       <button
                         onClick={() => onActivate(template._id)}
-                        className="text-green-600 hover:text-green-900 font-medium"
+                        className="text-green-600 hover:text-green-900 font-medium text-sm"
                         title="Activate template"
                       >
                         Activate
                       </button>
+                       <button
+                          onClick={() => onDeprecate(template._id)}
+                          className="text-red-600 hover:text-red-900 font-medium text-sm"
+                          title="Deprecate template (cannot be reactivated)"
+                        >
+                          Deprecate
+                        </button>
+                        </div>
                     )}
 
                     {/* Active templates: Show Deactivate and Deprecate */}
@@ -248,27 +274,21 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                       <>
                         <button
                           onClick={() => onDeactivate(template._id)}
-                          className="text-orange-600 hover:text-orange-900 font-medium"
+                          className="text-orange-600 hover:text-orange-900 font-medium text-sm"
                           title="Deactivate template"
                         >
                           Deactivate
                         </button>
-                        <button
-                          onClick={() => onDeprecate(template._id)}
-                          className="text-red-600 hover:text-red-900 font-medium"
-                          title="Deprecate template (cannot be reactivated)"
-                        >
-                          Deprecate
-                        </button>
+                       
                       </>
                     )}
 
                     {/* Deprecated templates: Show warning and Reactivate */}
-                    {template.status === "deprecated" && (
+                    {/* {template.status === "deprecated" && (
                       <>
                         <button
                           onClick={() => onActivate(template._id)}
-                          className="text-gray-400 hover:text-gray-600 font-medium"
+                          className="text-gray-400 hover:text-gray-600 font-medium text-sm"
                           title="Cannot reactivate deprecated templates"
                         >
                           Reactivate
@@ -277,10 +297,13 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                           (Create new version)
                         </span>
                       </>
-                    )}
+                    )} */}
 
                     {/* Delete button for all templates */}
-                    <button onClick={() => onDelete(template._id)}>
+                    <button 
+                      onClick={() => onDelete(template._id)}
+                      title="Delete template"
+                    >
                       <MdDelete className="fill-[red] text-2xl" />
                     </button>
                   </div>

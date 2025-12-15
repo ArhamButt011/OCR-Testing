@@ -3,19 +3,16 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-
-// Context & Layout
+import Link from "next/link";
 import { useSidebar } from "../context/SidebarContext";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Spinner from "../components/Spinner";
-
-// Draft Components
+import { Pagination } from "../components/common/Pagination";
+import { LoadingState } from "../components/common/LoadingState";
+import { EmptyState } from "../components/common/EmptyState";
 import { DraftSearchBar } from "../components/drafts/DraftsSearchBar";
 import { DraftTable } from "../components/drafts/DraftTable";
-import { DraftPagination } from "../components/drafts/DraftPagination";
-import { DraftEmptyState } from "../components/drafts/DraftEmptyState";
-import { DraftLoadingState } from "../components/drafts/DraftLoadingState";
 import { CreateTemplateModal } from "../components/CreateTemplateModal";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
@@ -182,23 +179,22 @@ export default function DraftsPage() {
 
   // Handle delete draft
   const handleDelete = async (draftId: string) => {
-
-       const result = await Swal.fire({
-          title: "Delete Draft",
-          text: "Are you sure you want to delete this draft?",
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonColor: "#005B97",
-          cancelButtonColor: "#F0F1F3",
-          cancelButtonText: "Cancel",
-          confirmButtonText: "Delete",
-        });
-        if (!result.isConfirmed) {
-          return;
-        }
+    const result = await Swal.fire({
+      title: "Delete Draft",
+      text: "Are you sure you want to delete this draft?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#005B97",
+      cancelButtonColor: "#F0F1F3",
+      cancelButtonText: "Cancel",
+      confirmButtonText: "Delete",
+    });
+    
+    if (!result.isConfirmed) {
+      return;
+    }
 
     try {
-
       const response = await fetch(
         `/api/templates/draft?draft_id=${draftId}`,
         {
@@ -207,7 +203,6 @@ export default function DraftsPage() {
       );
 
       if (response.ok) {
-
         setDrafts((prevDrafts) =>
           prevDrafts.filter((draft) => draft._id !== draftId)
         );
@@ -228,7 +223,6 @@ export default function DraftsPage() {
   const handleModalClose = () => {
     setIsModalOpen(false);
     setSelectedDraftId(undefined);
-    // fetchDrafts(); // Refresh list after edit
   };
 
   const handleSidebarStateChange = (newState: boolean) => {
@@ -242,7 +236,7 @@ export default function DraftsPage() {
   return (
     <>
       <div className="flex flex-col lg:flex-row h-screen bg-white">
-        {/* Sidebar - Hidden on mobile, shown on desktop */}
+        {/* Sidebar */}
         <div className="">
           <Sidebar onStateChange={handleSidebarStateChange} />
         </div>
@@ -288,9 +282,30 @@ export default function DraftsPage() {
 
               {/* Table or Empty State */}
               {loading ? (
-                <DraftLoadingState />
+                <LoadingState type="skeleton-table" rows={10} />
               ) : drafts.length === 0 ? (
-                <DraftEmptyState hasFilters={hasActiveFilters} />
+                <EmptyState
+                  icon="document"
+                  title="No drafts found"
+                  description={
+                    hasActiveFilters
+                      ? "Try adjusting your search filters"
+                      : "You have no saved drafts. Start creating a new template to save a draft."
+                  }
+                  action={
+                    !hasActiveFilters
+                      ? {
+                          label: "Go to Templates",
+                          onClick: () => router.push("/templates"),
+                          icon: (
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          ),
+                        }
+                      : undefined
+                  }
+                />
               ) : (
                 <>
                   <DraftTable
@@ -304,13 +319,15 @@ export default function DraftsPage() {
 
                   {/* Pagination */}
                   <div className="mt-4">
-                    <DraftPagination
+                    <Pagination
                       currentPage={currentPage}
                       totalPages={totalPages}
                       itemsPerPage={itemsPerPage}
                       totalItems={totalItems}
                       onPageChange={setCurrentPage}
                       onItemsPerPageChange={handleItemsPerPageChange}
+                      showItemsPerPage={true}
+                      showItemsInfo={true}
                     />
                   </div>
                 </>
