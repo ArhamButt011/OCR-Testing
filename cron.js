@@ -544,6 +544,58 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
     ["Template_ID", "template_id", "TemplateID"],
     null
   );
+// ✅ Extract classification_details
+  const rawClassification =
+    firstOf(d, ["classification_details", "Classification_Details"], null) || {};
+
+  const classification_details = {
+    primary_model_prediction: String(
+      firstOf(
+        rawClassification,
+        ["primary_model_prediction", "Primary_Model_Prediction"],
+        ""
+      )
+    ),
+    primary_confidence: Number(
+      firstOf(rawClassification, ["primary_confidence", "Primary_Confidence"], 0)
+    ),
+    secondary_model_prediction: String(
+      firstOf(
+        rawClassification,
+        ["secondary_model_prediction", "Secondary_Model_Prediction"],
+        ""
+      )
+    ),
+    secondary_confidence: Number(
+      firstOf(
+        rawClassification,
+        ["secondary_confidence", "Secondary_Confidence"],
+        0
+      )
+    ),
+  };
+
+  // ✅ Extract suggested_templates (ALL templates, not just top one)
+  const rawSuggestedTemplates = firstOf(
+    d,
+    ["suggested_templates", "Suggested_Templates"],
+    []
+  );
+
+  const suggested_templates = Array.isArray(rawSuggestedTemplates)
+    ? rawSuggestedTemplates.map((tpl) => ({
+        template_id: String(
+          firstOf(tpl, ["template_id", "Template_ID"], "")
+        ),
+        template_name: String(
+          firstOf(tpl, ["template_name", "Template_Name"], "")
+        ),
+        match_score: Number(
+          firstOf(tpl, ["match_score", "Match_Score"], 0)
+        ),
+        priority: Number(firstOf(tpl, ["priority", "Priority"], 0)),
+      }))
+    : [];
 
   return {
     _id: fileId,
@@ -583,6 +635,10 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
     confidence: parseFloat(confidence) || 0.0,
     processing_time: processingTime,
     template_id: templateId,
+
+    // ✅ NEW FIELDS - ALL SUGGESTED TEMPLATES
+    classification_details,
+    suggested_templates,
   };
 }
 
