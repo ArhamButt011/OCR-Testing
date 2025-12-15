@@ -1,18 +1,37 @@
 // src/app/admin/unregistered-documents/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Spinner from "../components/Spinner";
 import { useSidebar } from "../context/SidebarContext";
+import { Pagination } from "../components/common/Pagination";
+import { LoadingState } from "../components/common/LoadingState";
+import { EmptyState } from "../components/common/EmptyState";
 import { UnregisteredDocumentsTable } from "../components/unregistered-documents";
 import { UnregisteredSearchBar } from "../components/unregistered-documents";
-import { UnregisteredPagination } from "../components/unregistered-documents";
-import { DocumentViewModal } from "../components/unregistered-documents/DocumentViewModal";
+import { DocumentReviewModal } from "../components/unregistered-documents/DocumentViewModal";
 import { CreateTemplateModal } from "../components/CreateTemplateModal";
 import Swal from "sweetalert2";
+
+interface ClassificationDetails {
+  primary_model_prediction: string;
+  primary_confidence: number;
+  secondary_model_prediction: string;
+  secondary_confidence: number;
+}
+
+interface SuggestedTemplate {
+  template_id: string;
+  template_name: string;
+  match_score: number;
+  priority: number;
+  category: string;
+  thumbnail_url: string;
+  version: string;
+}
 
 interface UnregisteredDocument {
   _id: string;
@@ -23,14 +42,9 @@ interface UnregisteredDocument {
   confidence: number;
   processing_time: number;
   createdAt: string;
-  suggested_templates?: Array<{
-    template_id: string;
-    template_name: string;
-    match_score: number;
-    category: string;
-    thumbnail_url: string;
-    version: string;
-  }>;
+  classification_details: ClassificationDetails;
+  suggested_templates: SuggestedTemplate[];
+  document_thumbnail?: string;
 }
 
 export default function UnregisteredDocumentsPage() {
@@ -45,14 +59,19 @@ export default function UnregisteredDocumentsPage() {
   const [totalDocs, setTotalDocs] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [selectedDocumentUrl, setSelectedDocumentUrl] = useState("");
+  
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<UnregisteredDocument | null>(null);
   const [createTemplateModalOpen, setCreateTemplateModalOpen] = useState(false);
   const [selectedDocForTemplate, setSelectedDocForTemplate] = useState<string | null>(null);
+
+  const isFetchingRef = useRef(false);
 
   // Auth check
   useEffect(() => {
@@ -96,18 +115,39 @@ export default function UnregisteredDocumentsPage() {
     setLoadingAuth(false);
   }, [router]);
 
-  // Fetch unregistered documents
-  const fetchDocuments = useCallback(async () => {
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchDocuments();
+  }, [
+    isAuthenticated,
+    currentPage,
+    itemsPerPage,
+    searchQuery,
+    categoryFilter,
+    sortBy,
+    sortOrder
+  ]);
+
+  const fetchDocuments = async () => {
+    if (isFetchingRef.current) return;
+    
     setLoading(true);
+    isFetchingRef.current = true;
+    
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: "20",
-        search: searchQuery,
-        category: categoryFilter,
-        sortBy,
-        sortOrder
+        limit: itemsPerPage.toString(),
+        sortBy: sortBy,
+        sortOrder: sortOrder,
       });
+
+      if (searchQuery) {
+        params.append("search", searchQuery);
+      }
+      if (categoryFilter !== "all") {
+        params.append("category", categoryFilter);
+      }
 
       const response = await fetch(`/api/unregistered-documents?${params.toString()}`);
       
@@ -129,14 +169,14 @@ export default function UnregisteredDocumentsPage() {
       });
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  }, [currentPage, searchQuery, categoryFilter, sortBy, sortOrder]);
+  };
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchDocuments();
-    }
-  }, [isAuthenticated, fetchDocuments]);
+  const handleReviewDocument = (document: UnregisteredDocument) => {
+    setSelectedDocument(document);
+    setReviewModalOpen(true);
+  };
 
   const handleAssignTemplate = async (documentId: string, templateId: string) => {
     try {
@@ -156,11 +196,15 @@ export default function UnregisteredDocumentsPage() {
         Swal.fire({
           icon: "success",
           title: "Success!",
-          text: result.message,
-          timer: 2000
+          html: `
+            <div class="text-left">
+              <p class="mb-2">${result.message}</p>
+              <p class="text-sm text-gray-600">The document has been reprocessed with the assigned template.</p>
+            </div>
+          `,
+          timer: 3000
         });
         
-        // Refresh list
         fetchDocuments();
       } else {
         throw new Error(result.error || "Assignment failed");
@@ -175,15 +219,46 @@ export default function UnregisteredDocumentsPage() {
     }
   };
 
-  const handleViewDocument = (pdfUrl: string) => {
-    setSelectedDocumentUrl(pdfUrl);
-    setViewModalOpen(true);
-  };
-
   const handleCreateNewTemplate = (documentId: string) => {
     setSelectedDocForTemplate(documentId);
+    setReviewModalOpen(false);
     setCreateTemplateModalOpen(true);
   };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setCategoryFilter(category);
+    setCurrentPage(1);
+  };
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+    setCurrentPage(1);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setCategoryFilter("all");
+    setSortBy("createdAt");
+    setSortOrder("desc");
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = searchQuery || categoryFilter !== "all";
 
   const handleSidebarStateChange = (newState: boolean) => {
     return newState;
@@ -195,7 +270,7 @@ export default function UnregisteredDocumentsPage() {
   return (
     <>
       <div className="flex flex-col lg:flex-row h-screen bg-white">
-        <div>
+        <div className="">
           <Sidebar onStateChange={handleSidebarStateChange} />
         </div>
 
@@ -211,73 +286,84 @@ export default function UnregisteredDocumentsPage() {
             buttonContent={null}
           />
 
-          <div className="flex-1 overflow-auto bg-gray-50 p-6">
-            <div className="max-w-7xl mx-auto">
-              {/* Page Header */}
-              <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Unregistered Documents Review
-                </h1>
-                <p className="mt-1 text-sm text-gray-600">
-                  Assign templates to unregistered documents and trigger reprocessing
-                </p>
+          <div className="min-h-screen bg-gray-50">
+            <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
+              <div className="mb-4 sm:mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                      Unregistered Documents
+                    </h1>
+                    <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
+                      Review and assign templates to unregistered documents
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {/* Search and Filters */}
               <UnregisteredSearchBar
                 searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
+                onSearchChange={handleSearchChange}
                 categoryFilter={categoryFilter}
-                onCategoryChange={setCategoryFilter}
+                onCategoryChange={handleCategoryChange}
                 sortBy={sortBy}
                 onSortByChange={setSortBy}
                 sortOrder={sortOrder}
                 onSortOrderChange={setSortOrder}
-                onSearch={fetchDocuments}
+                onClearFilters={clearFilters}
               />
 
-              {/* Table */}
               {loading ? (
-                <div className="flex justify-center items-center py-20">
-                  <Spinner />
-                </div>
+                <LoadingState type="skeleton-table" rows={10} />
               ) : documents.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-lg shadow">
-                  <div className="text-gray-400 text-6xl mb-4">📄</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                    No Unregistered Documents
-                  </h3>
-                  <p className="text-gray-500">
-                    All documents have been assigned templates!
-                  </p>
-                </div>
+                <EmptyState
+                  icon="document"
+                  title="No unregistered documents"
+                  description={
+                    hasActiveFilters
+                      ? "Try adjusting your search or filter criteria."
+                      : "All documents have been assigned templates!"
+                  }
+                />
               ) : (
-                <UnregisteredDocumentsTable
-                  documents={documents}
-                  onAssignTemplate={handleAssignTemplate}
-                  onViewDocument={handleViewDocument}
-                  onCreateNewTemplate={handleCreateNewTemplate}
-                />
-              )}
+                <>
+                  <UnregisteredDocumentsTable
+                    documents={documents}
+                    sortField={sortBy as any}
+                    sortDirection={sortOrder}
+                    onSort={handleSort}
+                    // onReviewDocument={handleReviewDocument}
+                  />
 
-              {/* Pagination */}
-              {!loading && documents.length > 0 && (
-                <UnregisteredPagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
+                  <div className="mt-4">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      itemsPerPage={itemsPerPage}
+                      totalItems={totalDocs}
+                      onPageChange={setCurrentPage}
+                      onItemsPerPageChange={handleItemsPerPageChange}
+                      showItemsPerPage={true}
+                      showItemsInfo={true}
+                    />
+                  </div>
+                </>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Document View Modal */}
-      <DocumentViewModal
-        isOpen={viewModalOpen}
-        onClose={() => setViewModalOpen(false)}
-        pdfUrl={selectedDocumentUrl}
+      {/* Document Review Modal */}
+      <DocumentReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => {
+          setReviewModalOpen(false);
+          setSelectedDocument(null);
+        }}
+        document={selectedDocument}
+        onAssignTemplate={handleAssignTemplate}
+        onCreateNewTemplate={handleCreateNewTemplate}
       />
 
       {/* Create Template Modal */}

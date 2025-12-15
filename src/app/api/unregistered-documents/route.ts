@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
         {
           $or: [
             { blNumber: { $regex: search, $options: 'i' } },
+            { B_L_Number: { $regex: search, $options: 'i' } },
             { fileId: { $regex: search, $options: 'i' } },
             { pdfUrl: { $regex: search, $options: 'i' } }
           ]
@@ -44,9 +45,9 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Category filter (if suggested templates have this category)
-    if (category) {
-      filter['suggested_templates.category'] = category;
+    // Category filter based on classification details
+    if (category && category !== 'all') {
+      filter['classification_details.primary_model_prediction'] = category;
     }
 
     const skip = (page - 1) * limit;
@@ -65,17 +66,31 @@ export async function GET(req: NextRequest) {
     // Get all unique template IDs from suggested templates
     const templateIds = new Set<string>();
     docs.forEach(doc => {
-      doc.suggested_templates?.forEach((st: any) => {
-        if (st.template_id) {
-          templateIds.add(st.template_id);
-        }
-      });
+      if (doc.suggested_templates && Array.isArray(doc.suggested_templates)) {
+        doc.suggested_templates.forEach((st: any) => {
+          if (st.template_id) {
+            // Only add if it's a valid ObjectId format
+            if (ObjectId.isValid(st.template_id)) {
+              templateIds.add(st.template_id);
+            }
+          }
+        });
+      }
     });
 
-    // Fetch all templates in a single query
-    const templates = await templatesCollection.find({
-      _id: { $in: Array.from(templateIds).map(id => new ObjectId(id)) }
-    }).toArray();
+    // Fetch all templates in a single query if we have template IDs
+    let templates: any[] = [];
+    if (templateIds.size > 0) {
+      try {
+        templates = await templatesCollection.find({
+          _id: { $in: Array.from(templateIds).map(id => new ObjectId(id)) }
+        }).toArray();
+      } catch (templateError) {
+        console.error('Error fetching templates:', templateError);
+        // Continue without templates if fetch fails
+        templates = [];
+      }
+    }
 
     // Create template lookup map
     const templateMap = new Map(
@@ -84,22 +99,47 @@ export async function GET(req: NextRequest) {
 
     // Enrich documents with full template details
     const enrichedDocs = docs.map(doc => {
-      const enrichedSuggestions = doc.suggested_templates?.map((suggestion: any) => {
-        const template = templateMap.get(suggestion.template_id);
-        return {
-          template_id: suggestion.template_id,
-          match_score: suggestion.match_score,
-          template_name: template?.template_name || 'Unknown',
-          category: template?.category || 'Unknown',
-          thumbnail_url: template?.identification?.reference_images?.[0]?.file_path || null,
-          version: template?.version || '1.0.0'
-        };
-      }) || [];
+      // Sort suggested templates by priority (already ordered in response)
+      const sortedSuggestions = (doc.suggested_templates && Array.isArray(doc.suggested_templates) 
+        ? doc.suggested_templates 
+        : []
+      )
+        .map((suggestion: any) => {
+          const template = templateMap.get(suggestion.template_id);
+          return {
+            template_id: suggestion.template_id || '',
+            template_name: suggestion.template_name || template?.template_name || 'Unknown',
+            match_score: suggestion.match_score || 0,
+            priority: suggestion.priority || 0,
+            category: template?.category || 'Unknown',
+            thumbnail_url: template?.identification?.reference_images?.[0]?.file_path || null,
+            version: template?.version || '1.0.0'
+          };
+        })
+        .sort((a: any, b: any) => a.priority - b.priority);
 
       return {
-        ...doc,
-        suggested_templates: enrichedSuggestions,
-        // Generate document thumbnail path (assuming stored during upload)
+        _id: String(doc._id),
+        fileId: doc.fileId || '',
+        pdfUrl: doc.pdfUrl || '',
+        blNumber: doc.blNumber || doc.B_L_Number || '',
+        podDate: doc.podDate || doc.POD_Date || '',
+        confidence: doc.confidence || 0,
+        processing_time: doc.processing_time || 0,
+        createdAt: doc.createdAt || new Date().toISOString(),
+        
+        // Include classification details
+        classification_details: doc.classification_details || {
+          primary_model_prediction: 'Unknown',
+          primary_confidence: 0,
+          secondary_model_prediction: 'Unknown',
+          secondary_confidence: 0
+        },
+        
+        // Enriched suggested templates
+        suggested_templates: sortedSuggestions,
+        
+        // Document thumbnail
         document_thumbnail: doc.pdfUrl ? `/api/generate-thumbnail?file=${encodeURIComponent(doc.pdfUrl)}` : null
       };
     });
@@ -123,7 +163,11 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Error fetching unregistered documents:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch unregistered documents', details: String(error) },
+      { 
+        success: false, 
+        error: 'Failed to fetch unregistered documents', 
+        details: String(error) 
+      },
       { status: 500 }
     );
   }

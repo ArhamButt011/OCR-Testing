@@ -1,4 +1,4 @@
-// src/app/admin/templates/CreateTemplateModal.tsx
+// src/app/templates/CreateTemplateModal.tsx
 "use client";
 
 import React from "react";
