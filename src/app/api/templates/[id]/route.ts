@@ -6,7 +6,6 @@ import { ObjectId } from "mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-// FR-004: Validation function (same as in main route)
 function validateRegionConfig(regionConfig: any): string[] {
   const errors: string[] = [];
 

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { BiSolidEditAlt } from "react-icons/bi";
 import { MdDelete } from "react-icons/md";
 import { AiOutlineEye } from "react-icons/ai";
+import { FaFlask } from "react-icons/fa";
 
 export interface Template {
   _id: string;
@@ -41,6 +42,7 @@ interface TemplateTableProps {
   onDeprecate: (templateId: string) => void;
   onDelete: (templateId: string) => void;
   onEdit: (templateId: string) => void;
+  onTest: (template: Template) => void; // ✅ NEW: Test function
 }
 
 export const TemplateTable: React.FC<TemplateTableProps> = ({
@@ -53,6 +55,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   onDeprecate,
   onDelete,
   onEdit,
+  onTest,
 }) => {
   const router = useRouter();
 
@@ -231,6 +234,14 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-3 items-center">
+                    <button
+                      onClick={() => onTest(template)}
+                      className="text-purple-600 hover:text-purple-900"
+                      title="Test template"
+                    >
+                      <FaFlask className="text-xl" />
+                    </button>
+
                     {/* Details Button - Always visible */}
                     <button
                       onClick={() => handleViewDetails(template._id)}
@@ -252,58 +263,36 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                     {/* Inactive templates: Show Activate */}
                     {template.status === "inactive" && (
                       <div className="flex gap-2">
-                      <button
-                        onClick={() => onActivate(template._id)}
-                        className="text-green-600 hover:text-green-900 font-medium text-sm"
-                        title="Activate template"
-                      >
-                        Activate
-                      </button>
-                       <button
+                        <button
+                          onClick={() => onActivate(template._id)}
+                          className="text-green-600 hover:text-green-900 font-medium text-sm"
+                          title="Activate template"
+                        >
+                          Activate
+                        </button>
+                        <button
                           onClick={() => onDeprecate(template._id)}
                           className="text-red-600 hover:text-red-900 font-medium text-sm"
                           title="Deprecate template (cannot be reactivated)"
                         >
                           Deprecate
                         </button>
-                        </div>
+                      </div>
                     )}
 
-                    {/* Active templates: Show Deactivate and Deprecate */}
+                    {/* Active templates: Show Deactivate */}
                     {template.status === "active" && (
-                      <>
-                        <button
-                          onClick={() => onDeactivate(template._id)}
-                          className="text-orange-600 hover:text-orange-900 font-medium text-sm"
-                          title="Deactivate template"
-                        >
-                          Deactivate
-                        </button>
-                       
-                      </>
+                      <button
+                        onClick={() => onDeactivate(template._id)}
+                        className="text-orange-600 hover:text-orange-900 font-medium text-sm"
+                        title="Deactivate template"
+                      >
+                        Deactivate
+                      </button>
                     )}
-
-                    {/* Deprecated templates: Show warning and Reactivate */}
-                    {/* {template.status === "deprecated" && (
-                      <>
-                        <button
-                          onClick={() => onActivate(template._id)}
-                          className="text-gray-400 hover:text-gray-600 font-medium text-sm"
-                          title="Cannot reactivate deprecated templates"
-                        >
-                          Reactivate
-                        </button>
-                        <span className="text-xs text-gray-500 italic">
-                          (Create new version)
-                        </span>
-                      </>
-                    )} */}
 
                     {/* Delete button for all templates */}
-                    <button 
-                      onClick={() => onDelete(template._id)}
-                      title="Delete template"
-                    >
+                    <button onClick={() => onDelete(template._id)} title="Delete template">
                       <MdDelete className="fill-[red] text-2xl" />
                     </button>
                   </div>

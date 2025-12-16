@@ -6,7 +6,6 @@ import { ObjectId } from "mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
-// FR-004: Validation functions
 function validateRegionConfig(regionConfig: any): string[] {
   const errors: string[] = [];
 
@@ -127,6 +126,8 @@ function validateRegionConfig(regionConfig: any): string[] {
 }
 
 // ============== CREATE TEMPLATE ==============
+// Updated createTemplateHandler with draft deletion by template_id
+
 async function createTemplateHandler(
   req: NextRequest | Request
 ): Promise<NextResponse> {
@@ -185,6 +186,7 @@ async function createTemplateHandler(
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const templatesCollection = db.collection("templates");
+    const draftsCollection = db.collection("template_drafts");
 
     const existingTemplate = await templatesCollection.findOne({
       template_id: body.template_id,
@@ -219,8 +221,17 @@ async function createTemplateHandler(
 
     const result = await templatesCollection.insertOne(templateDoc);
 
+    // ✅ DELETE DRAFTS BY TEMPLATE_ID (not just by draft_id)
+    // This will delete ALL drafts with this template_id
+    const deleteDraftResult = await draftsCollection.deleteMany({
+      "partial_data.template_id": body.template_id,
+    });
+
+    console.log(`Deleted ${deleteDraftResult.deletedCount} draft(s) for template_id: ${body.template_id}`);
+
+    // ✅ OPTIONAL: Also delete by draft_id if provided (backward compatibility)
     if (body.draft_id) {
-      await db.collection("template_drafts").deleteOne({
+      await draftsCollection.deleteOne({
         _id: ObjectId.createFromHexString(body.draft_id),
       });
     }
@@ -234,6 +245,7 @@ async function createTemplateHandler(
         status: "inactive",
         message:
           "Template created successfully. Activate it to use in OCR processing.",
+        drafts_deleted: deleteDraftResult.deletedCount, // ✅ Include count
       },
       { status: 201 }
     );
@@ -245,6 +257,8 @@ async function createTemplateHandler(
     );
   }
 }
+
+
 
 // ============== LIST TEMPLATES ==============
 async function listTemplatesHandler(

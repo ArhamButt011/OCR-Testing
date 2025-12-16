@@ -3,18 +3,16 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useTemplate } from "@/app/context/TemplateContext";
-import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { getErrorToastText } from "@/lib/common/getErrorToastText";
+import { useRouter } from "next/navigation";
 
 export const Step7Review: React.FC = () => {
+  const { templateData, submitTemplate, isEditMode, onModalClose } = useTemplate();
   const router = useRouter();
-  const { templateData, submitTemplate, validateStep, isEditMode } = useTemplate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
-
-  console.log("Review Step - Template Data:", templateData);
 
   const handleTestTemplate = async () => {
     setIsTesting(true);
@@ -36,63 +34,36 @@ export const Step7Review: React.FC = () => {
     }
   };
 
-// const handleActivate = async () => {
-//   // Validate all steps first
-//   for (let step = 1; step <= 6; step++) {
-//     if (!validateStep(step)) {
-//       toast.error(`Please complete Step ${step} before activating`);
-//       return;
-//     }
-//   }
+  const handleSaveInactive = async () => {
+    setIsSubmitting(true);
 
-//   setIsSubmitting(true);
+    try {
+      const templateRes = await submitTemplate();
+      console.log("Template saved as inactive:", templateRes);
 
-//   try {
-//     const templateRes = await submitTemplate();
-//     const templateId = templateRes?.template_id;
+      toast.success(
+        `${templateRes?.message} ${
+          templateRes?.template_id || templateRes?.template?.template_id
+        }, and version ${
+          templateRes?.version || templateRes?.template?.version
+        }`
+      );
 
-//     if (!templateId) {
-//       throw { error: 'Template ID not returned from submitTemplate' };
-//     }
-
-//     await axios.patch(
-//       `/api/templates/${templateId}/status`,
-//       { status: 'active' },
-//       { headers: { 'Content-Type': 'application/json' } }
-//     );
-
-//     toast.success('Template created and activated successfully!');
-//   } catch (err: any) {
-//     console.error('Activation failed:', err);
-//     toast.error(getErrorToastText(err, 'Failed to activate template'));
-//   } finally {
-//     setIsSubmitting(false);
-//   }
-// };
-
-
-const handleSaveInactive = async () => {
-  setIsSubmitting(true);
-
-  try {
-    const templateRes = await submitTemplate();
-    console.log('Template saved as inactive:', templateRes);
-
-    toast.success(
-      `${templateRes?.message} ${
-        templateRes?.template_id || templateRes?.template?.template_id
-      }, and version ${
-        templateRes?.version || templateRes?.template?.version
-      }`
-    );
-  } catch (err: any) {
-    console.error('Save inactive failed:', err);
-    toast.error(getErrorToastText(err, 'Failed to save template'));
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
+      // ✅ Close modal after 1 second using onModalClose prop
+      setTimeout(() => {
+        if (onModalClose) {
+          onModalClose();
+        }
+        // Refresh templates page
+        router.refresh();
+      }, 1000);
+    } catch (err: any) {
+      console.error("Save inactive failed:", err);
+      toast.error(getErrorToastText(err, "Failed to save template"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -363,7 +334,7 @@ const handleSaveInactive = async () => {
       </div>
 
       {/* Test Template */}
-      <div className="bg-white border border-gray-300 rounded-lg p-6">
+      {/* <div className="bg-white border border-gray-300 rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
           Test Template (Optional)
         </h3>
@@ -416,7 +387,7 @@ const handleSaveInactive = async () => {
           )}
         </button>
 
-        {/* Test Results */}
+
         {testResults && (
           <div
             className={`mt-4 p-4 rounded-md ${
@@ -476,44 +447,15 @@ const handleSaveInactive = async () => {
             </div>
           </div>
         )}
-      </div>
+      </div> */}
 
       {/* Action Buttons */}
       <div className="rounded-lg p-6">
-        {/* <h3 className="text-lg font-medium text-yellow-900 mb-2">
-          Ready to Activate?
-        </h3>
-        <p className="text-sm text-yellow-700 mb-4">
-          Choose how to save this template. Active templates will be used
-          immediately for OCR processing.
-        </p> */}
-
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={handleSaveInactive}
             disabled={isSubmitting}
             className="flex-1 inline-flex justify-center items-center px-6 py-3 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            <svg
-              className="h-5 w-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            {!isEditMode? 'Save as Inactive' : 'Update Template'}
-          </button>
-
-          {/* <button
-            onClick={handleActivate}
-            disabled={isSubmitting}
-            className="flex-1 inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
           >
             {isSubmitting ? (
               <>
@@ -533,7 +475,7 @@ const handleSaveInactive = async () => {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                Activating...
+                {!isEditMode ? "Saving..." : "Updating..."}
               </>
             ) : (
               <>
@@ -547,13 +489,13 @@ const handleSaveInactive = async () => {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                    d="M5 13l4 4L19 7"
                   />
                 </svg>
-                Activate Template
+                {!isEditMode ? "Save as Inactive" : "Update Template"}
               </>
             )}
-          </button> */}
+          </button>
         </div>
       </div>
     </div>

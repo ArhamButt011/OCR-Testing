@@ -153,6 +153,7 @@ interface TemplateContextType {
   errors: Record<string, any>;
   isEditMode: boolean;
   originalDraftId: string | null;
+  onModalClose?: () => void;
   setCurrentStep: (step: number) => void;
   updateTemplateData: (data: Partial<TemplateData>) => void;
   saveDraft: () => Promise<void>;
@@ -190,12 +191,14 @@ interface TemplateProviderProps {
   children: React.ReactNode;
   initialDraftId?: string;
   initialTemplateId?: string;
+  onModalClose?: () => void;
 }
 
 export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   children,
   initialDraftId,
   initialTemplateId,
+  onModalClose,
 }) => {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -240,7 +243,10 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       let data;
 
       if (draftId) {
-        const response = await axios.patch(`/api/templates/draft?draft_id=${draftId}`, requestBody);
+        const response = await axios.patch(
+          `/api/templates/draft?draft_id=${draftId}`,
+          requestBody
+        );
         data = response.data;
       } else {
         const response = await axios.post("/api/templates/draft", requestBody);
@@ -306,13 +312,11 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       console.log(" Loading partial data into form:", partialData);
       setTemplateData(partialData);
 
-      // Set last saved time
       const lastSavedTime = draft.metadata?.last_saved_at || draft.updated_at;
       if (lastSavedTime) {
         setLastSaved(new Date(lastSavedTime));
       }
 
-      // Draft mode - not edit mode
       setIsEditMode(false);
 
       console.log("Draft loaded successfully - form should be pre-filled now");
@@ -506,64 +510,66 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
           throw new Error(`Validation failed at step ${step}`);
         }
       }
-      
+
       const { _id, ...templateBody } = templateData;
-      
+
       if (templateBody.region_config) {
         const detectionMethod = templateBody.region_config.detection_method;
-        
-        if (detectionMethod === 'yolo') {
+
+        if (detectionMethod === "yolo") {
           templateBody.region_config = {
-            detection_method: 'yolo',
+            detection_method: "yolo",
             yolo_config: templateBody.region_config.yolo_config || {
-              model_name: '',
-              model_path: '',
-              confidence_threshold: 0.60,
+              model_name: "",
+              model_path: "",
+              confidence_threshold: 0.6,
               iou_threshold: 0.45,
               classes: [],
-            }
+            },
           };
-        } else if (detectionMethod === 'coordinates') {
+        } else if (detectionMethod === "coordinates") {
           templateBody.region_config = {
-            detection_method: 'coordinates',
-            coordinate_regions: templateBody.region_config.coordinate_regions || []
+            detection_method: "coordinates",
+            coordinate_regions:
+              templateBody.region_config.coordinate_regions || [],
           };
-        } else if (detectionMethod === 'hybrid') {
+        } else if (detectionMethod === "hybrid") {
           const cleanedConfig: any = {
-            detection_method: 'hybrid',
+            detection_method: "hybrid",
             hybrid_config: templateBody.region_config.hybrid_config || {
-              primary_method: 'yolo',
-              fallback_method: 'coordinates'
-            }
+              primary_method: "yolo",
+              fallback_method: "coordinates",
+            },
           };
-          
+
           if (
-            templateBody.region_config.yolo_config && 
+            templateBody.region_config.yolo_config &&
             Array.isArray(templateBody.region_config.yolo_config.classes) &&
             templateBody.region_config.yolo_config.classes.length > 0
           ) {
             cleanedConfig.yolo_config = templateBody.region_config.yolo_config;
           }
-          
+
           if (
             templateBody.region_config.coordinate_regions &&
             Array.isArray(templateBody.region_config.coordinate_regions) &&
             templateBody.region_config.coordinate_regions.length > 0
           ) {
-            cleanedConfig.coordinate_regions = templateBody.region_config.coordinate_regions;
+            cleanedConfig.coordinate_regions =
+              templateBody.region_config.coordinate_regions;
           }
-          
+
           templateBody.region_config = cleanedConfig;
         }
       }
 
       try {
-        await axios.post("/api/templates/validate", templateBody);
+      await axios.post("/api/templates/validate", templateBody);
       } catch (error: any) {
         throw {
           error: error.response?.data?.error || "Template validation failed",
           details: error.response?.data?.details || [],
-          status: error.response?.status
+          status: error.response?.status,
         };
       }
 
@@ -571,12 +577,15 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
       if (isEditMode && _id) {
         try {
-          const response = await axios.patch(`/api/templates/${_id}`, templateBody);
+          const response = await axios.patch(
+            `/api/templates/${_id}`,
+            templateBody
+          );
           result = response.data;
         } catch (error: any) {
           throw {
             error: error.response?.data?.error || "Failed to update template",
-            details: error.response?.data?.details || []
+            details: error.response?.data?.details || [],
           };
         }
       } else {
@@ -586,14 +595,14 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
           status: "inactive",
           ...(originalDraftId && { draft_id: originalDraftId }),
         };
-        
+
         try {
           const response = await axios.post("/api/templates", createBody);
           result = response.data;
         } catch (error: any) {
           throw {
             error: error.response?.data?.error || "Failed to create template",
-            details: error.response?.data?.details || []
+            details: error.response?.data?.details || [],
           };
         }
       }
@@ -655,6 +664,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
     errors,
     isEditMode,
     originalDraftId,
+    onModalClose,
     setCurrentStep,
     updateTemplateData,
     saveDraft,
