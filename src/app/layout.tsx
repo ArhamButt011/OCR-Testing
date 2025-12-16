@@ -29,6 +29,7 @@ export default function RootLayout({
                 closeOnClick
                 rtl={false}
                 pauseOnFocusLoss
+                style={{ zIndex: 99999 }}
                 draggable
                 pauseOnHover
                 theme="light"

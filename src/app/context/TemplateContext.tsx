@@ -9,6 +9,7 @@ import React, {
   useRef,
 } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 // ============================================================================
 // TYPES
@@ -236,33 +237,16 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         partial_data: draftData,
       };
 
-      let response;
+      let data;
 
       if (draftId) {
-        response = await fetch(`/api/templates/draft?draft_id=${draftId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        });
+        const response = await axios.patch(`/api/templates/draft?draft_id=${draftId}`, requestBody);
+        data = response.data;
       } else {
-        response = await fetch("/api/templates/draft", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        });
+        const response = await axios.post("/api/templates/draft", requestBody);
+        data = response.data;
       }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Draft save failed:", errorData);
-        throw new Error(errorData.error || "Failed to save draft");
-      }
-
-      const data = await response.json();
       console.log(" Draft save response:", data);
 
       if (!draftId && data._id) {
@@ -301,13 +285,9 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
   const loadDraft = useCallback(async (id: string) => {
     try {
-      const response = await fetch(`/api/templates/draft?draft_id=${id}`);
+      const response = await axios.get(`/api/templates/draft?draft_id=${id}`);
+      const data = response.data;
 
-      if (!response.ok) {
-        throw new Error("Failed to load draft");
-      }
-
-      const data = await response.json();
       console.log("Draft API response:", data);
 
       const draft = data.draft || data;
@@ -344,11 +324,8 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
   const loadTemplate = useCallback(async (templateId: string) => {
     try {
-      const response = await fetch(`/api/templates/${templateId}`);
-      if (!response.ok) {
-        throw new Error("Failed to load template");
-      }
-      const data = await response.json();
+      const response = await axios.get(`/api/templates/${templateId}`);
+      const data = response.data;
       const template = data.template || data;
       if (template.metadata) {
         delete template.metadata;
@@ -381,6 +358,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
 
   const updateTemplateData = useCallback((data: Partial<TemplateData>) => {
+    console.log("Updating template data with:", data);
     setTemplateData((prev) => {
       const updated = { ...prev, ...data };
       hasUnsavedChanges.current = true;
@@ -522,75 +500,103 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
   const submitTemplate = useCallback(async (): Promise<string> => {
     try {
+      // Validate all steps
       for (let step = 1; step <= 6; step++) {
         if (!validateStep(step)) {
           throw new Error(`Validation failed at step ${step}`);
         }
       }
+      
       const { _id, ...templateBody } = templateData;
+      
+      if (templateBody.region_config) {
+        const detectionMethod = templateBody.region_config.detection_method;
+        
+        if (detectionMethod === 'yolo') {
+          templateBody.region_config = {
+            detection_method: 'yolo',
+            yolo_config: templateBody.region_config.yolo_config || {
+              model_name: '',
+              model_path: '',
+              confidence_threshold: 0.60,
+              iou_threshold: 0.45,
+              classes: [],
+            }
+          };
+        } else if (detectionMethod === 'coordinates') {
+          templateBody.region_config = {
+            detection_method: 'coordinates',
+            coordinate_regions: templateBody.region_config.coordinate_regions || []
+          };
+        } else if (detectionMethod === 'hybrid') {
+          const cleanedConfig: any = {
+            detection_method: 'hybrid',
+            hybrid_config: templateBody.region_config.hybrid_config || {
+              primary_method: 'yolo',
+              fallback_method: 'coordinates'
+            }
+          };
+          
+          if (
+            templateBody.region_config.yolo_config && 
+            Array.isArray(templateBody.region_config.yolo_config.classes) &&
+            templateBody.region_config.yolo_config.classes.length > 0
+          ) {
+            cleanedConfig.yolo_config = templateBody.region_config.yolo_config;
+          }
+          
+          if (
+            templateBody.region_config.coordinate_regions &&
+            Array.isArray(templateBody.region_config.coordinate_regions) &&
+            templateBody.region_config.coordinate_regions.length > 0
+          ) {
+            cleanedConfig.coordinate_regions = templateBody.region_config.coordinate_regions;
+          }
+          
+          templateBody.region_config = cleanedConfig;
+        }
+      }
 
-      const validateResponse = await fetch("/api/templates/validate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(templateBody),
-      });
-
-      if (!validateResponse.ok) {
-        const error = await validateResponse.json();
-        throw new Error(error.error || "Template validation failed");
+      try {
+        await axios.post("/api/templates/validate", templateBody);
+      } catch (error: any) {
+        throw {
+          error: error.response?.data?.error || "Template validation failed",
+          details: error.response?.data?.details || [],
+          status: error.response?.status
+        };
       }
 
       let result;
 
       if (isEditMode && _id) {
-        const updateResponse = await fetch(`/api/templates/${_id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(templateBody),
-        });
-
-        if (!updateResponse.ok) {
-          const error = await updateResponse.json();
-          throw new Error(error.error || "Failed to update template");
+        try {
+          const response = await axios.patch(`/api/templates/${_id}`, templateBody);
+          result = response.data;
+        } catch (error: any) {
+          throw {
+            error: error.response?.data?.error || "Failed to update template",
+            details: error.response?.data?.details || []
+          };
         }
-
-        result = await updateResponse.json();
       } else {
+        // Create new template
         const createBody = {
           ...templateBody,
           status: "inactive",
           ...(originalDraftId && { draft_id: originalDraftId }),
         };
-        const createResponse = await fetch("/api/templates", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(createBody),
-        });
-
-        if (!createResponse.ok) {
-          const error = await createResponse.json();
-          throw new Error(error.error || "Failed to create template");
+        
+        try {
+          const response = await axios.post("/api/templates", createBody);
+          result = response.data;
+        } catch (error: any) {
+          throw {
+            error: error.response?.data?.error || "Failed to create template",
+            details: error.response?.data?.details || []
+          };
         }
-
-        result = await createResponse.json();
       }
-
-      // if (draftId && !isEditMode) {
-      //   console.log('Deleting draft:', draftId);
-      //   try {
-      //     await fetch(`/api/templates/draft?draft_id=${draftId}`, {
-      //       method: 'DELETE',
-      //     });
-      //   } catch (error) {
-      //     console.log('Draft deletion failed (may have been deleted by backend):', error);
-      //   }
-      // }
 
       setOriginalDraftId(null);
 
@@ -599,7 +605,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       console.error("Failed to submit template:", error);
       throw error;
     }
-  }, [templateData, draftId, validateStep, isEditMode, originalDraftId]);
+  }, [templateData, validateStep, isEditMode, originalDraftId]);
 
   // ============================================================================
   // RESET TEMPLATE

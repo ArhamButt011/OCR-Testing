@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { getTruncatedText } from "@/lib/truncate"; 
+import { getTruncatedText } from "@/lib/truncate";
 
 interface FileNameCellProps {
   pdfUrl?: string;
   fileId?: string;
+  className?: string;
 }
 
-const FileNameCell = ({ pdfUrl, fileId }: FileNameCellProps) => {
+const FileNameCell = ({ pdfUrl, fileId, className }: FileNameCellProps) => {
   const [showFull, setShowFull] = useState(false);
 
   const fileName = pdfUrl?.split("/").pop() || fileId || "No PDF Available";
@@ -14,7 +15,9 @@ const FileNameCell = ({ pdfUrl, fileId }: FileNameCellProps) => {
 
   return (
     <td
-      className={`py-2 px-4 border-b text-center sticky left-44 bg-white z-10 min-w-44 max-w-44 cursor-pointer ${
+      className={`py-2 px-4  ${
+        className ? className : "left-44 border-b"
+      } sticky text-center bg-white z-10 min-w-44 max-w-44 cursor-pointer ${
         isTruncated ? "truncate" : "whitespace-normal break-words"
       }`}
       onClick={() => setShowFull((prev) => !prev)}
