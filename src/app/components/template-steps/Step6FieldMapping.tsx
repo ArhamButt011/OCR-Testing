@@ -47,6 +47,7 @@ export const Step6FieldMapping: React.FC = () => {
   };
 
   const editMapping = (targetField: string) => {
+    console.log('Editing mapping for:', targetField, fieldMappings[targetField]);
     setNewMapping(fieldMappings[targetField]);
     setEditingField(targetField);
     setIsAddingField(true);
@@ -127,7 +128,7 @@ export const Step6FieldMapping: React.FC = () => {
                 value={newMapping.target_field}
                 onChange={(e) => setNewMapping({ ...newMapping, target_field: e.target.value })}
                 placeholder="OCR_RCVQTY"
-                disabled={!!editingField}
+                // disabled={!!editingField}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 disabled:bg-gray-100"
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -166,7 +167,7 @@ export const Step6FieldMapping: React.FC = () => {
             </div> */}
 
             {/* Default Value */}
-            <div className="sm:col-span-2">
+            {/* <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700">
                 Default Value (Optional)
               </label>
@@ -177,10 +178,10 @@ export const Step6FieldMapping: React.FC = () => {
                 placeholder="0"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               />
-            </div>
+            </div> */}
 
             {/* Description */}
-            <div className="sm:col-span-2">
+            {/* <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700">
                 Description (Optional)
               </label>
@@ -191,7 +192,7 @@ export const Step6FieldMapping: React.FC = () => {
                 placeholder="Brief description of this field mapping..."
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               />
-            </div>
+            </div> */}
           </div>
 
           {errors.field_mapping && (
@@ -232,15 +233,15 @@ export const Step6FieldMapping: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Target Field
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Data Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </th> */}
+                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Required
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Default
-                  </th>
+                  </th> */}
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -253,14 +254,14 @@ export const Step6FieldMapping: React.FC = () => {
                       {mapping.source_field}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      {targetField}
+                      {mapping?.target_field}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         {mapping.data_type}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    </td> */}
+                    {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {mapping.required ? (
                         <span className="text-red-600 font-medium">Yes</span>
                       ) : (
@@ -269,7 +270,7 @@ export const Step6FieldMapping: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
                       {mapping.default_value || '-'}
-                    </td>
+                    </td> */}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => editMapping(targetField)}

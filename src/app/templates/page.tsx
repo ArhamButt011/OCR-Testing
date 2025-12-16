@@ -14,22 +14,21 @@ import { TemplateSearchBar } from "../components/templates/TemplateSearchBar";
 import { TemplateTable } from "../components/templates/TemplateTable";
 import type { Template } from "../components/templates/TemplateTable";
 import { CreateTemplateModal } from "../components/CreateTemplateModal";
+import { TemplateTestModal } from "../components/templates/TemplateTestModal"; 
 import { useTemplateActions } from "@/hooks/useTemplateActions";
 
 export default function TemplatesPage() {
   const router = useRouter();
   const { isExpanded } = useSidebar();
-
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDraftId, setSelectedDraftId] = useState<string | undefined>();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
-
-  // Server-side filtering, sorting, and pagination state
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -39,11 +38,8 @@ export default function TemplatesPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-
-  // Track if we're currently fetching to prevent reset
   const isFetchingRef = useRef(false);
 
-  // Auth check
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -208,6 +204,18 @@ export default function TemplatesPage() {
     setSelectedTemplateId(undefined);
   };
 
+  // ✅ NEW: Handle test template
+  const handleTest = (template: Template) => {
+    setSelectedTemplate(template);
+    setTestModalOpen(true);
+  };
+
+  // ✅ NEW: Handle test modal close
+  const handleTestModalClose = () => {
+    setTestModalOpen(false);
+    setSelectedTemplate(null);
+  };
+
   const handleSidebarStateChange = (newState: boolean) => {
     return newState;
   };
@@ -323,6 +331,7 @@ export default function TemplatesPage() {
                     onDeprecate={handleDeprecate}
                     onDelete={handleDelete}
                     onEdit={handleEdit}
+                    onTest={handleTest} // ✅ NEW: Pass test handler
                   />
 
                   {/* Pagination */}
@@ -351,6 +360,11 @@ export default function TemplatesPage() {
         onClose={handleModalClose}
         draftId={selectedDraftId}
         templateId={selectedTemplateId}
+      />
+      <TemplateTestModal
+        isOpen={testModalOpen}
+        onClose={handleTestModalClose}
+        template={selectedTemplate}
       />
     </>
   );

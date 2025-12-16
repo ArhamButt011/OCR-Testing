@@ -12,7 +12,7 @@ import { BsClipboard2CheckFill } from "react-icons/bs";
 import { IoSettingsSharp, IoLogOut } from "react-icons/io5";
 import { IoIosArrowForward } from "react-icons/io";
 import { RiArrowDropDownLine, RiTimeZoneFill } from "react-icons/ri";
-import { FaHouseSignal } from "react-icons/fa6";
+import { FaFileCircleXmark, FaHouseSignal } from "react-icons/fa6";
 import { TbCloudDataConnection } from "react-icons/tb";
 import { useRouter } from "next/navigation";
 import { IoIosArrowDroprightCircle } from "react-icons/io";
@@ -596,7 +596,7 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                 )}
               </>
             )}
-            {userRole === "admin" && (
+              {userRole === "admin" && (
               <Link href="/analytics">
                 <li
                   className={`flex items-center mb-2 mt-2 justify-start
@@ -626,6 +626,40 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                     }}
                   >
                     Analytics
+                  </span>
+                </li>
+              </Link>
+            )}
+            {userRole === "admin" && (
+              <Link href="/unregistered-documents">
+                <li
+                  className={`flex items-center mb-2 mt-2 justify-start
+                                     space-x-3 pl-5 pr-0 py-2 rounded-lg transition-all duration-300 ease-in-out ${
+                                       isActive("/unregistered-documents")
+                                         ? "bg-gray-200"
+                                         : "hover:bg-gray-200"
+                                     }`}
+                >
+                  <span className="flex-shrink-0">
+                    <FaFileCircleXmark
+                      className={` ${
+                        isActive("/unregistered-documents") ? "text-[#005B97]" : "text-[#7B849A]"
+                      } transition-all duration-300 ease-in-out text-2xl`}
+                    />
+                  </span>
+                  <span
+                    className={`${
+                      isActive("/unregistered-documents") ? " text-gray-950" : "text-gray-400"
+                    } text-lg transition-all duration-300 ease-in-out`}
+                    style={{
+                      width: isExpanded ? "auto" : "0",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      opacity: isExpanded ? 1 : 0,
+                      transition: "opacity 0.3s ease, width 0.3s ease",
+                    }}
+                  >
+                    UnReg Documents
                   </span>
                 </li>
               </Link>
