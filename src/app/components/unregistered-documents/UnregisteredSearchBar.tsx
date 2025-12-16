@@ -43,7 +43,7 @@ export const UnregisteredSearchBar: React.FC<UnregisteredSearchBarProps> = ({
               <input
                 type="text"
                 id="search"
-                placeholder="Search by BL Number, File ID..."
+                placeholder="Search by File Name..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
@@ -76,7 +76,7 @@ export const UnregisteredSearchBar: React.FC<UnregisteredSearchBarProps> = ({
         {/* Second Row: Sort and Actions */}
         <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
           {/* Sort Controls */}
-          <div className="flex items-end gap-2 w-full sm:w-auto">
+          {/* <div className="flex items-end gap-2 w-full sm:w-auto">
             <div className="flex-1 sm:flex-initial">
               <label htmlFor="sortBy" className="block text-sm font-medium text-gray-700 mb-1">
                 Sort By
@@ -109,7 +109,7 @@ export const UnregisteredSearchBar: React.FC<UnregisteredSearchBarProps> = ({
                 </svg>
               )}
             </button>
-          </div>
+          </div> */}
 
           {/* Clear Filters */}
           {hasFilters && (

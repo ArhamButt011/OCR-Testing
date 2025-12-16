@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTemplate, ConditionalRule } from '@/app/context/TemplateContext';
+import { toast } from 'react-toastify';
 
 export const Step5Prompts: React.FC = () => {
   const { templateData, updateTemplateData, errors, setErrors } = useTemplate();
@@ -101,7 +102,7 @@ export const Step5Prompts: React.FC = () => {
   // Add post-processing rule
   const addPostProcessingRule = () => {
     if (!newRule.rule_name || !newRule.condition || !newRule.field) {
-      alert('Please fill in all required fields: Rule Name, Condition, and Field');
+      toast.error('Please fill in all required fields: Rule Name, Condition, and Field');
       return;
     }
 

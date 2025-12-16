@@ -12,7 +12,7 @@ import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { UnregisteredDocumentsTable } from "../components/unregistered-documents";
 import { UnregisteredSearchBar } from "../components/unregistered-documents";
-import { DocumentReviewModal } from "../components/unregistered-documents/DocumentViewModal";
+// import { DocumentReviewModal } from "../components/unregistered-documents/DocumentViewModal";
 import { CreateTemplateModal } from "../components/CreateTemplateModal";
 import Swal from "sweetalert2";
 
@@ -171,11 +171,6 @@ export default function UnregisteredDocumentsPage() {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  };
-
-  const handleReviewDocument = (document: UnregisteredDocument) => {
-    setSelectedDocument(document);
-    setReviewModalOpen(true);
   };
 
   const handleAssignTemplate = async (documentId: string, templateId: string) => {
@@ -355,7 +350,7 @@ export default function UnregisteredDocumentsPage() {
       </div>
 
       {/* Document Review Modal */}
-      <DocumentReviewModal
+      {/* <DocumentReviewModal
         isOpen={reviewModalOpen}
         onClose={() => {
           setReviewModalOpen(false);
@@ -364,7 +359,7 @@ export default function UnregisteredDocumentsPage() {
         document={selectedDocument}
         onAssignTemplate={handleAssignTemplate}
         onCreateNewTemplate={handleCreateNewTemplate}
-      />
+      /> */}
 
       {/* Create Template Modal */}
       <CreateTemplateModal

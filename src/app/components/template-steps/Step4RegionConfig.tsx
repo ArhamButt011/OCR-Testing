@@ -1,8 +1,6 @@
-
-
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTemplate } from '@/app/context/TemplateContext';
 import { VisualRegionEditor } from './VisualRegionEditor';
 import { FaInfo } from 'react-icons/fa'
@@ -24,9 +22,12 @@ interface YoloClass {
 
 export const Step4RegionConfig: React.FC = () => {
   const { templateData, updateTemplateData, errors, setError, clearError } = useTemplate();
+  
+  // ✅ Initialize with hybrid by default, or use existing detection_method
   const [selectedMethod, setSelectedMethod] = useState<'yolo' | 'coordinates' | 'hybrid'>(
     templateData.region_config?.detection_method || 'hybrid'
   );
+  
   const [isAddingRegion, setIsAddingRegion] = useState(false);
   const [editingRegionIndex, setEditingRegionIndex] = useState<number | null>(null);
   const [newRegion, setNewRegion] = useState<CoordinateRegion>({
@@ -47,34 +48,57 @@ export const Step4RegionConfig: React.FC = () => {
   const [isAddingClass, setIsAddingClass] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
 
+  // ✅ FIX 1: Set detection_method to 'hybrid' on component mount if not already set
+  useEffect(() => {
+    if (!templateData.region_config?.detection_method) {
+      console.log('🔧 Setting default detection_method to hybrid');
+      
+      updateTemplateData({
+        region_config: {
+          detection_method: 'hybrid',
+          coordinate_regions: [],
+          yolo_config: {
+            model_name: '',
+            model_path: '',
+            confidence_threshold: 0.60,
+            iou_threshold: 0.45,
+            classes: [],
+          },
+          hybrid_config: {
+            primary_method: 'yolo',
+            fallback_method: 'coordinates'
+          }
+        }
+      });
+      
+      setSelectedMethod('hybrid');
+    }
+  }, []); // Run once on mount
+
   const coordinateRegions = templateData.region_config?.coordinate_regions || [];
   const yoloConfig = templateData.region_config?.yolo_config;
   const hybridConfig = templateData.region_config?.hybrid_config;
   const referenceImages = templateData.identification?.reference_images || [];
 
+  // ✅ FIX 2: Preserve data when changing detection method
   const handleMethodChange = (method: 'yolo' | 'coordinates' | 'hybrid') => {
     setSelectedMethod(method);
     
     const updatedConfig: any = {
       detection_method: method,
-    };
-
-    if (method === 'yolo' || method === 'hybrid') {
-      updatedConfig.yolo_config = yoloConfig || {
+      // ✅ Always preserve existing coordinate_regions
+      coordinate_regions: coordinateRegions,
+      // ✅ Always preserve existing yolo_config
+      yolo_config: yoloConfig || {
         model_name: '',
         model_path: '',
         confidence_threshold: 0.60,
         iou_threshold: 0.45,
         classes: [],
-      };
-    }
+      }
+    };
 
-    if (method === 'coordinates' || method === 'hybrid') {
-      updatedConfig.coordinate_regions = coordinateRegions.length > 0 
-        ? coordinateRegions 
-        : [];
-    }
-
+    // Only add hybrid_config when method is hybrid
     if (method === 'hybrid') {
       updatedConfig.hybrid_config = hybridConfig || {
         primary_method: 'yolo',
@@ -85,7 +109,9 @@ export const Step4RegionConfig: React.FC = () => {
     updateTemplateData({
       region_config: updatedConfig
     });
+    
     clearError('region_config');
+    clearError('detection_method');
   };
 
   const handleRegionsChange = (regions: CoordinateRegion[]) => {
@@ -264,7 +290,7 @@ export const Step4RegionConfig: React.FC = () => {
             onClick={() => handleMethodChange('yolo')}
             className={`relative rounded-lg border-2 p-4 cursor-pointer transition-all ${
               selectedMethod === 'yolo'
-                ? 'border-blue-500 bg-blue-50 shadow-md'
+                ? 'border-primary bg-blue-50 shadow-md'
                 : 'border-gray-300 hover:border-gray-400 hover:shadow-sm'
             }`}
           >
@@ -273,7 +299,7 @@ export const Step4RegionConfig: React.FC = () => {
                 type="radio"
                 checked={selectedMethod === 'yolo'}
                 onChange={() => handleMethodChange('yolo')}
-                className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 mt-0.5 text-primary border-gray-300 focus:ring-primary"
               />
               <div className="ml-3 flex-1">
                 <div className="flex items-center gap-2">
@@ -299,7 +325,7 @@ export const Step4RegionConfig: React.FC = () => {
             onClick={() => handleMethodChange('coordinates')}
             className={`relative rounded-lg border-2 p-4 cursor-pointer transition-all ${
               selectedMethod === 'coordinates'
-                ? 'border-blue-500 bg-blue-50 shadow-md'
+                ? 'border-primary bg-blue-50 shadow-md'
                 : 'border-gray-300 hover:border-gray-400 hover:shadow-sm'
             }`}
           >
@@ -308,7 +334,7 @@ export const Step4RegionConfig: React.FC = () => {
                 type="radio"
                 checked={selectedMethod === 'coordinates'}
                 onChange={() => handleMethodChange('coordinates')}
-                className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 mt-0.5 text-primary border-gray-300 focus:ring-primary"
               />
               <div className="ml-3 flex-1">
                 <div className="flex items-center gap-2">
@@ -334,7 +360,7 @@ export const Step4RegionConfig: React.FC = () => {
             onClick={() => handleMethodChange('hybrid')}
             className={`relative rounded-lg border-2 p-4 cursor-pointer transition-all ${
               selectedMethod === 'hybrid'
-                ? 'border-blue-500 bg-blue-50 shadow-md'
+                ? 'border-primary bg-blue-50 shadow-md'
                 : 'border-gray-300 hover:border-gray-400 hover:shadow-sm'
             }`}
           >
@@ -343,7 +369,7 @@ export const Step4RegionConfig: React.FC = () => {
                 type="radio"
                 checked={selectedMethod === 'hybrid'}
                 onChange={() => handleMethodChange('hybrid')}
-                className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 mt-0.5 text-primary border-gray-300 focus:ring-primary"
               />
               <div className="ml-3 flex-1">
                 <div className="flex items-center gap-2">
@@ -395,7 +421,7 @@ export const Step4RegionConfig: React.FC = () => {
                 value={yoloConfig?.model_name || ''}
                 onChange={(e) => updateYoloConfig('model_name', e.target.value)}
                 placeholder="BOL Regions Model"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -406,7 +432,7 @@ export const Step4RegionConfig: React.FC = () => {
                 value={yoloConfig?.model_path || ''}
                 onChange={(e) => updateYoloConfig('model_path', e.target.value)}
                 placeholder="models/bol_regions_best.pt"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
             </div>
 
@@ -421,7 +447,7 @@ export const Step4RegionConfig: React.FC = () => {
                 max="1"
                 value={yoloConfig?.confidence_threshold || 0.60}
                 onChange={(e) => updateYoloConfig('confidence_threshold', parseFloat(e.target.value))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
               <p className="mt-1 text-xs text-gray-500">Applied to all regions unless overridden (default: 0.60)</p>
             </div>
@@ -435,7 +461,7 @@ export const Step4RegionConfig: React.FC = () => {
                 max="1"
                 value={yoloConfig?.iou_threshold || 0.45}
                 onChange={(e) => updateYoloConfig('iou_threshold', parseFloat(e.target.value))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
               <p className="mt-1 text-xs text-gray-500">Intersection over Union threshold (default: 0.45)</p>
             </div>
@@ -450,7 +476,7 @@ export const Step4RegionConfig: React.FC = () => {
             {!isAddingClass && (
               <button
                 onClick={() => setIsAddingClass(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 mb-3 transition-colors"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary mb-3 transition-colors"
               >
                 <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -474,7 +500,7 @@ export const Step4RegionConfig: React.FC = () => {
                       onChange={(e) => setNewYoloClass({ ...newYoloClass, class_id: e.target.value })}
                       placeholder="0"
                       disabled={!!editingClassId}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -485,7 +511,7 @@ export const Step4RegionConfig: React.FC = () => {
                       value={newYoloClass.region_name}
                       onChange={(e) => setNewYoloClass({ ...newYoloClass, region_name: e.target.value })}
                       placeholder="stamp"
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                     />
                   </div>
 
@@ -504,7 +530,7 @@ export const Step4RegionConfig: React.FC = () => {
                         confidence_threshold: e.target.value ? parseFloat(e.target.value) : undefined 
                       })}
                       placeholder="Uses global"
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                     />
                     <p className="mt-1 text-xs text-gray-500">Optional override per class</p>
                   </div>
@@ -523,7 +549,7 @@ export const Step4RegionConfig: React.FC = () => {
                   </button>
                   <button
                     onClick={addOrUpdateYoloClass}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary transition-colors"
                   >
                     {editingClassId ? 'Update Class' : 'Add Class'}
                   </button>
@@ -556,7 +582,7 @@ export const Step4RegionConfig: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-right space-x-3">
                           <button
                             onClick={() => editYoloClass(yoloClass.class_id)}
-                            className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                            className="text-primary hover:text-blue-800 font-medium transition-colors"
                           >
                             Edit
                           </button>
@@ -699,32 +725,30 @@ export const Step4RegionConfig: React.FC = () => {
                   <p className="mt-1 text-xs text-gray-500">Must be greater than y1</p>
                 </div>
 
-                {(selectedMethod === 'yolo' || selectedMethod === 'hybrid') && (
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Confidence Threshold (Optional)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.05"
-                      min="0"
-                      max="1"
-                      value={newRegion.confidence_threshold ?? ''}
-                      onChange={(e) => setNewRegion({ 
-                        ...newRegion, 
-                        confidence_threshold: e.target.value ? parseFloat(e.target.value) : undefined
-                      })}
-                      placeholder="e.g., 0.60"
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      {selectedMethod === 'hybrid' 
-                        ? 'Falls back to these coordinates if YOLO confidence is below this threshold'
-                        : 'Minimum confidence required for this region'
-                      }
-                    </p>
-                  </div>
-                )}
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Confidence Threshold (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="1"
+                    value={newRegion.confidence_threshold ?? ''}
+                    onChange={(e) => setNewRegion({ 
+                      ...newRegion, 
+                      confidence_threshold: e.target.value ? parseFloat(e.target.value) : undefined
+                    })}
+                    placeholder="e.g., 0.60"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {selectedMethod === 'hybrid' 
+                      ? 'Falls back to these coordinates if YOLO confidence is below this threshold'
+                      : 'Minimum confidence required for this region'
+                    }
+                  </p>
+                </div>
               </div>
 
               {errors.coordinate_regions && (
@@ -827,7 +851,7 @@ export const Step4RegionConfig: React.FC = () => {
                   <h3 className="text-sm font-medium text-blue-800">
                     No reference images available
                   </h3>
-                  <p className="mt-1 text-sm text-blue-700">
+                  <p className="mt-1 text-sm text-primary">
                     Upload reference images in Step 2 to use the visual region editor, or add regions manually using the form above.
                   </p>
                 </div>

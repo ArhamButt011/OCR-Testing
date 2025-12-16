@@ -3,6 +3,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import FileNameCell from "../UI/FileNameCell";
 
 interface ClassificationDetails {
   primary_model_prediction: string;
@@ -89,18 +90,22 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
     router.push(`/unregistered-documents/${documentId}`);
   };
 
+  console.log("Rendering UnregisteredDocumentsTable with documents:", documents);
+
   return (
     <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <SortableHeader field="blNumber">BL Number</SortableHeader>
+              {/* <SortableHeader field="blNumber">BL Number</SortableHeader> */}
+               <SortableHeader field="fileName">File Name</SortableHeader>
+              
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Classification
               </th>
               <SortableHeader field="createdAt">Date Added</SortableHeader>
-              <SortableHeader field="confidence">Confidence</SortableHeader>
+              {/* <SortableHeader field="confidence">Confidence</SortableHeader> */}
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Suggestions
               </th>
@@ -113,13 +118,19 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
             {documents.map((doc) => (
               <tr key={doc._id} className="hover:bg-gray-50 transition-colors">
                 {/* BL Number */}
-                <td className="px-6 py-4 whitespace-nowrap">
+                {/* <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
                     {doc.blNumber || "N/A"}
                   </div>
                   <div className="text-xs text-gray-500">
                     ID: {doc.fileId}
                   </div>
+                </td> */}
+                <td className="">
+                <FileNameCell
+                pdfUrl={doc.pdfUrl}
+                className="left-0"
+                />
                 </td>
 
                 {/* Classification */}
@@ -140,11 +151,11 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
                 </td>
 
                 {/* Overall Confidence */}
-                <td className="px-6 py-4 whitespace-nowrap">
+                {/* <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getConfidenceColor(doc.confidence)}`}>
                     {(doc.confidence * 100).toFixed(0)}%
                   </span>
-                </td>
+                </td> */}
 
                 {/* Suggestions Count */}
                 <td className="px-6 py-4 whitespace-nowrap">
