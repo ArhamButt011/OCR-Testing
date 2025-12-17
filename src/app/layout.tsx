@@ -4,6 +4,7 @@ import { SidebarProvider } from "./context/SidebarContext";
 import { DBConnectionProvider } from "./context/DBConnectionContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { ApiConfigProvider } from "./context/ApiConfigContext";
 
 export const metadata: Metadata = {
   title: "MPG OCR",
@@ -21,6 +22,7 @@ export default function RootLayout({
       <body className="h-screen bg-white" suppressHydrationWarning>
         <DBConnectionProvider>
           <SidebarProvider>
+            <ApiConfigProvider>
              <ToastContainer
                 position="top-center"
                 autoClose={2500}
@@ -34,7 +36,9 @@ export default function RootLayout({
                 pauseOnHover
                 theme="light"
               />
-            {children}</SidebarProvider>
+            {children}
+            </ApiConfigProvider>
+          </SidebarProvider>
         </DBConnectionProvider>
       </body>
     </html>

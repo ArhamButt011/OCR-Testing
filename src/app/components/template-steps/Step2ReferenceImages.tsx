@@ -1,16 +1,19 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useTemplate } from "@/app/context/TemplateContext";
 import Image from "next/image";
+import { useApiConfig } from "@/app/context/ApiConfigContext";
 
 export const Step2ReferenceImages: React.FC = () => {
   const { templateData, updateTemplateData, errors, setError, clearError } =
     useTemplate();
+  const { baseUrl } = useApiConfig();
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
     {}
   );
+
 
   const images = templateData.identification?.reference_images || [];
   const maxImages = 5;
@@ -162,7 +165,10 @@ export const Step2ReferenceImages: React.FC = () => {
     },
     [images, templateData.identification, updateTemplateData, setError]
   );
+  
 
+
+console.log("Rendering Step2ReferenceImages with images:", images);
   return (
     <div className="space-y-6">
       <div>
@@ -262,11 +268,10 @@ export const Step2ReferenceImages: React.FC = () => {
               >
                 <div className="aspect-square relative bg-gray-100">
                   {image.file_path && (
-                    <Image
-                      src={`${image.file_path}`}
+                    <img
+                      src={`${baseUrl}${image.file_path}`}
                       alt={`Reference image ${index + 1}`}
-                      fill
-                      className="object-cover"
+                      className="object-contain w-full h-full"
                     />
                   )}
                 </div>

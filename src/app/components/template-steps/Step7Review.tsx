@@ -6,6 +6,7 @@ import { useTemplate } from "@/app/context/TemplateContext";
 import { toast } from "react-toastify";
 import { getErrorToastText } from "@/lib/common/getErrorToastText";
 import { useRouter } from "next/navigation";
+import { useApiConfig } from "@/app/context/ApiConfigContext";
 
 export const Step7Review: React.FC = () => {
   const { templateData, submitTemplate, isEditMode, onModalClose } = useTemplate();
@@ -13,6 +14,7 @@ export const Step7Review: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const { baseUrl } = useApiConfig();
 
   const handleTestTemplate = async () => {
     setIsTesting(true);
@@ -155,9 +157,9 @@ export const Step7Review: React.FC = () => {
                   >
                     {img.file_path && (
                       <img
-                        src={img.file_path}
+                        src={`${baseUrl}${img.file_path}`}
                         alt={`Ref ${idx + 1}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                     )}
                   </div>

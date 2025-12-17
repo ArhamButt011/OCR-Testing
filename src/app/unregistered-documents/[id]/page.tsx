@@ -233,8 +233,9 @@ export default function DocumentDetailsPage() {
         )}&t=${Date.now()}`
       : "";
     setPdfUrl(accessUrl);
+    console.log("Generated PDF URL:", accessUrl);
   }, [document?.pdfUrl]);
-
+console.log("PDF URL:", pdfUrl);
   if (loadingAuth) return <Spinner />;
   if (!isAuthenticated) return <p className="p-8">Access Denied. Redirecting...</p>;
 
@@ -323,7 +324,7 @@ export default function DocumentDetailsPage() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </div> 
 
                     {/* Classification Details */}
                    
