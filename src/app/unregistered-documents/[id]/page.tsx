@@ -59,6 +59,8 @@ export default function DocumentDetailsPage() {
   const [templateDetailsModalOpen, setTemplateDetailsModalOpen] = useState(false);
   const [selectedTemplateForDetails, setSelectedTemplateForDetails] = useState<string | null>(null);
   const [createTemplateModalOpen, setCreateTemplateModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+
 
   // Auth check
   useEffect(() => {
@@ -222,6 +224,16 @@ export default function DocumentDetailsPage() {
   const handleSidebarStateChange = (newState: boolean) => {
     return newState;
   };
+  const fileName = document?.pdfUrl.split("/").pop();
+
+     useEffect(() => {
+    const accessUrl = fileName
+      ? `/api/access-file?filename=${encodeURIComponent(
+          fileName
+        )}&t=${Date.now()}`
+      : "";
+    setPdfUrl(accessUrl);
+  }, [document?.pdfUrl]);
 
   if (loadingAuth) return <Spinner />;
   if (!isAuthenticated) return <p className="p-8">Access Denied. Redirecting...</p>;
@@ -301,7 +313,7 @@ export default function DocumentDetailsPage() {
                       <div className="aspect-[3/4] relative bg-gray-50">
                         {document.pdfUrl ? (
                           <iframe
-                            src={`/api/access-file?filename=${encodeURIComponent(document.pdfUrl)}`}
+                            src={pdfUrl}
                             className="w-full h-full border-0"
                             title="Document preview"
                           />
