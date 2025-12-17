@@ -14,7 +14,6 @@ export const Step2ReferenceImages: React.FC = () => {
     {}
   );
 
-
   const images = templateData.identification?.reference_images || [];
   const maxImages = 5;
   console.log("Current reference images:", images);
@@ -165,10 +164,10 @@ export const Step2ReferenceImages: React.FC = () => {
     },
     [images, templateData.identification, updateTemplateData, setError]
   );
-  
 
+  console.log("Base URL from context:", baseUrl);
 
-console.log("Rendering Step2ReferenceImages with images:", images);
+  console.log("Rendering Step2ReferenceImages with images:", images);
   return (
     <div className="space-y-6">
       <div>
@@ -266,15 +265,24 @@ console.log("Rendering Step2ReferenceImages with images:", images);
                 key={image.image_id}
                 className="relative group rounded-lg border border-gray-300 overflow-hidden"
               >
-                <div className="aspect-square relative bg-gray-100">
-                  {image.file_path && (
-                    <img
-                      src={`${baseUrl}${image.file_path}`}
-                      alt={`Reference image ${index + 1}`}
-                      className="object-contain w-full h-full"
-                    />
-                  )}
-                </div>
+                {image.file_path && (
+                  <>
+                    {" "}
+                    <div className="aspect-square relative bg-gray-100">
+                      <img
+                        src={`${baseUrl}${image.file_path}`}
+                        alt={`Reference image ${index + 1}`}
+                        className="object-contain w-full h-full"
+                      />
+                    </div>
+                    <div>
+                      <p>
+                        {" "}
+                        {baseUrl}{image.file_path}
+                      </p>
+                    </div>
+                  </>
+                )}
 
                 {/* Remove Button */}
                 <button
@@ -306,7 +314,6 @@ console.log("Rendering Step2ReferenceImages with images:", images);
           </div>
         </div>
       )}
-
     </div>
   );
 };
