@@ -12,10 +12,17 @@ dayjs.extend(utc);
 dayjs.extend(isBetween);
 
 // ======== CONFIG (env-tunable) ========
+
+//For local testing uncomment below lines
+// const BASE_URL =
+//   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
+
+//Remote uncomment below lines
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
+  process.env.NEXT_PUBLIC_API_BASE_URL || "https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api";
 const OCR_URL =
-  process.env.OCR_URL || "https://dp0d3cgxkrz317-8080.proxy.runpod.net/run-ocr";
+  process.env.NEXT_PUBLIC_OCR_API_URL || "https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr";
+  
 const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 120000);
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3); // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
@@ -1536,8 +1543,13 @@ async function scheduleJobs() {
       return false;
     }
 
-    const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
-    let base_url = `http://${ipData.secondaryIp}:3000/api`;
+    //for local uncomment below lines
+    // const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
+    // let base_url = `http://${ipData.secondaryIp}:3000/api`;
+
+    //for remote use below lines
+    const ocrUrl = OCR_URL;
+    let base_url = BASE_URL;
 
     console.log("Using OCR URL:", ocrUrl);
     console.log("Using base_url:", base_url);
