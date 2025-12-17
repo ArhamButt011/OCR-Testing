@@ -7,16 +7,19 @@ import Image from "next/image";
 import sideBarLogo from "../../../public/images/sidbar.svg";
 import { usePathname } from "next/navigation";
 import { FaClipboardList, FaHistory, FaUserPlus } from "react-icons/fa";
+import { TbTemplate } from "react-icons/tb";
 import { BsClipboard2CheckFill } from "react-icons/bs";
 import { IoSettingsSharp, IoLogOut } from "react-icons/io5";
 import { IoIosArrowForward } from "react-icons/io";
 import { RiArrowDropDownLine, RiTimeZoneFill } from "react-icons/ri";
-import { FaHouseSignal } from "react-icons/fa6";
+import { FaFileCircleXmark, FaHouseSignal } from "react-icons/fa6";
 import { TbCloudDataConnection } from "react-icons/tb";
 import { useRouter } from "next/navigation";
 import { IoIosArrowDroprightCircle } from "react-icons/io";
 import { useSidebar } from "../context/SidebarContext";
 import { CiBoxList } from "react-icons/ci";
+import { SiGoogleanalytics } from "react-icons/si";
+
 
 interface SidebarProps {
   onStateChange: (newState: boolean) => void;
@@ -33,8 +36,10 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
   const { isExpanded, toggleSidebar } = useSidebar();
   const [isImageLoaded, setIsImageLoaded] = useState(true);
 
-  const [secondaryIp, setSecondaryIp] = useState("");
+  // NEW: templates collapse state
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
 
+  const [secondaryIp, setSecondaryIp] = useState("");
   const [ip, setIp] = useState("");
   const [remember, setRemember] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -512,10 +517,158 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
               </Link>
             )}
 
+            {/* ---------- TEMPLATES COLLAPSIBLE GROUP ---------- */}
+            {userRole === "admin" && (
+              <>
+                <li
+                  onClick={() => setIsTemplatesOpen(!isTemplatesOpen)}
+                  className={`flex items-center mb-2 justify-between pl-5 pr-4 py-2 rounded-lg cursor-pointer transition-all duration-300 ease-in-out ${
+                    isActive("/templates") || isActive("/drafts")
+                      ? "bg-gray-200"
+                      : "hover:bg-gray-200"
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <TbTemplate
+                      className={`${
+                        isActive("/templates") || isActive("/drafts")
+                          ? "text-[#005B97]"
+                          : "text-[#7B849A]"
+                      } transition-all duration-300 ease-in-out text-2xl`}
+                    />
+                    <span
+                      className={`${
+                        isActive("/templates") || isActive("/drafts")
+                          ? " text-gray-950"
+                          : "text-gray-400"
+                      } text-lg transition-all duration-300 ease-in-out`}
+                      style={{
+                        width: isExpanded ? "auto" : "0",
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        opacity: isExpanded ? 1 : 0,
+                        transition: "opacity 0.3s ease, width 0.3s ease",
+                      }}
+                    >
+                      Templates
+                    </span>
+                  </div>
+
+                  {/* arrow */}
+                  {isExpanded && (
+                    <IoIosArrowForward
+                      className={`text-lg text-gray-600 transform transition-transform duration-300 ease-in-out ${
+                        isTemplatesOpen ? "rotate-90" : ""
+                      }`}
+                    />
+                  )}
+                </li>
+
+                {/* Submenu: only show when sidebar expanded and templates open */}
+                {isExpanded && isTemplatesOpen && (
+                  <ul className="ml-12 space-y-2 transition-all duration-300">
+                    <li>
+                      <Link
+                        href="/templates"
+                        className={`block py-1 pl-2 pr-0 rounded-md text-[15px] ${
+                          isActive("/templates")
+                            ? "text-[#005B97] font-semibold"
+                            : "text-gray-500"
+                        } hover:text-[#005B97]`}
+                      >
+                        Manage
+                      </Link>
+                    </li>
+
+                    <li>
+                      <Link
+                        href="/drafts"
+                        className={`block py-1 pl-2 pr-0 rounded-md text-[15px] ${
+                          isActive("/drafts")
+                            ? "text-[#005B97] font-semibold"
+                            : "text-gray-500"
+                        } hover:text-[#005B97]`}
+                      >
+                        Drafts
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </>
+            )}
+              {userRole === "admin" && (
+              <Link href="/analytics">
+                <li
+                  className={`flex items-center mb-2 mt-2 justify-start
+                                     space-x-3 pl-5 pr-0 py-2 rounded-lg transition-all duration-300 ease-in-out ${
+                                       isActive("/analytics")
+                                         ? "bg-gray-200"
+                                         : "hover:bg-gray-200"
+                                     }`}
+                >
+                  <span className="flex-shrink-0">
+                    <SiGoogleanalytics
+                      className={` ${
+                        isActive("/analytics") ? "text-[#005B97]" : "text-[#7B849A]"
+                      } transition-all duration-300 ease-in-out text-2xl`}
+                    />
+                  </span>
+                  <span
+                    className={`${
+                      isActive("/analytics") ? " text-gray-950" : "text-gray-400"
+                    } text-lg transition-all duration-300 ease-in-out`}
+                    style={{
+                      width: isExpanded ? "auto" : "0",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      opacity: isExpanded ? 1 : 0,
+                      transition: "opacity 0.3s ease, width 0.3s ease",
+                    }}
+                  >
+                    Analytics
+                  </span>
+                </li>
+              </Link>
+            )}
+            {userRole === "admin" && (
+              <Link href="/unregistered-documents">
+                <li
+                  className={`flex items-center mb-2 mt-2 justify-start
+                                     space-x-3 pl-5 pr-0 py-2 rounded-lg transition-all duration-300 ease-in-out ${
+                                       isActive("/unregistered-documents")
+                                         ? "bg-gray-200"
+                                         : "hover:bg-gray-200"
+                                     }`}
+                >
+                  <span className="flex-shrink-0">
+                    <FaFileCircleXmark
+                      className={` ${
+                        isActive("/unregistered-documents") ? "text-[#005B97]" : "text-[#7B849A]"
+                      } transition-all duration-300 ease-in-out text-2xl`}
+                    />
+                  </span>
+                  <span
+                    className={`${
+                      isActive("/unregistered-documents") ? " text-gray-950" : "text-gray-400"
+                    } text-lg transition-all duration-300 ease-in-out`}
+                    style={{
+                      width: isExpanded ? "auto" : "0",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      opacity: isExpanded ? 1 : 0,
+                      transition: "opacity 0.3s ease, width 0.3s ease",
+                    }}
+                  >
+                    UnReg Documents
+                  </span>
+                </li>
+              </Link>
+            )}
+
             {userRole === "admin" && (
               <Link href="/logs">
                 <li
-                  className={`flex items-center mb-2 justify-start
+                  className={`flex items-center mb-2 mt-2 justify-start
                                      space-x-3 pl-5 pr-0 py-2 rounded-lg transition-all duration-300 ease-in-out ${
                                        isActive("/logs")
                                          ? "bg-gray-200"

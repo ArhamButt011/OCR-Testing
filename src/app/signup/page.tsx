@@ -80,7 +80,7 @@ export default function SignupPage() {
 
     return (
         <div className="flex min-h-screen items-center justify-center">
-            <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6 mx-5 my-5 border border-gray-300">
+            <div className="w-full max-w-md bg-white shadow-lg p-6 mx-5 my-5 rounded-lg border border-gray-300">
                 <h1 className="text-2xl font-bold text-center mb-4 text-black">Register</h1>
                 <p className="text-center text-gray-500 mb-6">
                     Add your account basic details to create an Account on MPG OCR
