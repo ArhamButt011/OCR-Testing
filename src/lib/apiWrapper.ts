@@ -1,3 +1,4 @@
+// src/lib/apiWrapper.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getLogCapture } from './logCapture';
 

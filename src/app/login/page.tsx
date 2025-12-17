@@ -78,7 +78,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6 mx-5 border border-gray-300">
+      <div className="w-full max-w-md bg-white shadow-lg p-6 mx-5 border border-gray-300 rounded-lg">
         <div className="flex justify-center items-center my-3">
           <Image
             src="/images/logo.svg"

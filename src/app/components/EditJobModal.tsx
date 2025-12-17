@@ -312,6 +312,12 @@ console.log("Updated Job:", updatedJob);
             />
           </div>
           <div>
+             <label
+              htmlFor="everyTime"
+              className="text-sm font-semibold text-gray-800"
+            >
+       Day Offset
+            </label>
             <input
               className="w-full px-4 py-[6px] mt-1 border rounded-md text-gray-800 focus:outline-none focus:ring-2 mb-5"
               type="number"

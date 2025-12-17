@@ -1,3 +1,4 @@
+// src/lib/logCapture.ts
 import { EventEmitter } from 'events';
 
 export interface LogEntry {

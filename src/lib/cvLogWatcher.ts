@@ -10,35 +10,66 @@ export interface CVLogEntry {
   message: string;
   timestamp: string;
   type: 'info' | 'error' | 'warning' | 'success';
-  rawLines?: string[]; 
+  rawLines?: string[];
 }
 
 interface WatcherInstance {
   watcher: chokidar.FSWatcher;
   position: number;
   inode: number;
-  buffer: string; 
-  pendingLog: CVLogEntry | null; 
+  buffer: string;
+  pendingLog: CVLogEntry | null;
+  lastEmitTime: number;
 }
 
 class CVLogWatcher extends EventEmitter {
   private watchers: Map<string, Map<string, WatcherInstance>> = new Map();
   private recentLogs: Map<string, CVLogEntry[]> = new Map();
   private maxRecentLogs = 500;
+  private flushInterval: NodeJS.Timeout | null = null;
 
   private logStartPatterns = {
     app: /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} \| (INFO|ERROR|WARNING|DEBUG)/,
-    pixtral: /^(INFO|ERROR|WARNING|Starting|new request|gone request|ending)/,
-    lmdeploy_exec: /^(✓|=|Available GPUs|Using|Searching|Launched)/,
-    lmdeploy_serve: /^(\/usr\/local|FlashAttention|InternLM2|Warning|\[TM\]|HINT|INFO:|\d{4}-\d{2}-\d{2})/,
+    pixtral: /^(INFO:|ERROR:|WARNING:|Starting |new request |gone request |ending )/,
+    lmdeploy_exec: /^(✓|=|Available GPUs|Using |Searching |Launched |HINT:)/,
+    lmdeploy_serve: /^(\/usr\/local|FlashAttention|InternLM2|Warning:|^\[TM\]|^HINT:|^INFO:|\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/,
   };
 
   private timestampPatterns = {
     app: /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d{3}/,
     pixtral: /(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6})/,
-    lmdeploy_exec: null, 
+    lmdeploy_exec: null,
     lmdeploy_serve: /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d{3}/,
   };
+
+  constructor() {
+    super();
+    this.startAutoFlush();
+  }
+
+  private startAutoFlush(): void {
+    if (this.flushInterval) {
+      clearInterval(this.flushInterval);
+    }
+
+    this.flushInterval = setInterval(() => {
+      this.flushAllPendingLogs();
+    }, 2000);
+  }
+
+  private flushAllPendingLogs(): void {
+    const now = Date.now();
+    
+    this.watchers.forEach((baseWatchers, basePath) => {
+      baseWatchers.forEach((watcherInstance, source) => {
+        if (watcherInstance.pendingLog && (now - watcherInstance.lastEmitTime) > 1500) {
+          console.log(`Auto-flushing pending log from ${source}`);
+          this.emitLog(basePath, watcherInstance.pendingLog);
+          watcherInstance.pendingLog = null;
+        }
+      });
+    });
+  }
 
   async startWatching(basePath: string, sources: string[]): Promise<void> {
     if (!this.watchers.has(basePath)) {
@@ -63,7 +94,11 @@ class CVLogWatcher extends EventEmitter {
     if (!baseWatchers) return;
 
     if (baseWatchers.has(source)) {
-      baseWatchers.get(source)?.watcher.close();
+      const existing = baseWatchers.get(source);
+      if (existing?.pendingLog) {
+        this.emitLog(basePath, existing.pendingLog);
+      }
+      existing?.watcher.close();
     }
 
     const stats = fs.statSync(filePath);
@@ -81,6 +116,7 @@ class CVLogWatcher extends EventEmitter {
       inode: stats.ino,
       buffer: '',
       pendingLog: null,
+      lastEmitTime: Date.now(),
     };
 
     baseWatchers.set(source, watcherInstance);
@@ -108,6 +144,9 @@ class CVLogWatcher extends EventEmitter {
 
       if (stats.ino !== watcherInstance.inode) {
         console.log(`Log rotation detected for ${source}`);
+        if (watcherInstance.pendingLog) {
+          this.emitLog(basePath, watcherInstance.pendingLog);
+        }
         watcherInstance.position = 0;
         watcherInstance.inode = stats.ino;
         watcherInstance.buffer = '';
@@ -115,7 +154,10 @@ class CVLogWatcher extends EventEmitter {
       }
 
       if (stats.size < watcherInstance.position) {
-        console.log(` Log truncation detected for ${source}`);
+        console.log(`Log truncation detected for ${source}`);
+        if (watcherInstance.pendingLog) {
+          this.emitLog(basePath, watcherInstance.pendingLog);
+        }
         watcherInstance.position = 0;
         watcherInstance.buffer = '';
         watcherInstance.pendingLog = null;
@@ -133,7 +175,6 @@ class CVLogWatcher extends EventEmitter {
         }
 
         watcherInstance.position = stats.size;
-
         watcherInstance.buffer += newData;
 
         this.processBuffer(basePath, source, watcherInstance);
@@ -149,7 +190,6 @@ class CVLogWatcher extends EventEmitter {
     watcherInstance: WatcherInstance
   ): void {
     const lines = watcherInstance.buffer.split('\n');
-    
     watcherInstance.buffer = lines.pop() || '';
 
     const sourceType = source as keyof typeof this.logStartPatterns;
@@ -158,37 +198,45 @@ class CVLogWatcher extends EventEmitter {
     for (const line of lines) {
       if (!line.trim()) continue;
 
-      const isNewLog = startPattern ? startPattern.test(line) : true;
+      const isNewLog = startPattern ? startPattern.test(line) : false;
 
       if (isNewLog) {
         if (watcherInstance.pendingLog) {
           this.emitLog(basePath, watcherInstance.pendingLog);
+          watcherInstance.pendingLog = null;
         }
 
         const timestamp = this.extractTimestamp(line, sourceType) || new Date().toISOString();
         const type = this.determineLogType(line);
 
         watcherInstance.pendingLog = {
-          id: `${source}-${Date.now()}-${Math.random()}`,
+          id: `${source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           source: source as any,
           message: line,
           timestamp,
           type,
           rawLines: [line],
         };
+        watcherInstance.lastEmitTime = Date.now();
       } else {
         if (watcherInstance.pendingLog) {
           watcherInstance.pendingLog.message += '\n' + line;
           watcherInstance.pendingLog.rawLines?.push(line);
+          watcherInstance.lastEmitTime = Date.now();
         } else {
-          watcherInstance.pendingLog = {
-            id: `${source}-${Date.now()}-${Math.random()}`,
+          const timestamp = this.extractTimestamp(line, sourceType) || new Date().toISOString();
+          const type = this.determineLogType(line);
+
+          const singleLineLog: CVLogEntry = {
+            id: `${source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             source: source as any,
             message: line,
-            timestamp: new Date().toISOString(),
-            type: 'info',
+            timestamp,
+            type,
             rawLines: [line],
           };
+          
+          this.emitLog(basePath, singleLineLog);
         }
       }
     }
@@ -245,6 +293,8 @@ class CVLogWatcher extends EventEmitter {
   }
 
   private emitLog(basePath: string, log: CVLogEntry): void {
+    console.log(`Emitting log from ${log.source}: ${log.message.substring(0, 50)}...`);
+    
     const recentLogs = this.recentLogs.get(basePath) || [];
     recentLogs.push(log);
     
@@ -253,7 +303,6 @@ class CVLogWatcher extends EventEmitter {
     }
     
     this.recentLogs.set(basePath, recentLogs);
-
     this.emit('log', log);
   }
 
@@ -273,27 +322,28 @@ class CVLogWatcher extends EventEmitter {
       }
 
       try {
-        const content = await this.readLastLines(filePath, lines);
+        const content = await this.readLastLines(filePath, lines * 50);
         const logLines = content.split('\n').filter(line => line.trim());
 
         const sourceType = source as keyof typeof this.logStartPatterns;
         const startPattern = this.logStartPatterns[sourceType];
 
         let currentLog: CVLogEntry | null = null;
+        const sourceLogs: CVLogEntry[] = [];
 
         for (const line of logLines) {
-          const isNewLog = startPattern ? startPattern.test(line) : true;
+          const isNewLog = startPattern ? startPattern.test(line) : false;
 
           if (isNewLog) {
             if (currentLog) {
-              allLogs.push(currentLog);
+              sourceLogs.push(currentLog);
             }
 
             const timestamp = this.extractTimestamp(line, sourceType) || new Date().toISOString();
             const type = this.determineLogType(line);
 
             currentLog = {
-              id: `${source}-${Date.now()}-${Math.random()}`,
+              id: `${source}-hist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               source: source as any,
               message: line,
               timestamp,
@@ -304,13 +354,30 @@ class CVLogWatcher extends EventEmitter {
             if (currentLog) {
               currentLog.message += '\n' + line;
               currentLog.rawLines?.push(line);
+            } else {
+              const timestamp = this.extractTimestamp(line, sourceType) || new Date().toISOString();
+              const type = this.determineLogType(line);
+
+              sourceLogs.push({
+                id: `${source}-hist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                source: source as any,
+                message: line,
+                timestamp,
+                type,
+                rawLines: [line],
+              });
             }
           }
         }
 
         if (currentLog) {
-          allLogs.push(currentLog);
+          sourceLogs.push(currentLog);
         }
+
+        console.log(`Loaded ${sourceLogs.length} historical logs from ${source}`);
+        
+        allLogs.push(...sourceLogs);
+
       } catch (error) {
         console.error(`Error reading ${filePath}:`, error);
       }
@@ -320,16 +387,26 @@ class CVLogWatcher extends EventEmitter {
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
+    console.log(`Total historical logs: ${allLogs.length} from sources: ${sources.join(', ')}`);
+    
+    const logsBySource = sources.map(s => ({
+      source: s,
+      count: allLogs.filter(l => l.source === s).length
+    }));
+    console.log('Logs by source:', logsBySource);
+
     return allLogs.slice(-lines);
   }
 
-  private async readLastLines(filePath: string, lines: number): Promise<string> {
+  private async readLastLines(filePath: string, estimatedLines: number): Promise<string> {
     const stats = fs.statSync(filePath);
-    const bufferSize = Math.min(64 * 1024, stats.size);
+    const estimatedBytes = estimatedLines * 150;
+    const bufferSize = Math.min(estimatedBytes, stats.size);
     const buffer = Buffer.alloc(bufferSize);
 
     const fd = fs.openSync(filePath, 'r');
-    const bytesRead = fs.readSync(fd, buffer, 0, bufferSize, stats.size - bufferSize);
+    const startPosition = Math.max(0, stats.size - bufferSize);
+    const bytesRead = fs.readSync(fd, buffer, 0, bufferSize, startPosition);
     fs.closeSync(fd);
 
     return buffer.slice(0, bytesRead).toString('utf-8');
@@ -342,7 +419,13 @@ class CVLogWatcher extends EventEmitter {
   stopWatchingFile(basePath: string, source: string): void {
     const baseWatchers = this.watchers.get(basePath);
     if (baseWatchers?.has(source)) {
-      baseWatchers.get(source)?.watcher.close();
+      const watcherInstance = baseWatchers.get(source);
+      
+      if (watcherInstance?.pendingLog) {
+        this.emitLog(basePath, watcherInstance.pendingLog);
+      }
+      
+      watcherInstance?.watcher.close();
       baseWatchers.delete(source);
       console.log(`Stopped watching: ${source}`);
     }
@@ -352,6 +435,9 @@ class CVLogWatcher extends EventEmitter {
     const baseWatchers = this.watchers.get(basePath);
     if (baseWatchers) {
       baseWatchers.forEach((instance, source) => {
+        if (instance.pendingLog) {
+          this.emitLog(basePath, instance.pendingLog);
+        }
         instance.watcher.close();
         console.log(`Stopped watching: ${source}`);
       });
@@ -360,8 +446,15 @@ class CVLogWatcher extends EventEmitter {
     }
   }
 
+  cleanup(): void {
+    if (this.flushInterval) {
+      clearInterval(this.flushInterval);
+      this.flushInterval = null;
+    }
+  }
+
   getAvailableSources(): string[] {
-    return ['app', 'pixtral', 'lmdeploy_exec', 'lmdeploy_serve', 'backend'];
+    return ['app', 'pixtral', 'lmdeploy_exec', 'lmdeploy_serve'];
   }
 }
 

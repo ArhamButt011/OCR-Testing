@@ -34,7 +34,7 @@ async function saveCVLogsPathHandler(request: NextRequest | Request): Promise<Ne
           createdAt: new Date(),
         }
       },
-      { upsert: true } // Create if doesn't exist
+      { upsert: true } 
     );
 
     return NextResponse.json(

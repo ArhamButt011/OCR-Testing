@@ -111,6 +111,11 @@ interface ProcessedData {
   deliveryDate: string;
   jobId: string | null;
   noOfPages: number;
+
+  // ✅ NEW FIELDS
+  confidence?: number;
+  processing_time?: number;
+  template_id?: string | null;
 }
 
 interface OcrJob {
@@ -209,14 +214,14 @@ const MasterPage = () => {
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [abortController, setAbortController] = useState(new AbortController());
   const [ocrApiUrl, setOcrApiUrl] = useState("");
-  // const [baseUrl, setBaseUrl] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [db, setDb] = useState<string>();
 
   const finalOptions = [
-    { status: "new", color: "text-blue-600", bgColor: "bg-blue-100" },
+    { status: "new", color: "text-primary", bgColor: "bg-blue-100" },
     {
       status: "inProgress",
       color: "text-yellow-600",
@@ -242,7 +247,7 @@ const MasterPage = () => {
     { status: "denied", color: "text-[#AF9918]", bgColor: "bg-[#faf1be]" },
   ];
   const recognitionOptions = [
-    { status: "new", color: "text-blue-600", bgColor: "bg-blue-100" },
+    { status: "new", color: "text-primary", bgColor: "bg-blue-100" },
     {
       status: "inProgress",
       color: "text-yellow-600",
@@ -258,7 +263,7 @@ const MasterPage = () => {
     { status: "sent", color: "text-green-600", bgColor: "bg-green-100" },
   ];
   const breakdownOptions = [
-    { status: "none", color: "text-blue-600", bgColor: "bg-blue-100" },
+    { status: "none", color: "text-primary", bgColor: "bg-blue-100" },
     { status: "damaged", color: "text-yellow-600", bgColor: "bg-yellow-100" },
     { status: "shortage", color: "text-green-600", bgColor: "bg-green-100" },
     { status: "overage", color: "text-[#AF9918]", bgColor: "bg-[#faf1be]" },
@@ -467,12 +472,11 @@ const MasterPage = () => {
         const data = await res.json();
 
         if (data.ip) {
+          //for local uncomment below lines
           // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
-
-          setOcrApiUrl(
-            `https://0s8l5c7yohdx8m-19123-8080.proxy.runpod.net/run-ocr`
-          );
           // setBaseUrl(`http://${data.secondaryIp}:3000`);
+          //for remote use below lines
+          setOcrApiUrl(`https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr`);
           // setBaseUrl(`https://h0palyajms52cn-8080.proxy.runpod.net`);
         }
       } catch (error) {
@@ -483,13 +487,11 @@ const MasterPage = () => {
     fetchOcrApiUrl();
   }, []);
 
-  console.log("master data-> ", master);
   const pdfFiles = selectedRows
     .map((rowId) => {
       const job = master.find((job) => {
         return job._id === rowId;
       });
-      // console.log("job-> ", job);
       if (
         (job && (!job.blNumber || !job.podSignature?.trim()) && job.pdfUrl) ||
         job?.fileNameFromUrl
@@ -503,7 +505,7 @@ const MasterPage = () => {
         }
         if (!fileName) return null;
         return {
-          file_url_or_path: `https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api/access-file?filename=${encodeURIComponent(
+          file_url_or_path: `${baseUrl}/api/access-file?filename=${encodeURIComponent(
             fileName
           )}`,
           _id: job?._id,
@@ -513,6 +515,8 @@ const MasterPage = () => {
       return null;
     })
     .filter(Boolean);
+
+  console.log("pdfFiles-> ", pdfFiles);
 
   async function bulkUpdate(
     processedDataArray: ProcessedData[]
@@ -560,9 +564,6 @@ const MasterPage = () => {
           stampExists: ocrItem.Stamp_Exists,
           reviewedBy: "OCR Engine",
         };
-
-        console.log("🔄 merging item:", item._id, "->", updatedItem);
-
         return updatedItem;
       });
 
@@ -653,12 +654,19 @@ const MasterPage = () => {
 
             Swal.fire({
               icon: "error",
+
               title: "OCR Processing Error",
+
               text: errorMessage,
+
               confirmButtonText: "OK",
+
               allowOutsideClick: false,
+
               allowEscapeKey: false,
+
               allowEnterKey: true,
+
               didOpen: () => {
                 const swalContainer = document.querySelector(
                   ".swal2-container"
@@ -742,6 +750,9 @@ const MasterPage = () => {
                     : data?.Seal_Intact === "no"
                     ? "N"
                     : data?.Seal_Intact,
+                confidence: data?.Confidence || data?.confidence || 0.0,
+                processing_time: data?.Processing_Time || data?.processing_time || 0,
+                template_id: data?.Template_ID || data?.template_id || null,
               };
             });
 
@@ -1136,6 +1147,7 @@ const MasterPage = () => {
         reviewStatusFilter,
         reasonStatusFilter,
         reviewByStatusFilter,
+        // uptd_Usr_Cd,
         podDateFilter,
         createdDateFilter,
         updatedDateFilter,
@@ -1825,7 +1837,7 @@ const MasterPage = () => {
                 <button
                   className={`rounded-lg px-6 py-2 w-full md:w-auto ${
                     selectedRows.length === 0
-                      ? "cursor-not-allowed bg-gray-400 border border-gray-400"
+                      ? "cursor-not-allowed bg-gray-400 border border-gray-400 text-white"
                       : "bg-[#005B971A] text-[#005B97] border border-[#005B971A]"
                   }`}
                 >
@@ -1834,7 +1846,7 @@ const MasterPage = () => {
               </Link>
 
               <button
-                className="hover:bg-[#005B97] hover:text-white border-[#005B97] border text-[#005B97] 
+                className="hover:bg-[#005B97] hover:text-white border-[#005B97] border text-[#005B97]
                 rounded-lg px-6 py-2 w-full md:w-auto flex items-center justify-center gap-2 transition"
                 onClick={() => setIsModalOpen(true)}
               >
@@ -1848,7 +1860,7 @@ const MasterPage = () => {
                     ? handleOcrToggle
                     : undefined
                 }
-                className={` ${buttonColor} flex justify-center items-center w-full md:w-auto px-4 py-2 rounded-lg text-white transition 
+                className={` ${buttonColor} flex justify-center items-center w-full md:w-auto px-4 py-2 rounded-lg text-white transition
                 ${
                   selectedRows.length === 0 && !isOcrRunning
                     ? "bg-gray-400 cursor-not-allowed border border-gray-400"
@@ -1881,7 +1893,7 @@ const MasterPage = () => {
                           ? handleOcrToggle
                           : undefined
                       }
-                      className={` ${buttonColor} flex justify-center items-center w-fit px-4 py-2 rounded-lg text-white transition 
+                      className={` ${buttonColor} flex justify-center items-center w-fit px-4 py-2 rounded-lg text-white transition
                     ${
                       selectedRows.length === 0 && !isOcrRunning
                         ? "bg-gray-400 cursor-not-allowed border border-gray-400"
@@ -1929,7 +1941,7 @@ const MasterPage = () => {
                                 job.pdfUrl.split("/").pop()?.trim() ?? ""
                               )
                             : "";
-                          const progressKey = `https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api/access-file?filename=${pdfFilename}`;
+                          const progressKey = `${baseUrl}/api/access-file?filename=${pdfFilename}`;
                           const jobProgress = progress[progressKey] ?? 0;
                           // style={{ width: `${jobProgress}%` }}
                           // {jobProgress}%
@@ -2352,7 +2364,7 @@ const MasterPage = () => {
                                       : ""
                                   } ${
                                     job.finalStatus === "new"
-                                      ? "bg-blue-100 text-blue-600"
+                                      ? "bg-blue-100 text-primary"
                                       : job.finalStatus === "inProgress"
                                       ? "bg-yellow-100 text-yellow-600"
                                       : job.finalStatus === "valid"
@@ -2512,7 +2524,7 @@ const MasterPage = () => {
                                       : ""
                                   } ${
                                     job.recognitionStatus === "new"
-                                      ? "bg-blue-100 text-blue-600"
+                                      ? "bg-blue-100 text-primary"
                                       : job.recognitionStatus === "inProgress"
                                       ? "bg-yellow-100 text-yellow-600"
                                       : job.recognitionStatus === "valid"
@@ -2595,7 +2607,7 @@ const MasterPage = () => {
                                       : ""
                                   } ${
                                     job.breakdownReason === "none"
-                                      ? "bg-blue-100 text-blue-600"
+                                      ? "bg-blue-100 text-primary"
                                       : job.breakdownReason === "damaged"
                                       ? "bg-yellow-100 text-yellow-600"
                                       : job.breakdownReason === "shortage"
@@ -2653,7 +2665,7 @@ const MasterPage = () => {
                   className={`px-4 py-2 rounded-md ${
                     currentPage === 1
                       ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+                      : "bg-blue-500 text-white hover:bg-primary"
                   }`}
                 >
                   Previous
@@ -2667,7 +2679,7 @@ const MasterPage = () => {
                   className={`px-4 py-2 rounded-md ${
                     currentPage === totalPages
                       ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+                      : "bg-blue-500 text-white hover:bg-primary"
                   }`}
                 >
                   Next

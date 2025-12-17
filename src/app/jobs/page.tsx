@@ -362,7 +362,7 @@ const JobPage = () => {
                         <div
                           className={`inline-flex items-center justify-center gap-0 px-2 py-1 rounded-full text-sm font-medium transition-all duration-500 ease-in-out cursor-pointer ${
                             job.active
-                              ? "bg-blue-100 text-blue-600"
+                              ? "bg-blue-100 text-primary"
                               : "bg-red-100 text-red-600"
                           }`}
                           onClick={() => toggleDropdown(job._id)}
@@ -383,7 +383,7 @@ const JobPage = () => {
                             >
                               <li
                                 onClick={() => toggleStatus(job._id, true)}
-                                className="cursor-pointer px-3 py-1 hover:bg-blue-100 text-blue-600"
+                                className="cursor-pointer px-3 py-1 hover:bg-blue-100 text-primary"
                               >
                                 Active
                               </li>
@@ -428,7 +428,7 @@ const JobPage = () => {
                 className={`px-4 py-2 rounded-md ${
                   currentPage === 1
                     ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
+                    : "bg-blue-500 text-white hover:bg-primary"
                 }`}
               >
                 Previous
@@ -442,7 +442,7 @@ const JobPage = () => {
                 className={`px-4 py-2 rounded-md ${
                   currentPage === totalPages
                     ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
+                    : "bg-blue-500 text-white hover:bg-primary"
                 }`}
               >
                 Next

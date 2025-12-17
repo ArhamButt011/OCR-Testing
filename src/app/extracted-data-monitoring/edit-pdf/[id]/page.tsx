@@ -42,7 +42,8 @@ const JobDetail = () => {
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  console.error(error);
+  console.log('error-> ', error)
+
   const [formData, setFormData] = useState({
     blNumber: "",
     podDate: "",
@@ -284,8 +285,9 @@ const JobDetail = () => {
     over: "Over Qty",
     refused: "Refused Qty",
   };
+  const fileName = job?.pdfUrl.split("/").pop();
 
-  useEffect(() => {
+    useEffect(() => {
     const accessUrl = fileName
       ? `/api/access-file?filename=${encodeURIComponent(
           fileName
@@ -293,8 +295,6 @@ const JobDetail = () => {
       : "";
     setPdfUrl(accessUrl);
   }, [job?.pdfUrl]);
-
-  const fileName = job?.pdfUrl.split("/").pop();
 
   return (
     <div className="flex flex-row h-screen bg-white">
@@ -345,12 +345,12 @@ const JobDetail = () => {
                       //   onLoad={handleIframeLoad}
                       // />
                       <iframe
-                        src={`${pdfUrl}#toolbar=0`}
-                        className="w-11/12 h-full bg-white"
-                        loading="lazy"
-                        title="Document Preview"
-                        onLoad={handleIframeLoad}
-                      />
+                      src={`${pdfUrl}#toolbar=0`}
+                      className="w-11/12 h-full bg-white"
+                      loading="lazy"
+                      title="Document Preview"
+                      onLoad={handleIframeLoad}
+                    />
                     ) : (
                       <div className="text-center text-red-500">
                         Preview not available or unsupported file format.
@@ -400,9 +400,7 @@ const JobDetail = () => {
                       key={key}
                       className="flex items-center gap-3 bg-white px-2 border-l-8 border-[#005B97] rounded-lg py-[7px]"
                     >
-                      {/* <label className="font-medium text-gray-500 capitalize min-w-28">
-                                                {key.replace(/([A-Z])/g, " $1")} :
-                                            </label> */}
+               
                       <label className="font-medium text-gray-500 capitalize min-w-28">
                         {keyMappings[key] || key.replace(/([A-Z])/g, " $1")} :
                       </label>

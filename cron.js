@@ -12,10 +12,17 @@ dayjs.extend(utc);
 dayjs.extend(isBetween);
 
 // ======== CONFIG (env-tunable) ========
+
+//For local testing uncomment below lines
+// const BASE_URL =
+//   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
+
+//Remote uncomment below lines
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "https://fzi6t0m8gas6eb-8080.proxy.runpod.net/api";
 const OCR_URL =
-  process.env.OCR_URL || "https://0s8l5c7yohdx8m-8080.proxy.runpod.net/run-ocr";
+  process.env.NEXT_PUBLIC_OCR_API_URL || "https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr";
+  
 const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 120000);
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3); // primary pass batch size
 const FALLBACK_BATCH_SIZE = Number(process.env.FALLBACK_BATCH_SIZE || 2);
@@ -445,7 +452,7 @@ function toYesNoY(val) {
 function toProcessedRecord(d, fileId, job, fileData, base_url) {
   if (!fileData || !fileData.FILE_NAME) return null;
 
-  // Fix: Validate and sanitize FILE_NAME to prevent missing protocol errors
+    // Fix: Validate and sanitize FILE_NAME to prevent missing protocol errors
   const fileName = fileData.FILE_NAME || "";
   if (!fileName) {
     console.warn(`Missing FILE_NAME for fileId: ${fileId}`);
@@ -527,6 +534,17 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
     firstOf(d, ["Seal_Intact", "SealIntact", "Seal_Status"], "no")
   );
 
+  // ✅ Extract new fields from OCR response
+  const confidence = firstOf(d, ["Confidence", "confidence"], 0.0);
+  const processingTime = toInt(
+    firstOf(d, ["Processing_Time", "processing_time", "ProcessingTime"], 0)
+  );
+  const templateId = firstOf(
+    d,
+    ["Template_ID", "template_id", "TemplateID"],
+    null
+  );
+
   return {
     _id: fileId,
     jobId: job._id,
@@ -560,6 +578,11 @@ function toProcessedRecord(d, fileId, job, fileData, base_url) {
     cargoDescription: "Processed from OCR API.",
     none: "N",
     sealIntact,
+
+    // ✅ NEW FIELDS
+    confidence: parseFloat(confidence) || 0.0,
+    processing_time: processingTime,
+    template_id: templateId,
   };
 }
 
@@ -1520,6 +1543,11 @@ async function scheduleJobs() {
       return false;
     }
 
+    //for local uncomment below lines
+    // const ocrUrl = `http://${ipData.ip}:8080/run-ocr`;
+    // let base_url = `http://${ipData.secondaryIp}:3000/api`;
+
+    //for remote use below lines
     const ocrUrl = OCR_URL;
     let base_url = BASE_URL;
 
