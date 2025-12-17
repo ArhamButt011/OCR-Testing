@@ -297,19 +297,19 @@ export default function TemplateDetailsPage() {
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div className="bg-white rounded p-3 border border-gray-200">
                                   <span className="text-xs text-gray-600 block mb-1">X1 Position</span>
-                                  <span className="text-sm font-medium text-gray-900">{(region.x1_ratio * 100).toFixed(0)}%</span>
+                                  <span className="text-sm font-medium text-gray-900">{(region.x1_ratio).toFixed(2)}</span>
                                 </div>
                                 <div className="bg-white rounded p-3 border border-gray-200">
                                   <span className="text-xs text-gray-600 block mb-1">Y1 Position</span>
-                                  <span className="text-sm font-medium text-gray-900">{(region.y1_ratio * 100).toFixed(0)}%</span>
+                                  <span className="text-sm font-medium text-gray-900">{(region.y1_ratio).toFixed(2)}</span>
                                 </div>
                                 <div className="bg-white rounded p-3 border border-gray-200">
                                   <span className="text-xs text-gray-600 block mb-1">X2 Position</span>
-                                  <span className="text-sm font-medium text-gray-900">{(region.x2_ratio * 100).toFixed(0)}%</span>
+                                  <span className="text-sm font-medium text-gray-900">{(region.x2_ratio).toFixed(2)}</span>
                                 </div>
                                 <div className="bg-white rounded p-3 border border-gray-200">
                                   <span className="text-xs text-gray-600 block mb-1">Y2 Position</span>
-                                  <span className="text-sm font-medium text-gray-900">{(region.y2_ratio * 100).toFixed(0)}%</span>
+                                  <span className="text-sm font-medium text-gray-900">{(region.y2_ratio).toFixed(2)}</span>
                                 </div>
                               </div>
                               {region.confidence_threshold && (
@@ -364,9 +364,9 @@ export default function TemplateDetailsPage() {
                         <tr>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Target Field</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Source</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Type</th>
+                          {/* <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Type</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Required</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Default Value</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Default Value</th> */}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -374,7 +374,7 @@ export default function TemplateDetailsPage() {
                           <tr key={key} className="hover:bg-gray-50">
                             <td className="px-4 py-3 font-mono text-sm text-gray-900">{value.target_field}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{value.source_field}</td>
-                            <td className="px-4 py-3">
+                            {/* <td className="px-4 py-3">
                               <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
                                 {value.data_type}
                               </span>
@@ -388,7 +388,7 @@ export default function TemplateDetailsPage() {
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-600">
                               {value.default_value !== undefined ? String(value.default_value) : '-'}
-                            </td>
+                            </td> */}
                           </tr>
                         ))}
                       </tbody>
@@ -397,7 +397,7 @@ export default function TemplateDetailsPage() {
                 </div>
 
                 {/* Metadata */}
-                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+                {/* <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Metadata</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -425,7 +425,7 @@ export default function TemplateDetailsPage() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             )}
           </div>
