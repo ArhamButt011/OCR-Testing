@@ -472,9 +472,11 @@ const MasterPage = () => {
         const data = await res.json();
 
         if (data.ip) {
-          setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
-          // setOcrApiUrl(`https://w70nd5g17ekhdj-8080.proxy.runpod.net/run-ocr`);
-          setBaseUrl(`http://${data.secondaryIp}:3000`);
+          //for local uncomment below lines
+          // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
+          // setBaseUrl(`http://${data.secondaryIp}:3000`);
+          //for remote use below lines
+          setOcrApiUrl(`https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr`);
           // setBaseUrl(`https://h0palyajms52cn-8080.proxy.runpod.net`);
         }
       } catch (error) {
@@ -563,9 +565,6 @@ const MasterPage = () => {
           stampExists: ocrItem.Stamp_Exists,
           reviewedBy: "OCR Engine",
         };
-
-        console.log("🔄 merging item:", item._id, "->", updatedItem);
-
         return updatedItem;
       });
 
@@ -909,7 +908,6 @@ const MasterPage = () => {
                     : data?.Seal_Intact === "no"
                     ? "N"
                     : data?.Seal_Intact,
-                    // ✅ NEW FIELDS
                 confidence: data?.Confidence || data?.confidence || 0.0,
                 processing_time: data?.Processing_Time || data?.processing_time || 0,
                 template_id: data?.Template_ID || data?.template_id || null,
@@ -2005,7 +2003,7 @@ const MasterPage = () => {
               </Link>
 
               <button
-                className="hover:bg-[#005B97] hover:text-white border-[#005B97] border text-[#005B97] 
+                className="hover:bg-[#005B97] hover:text-white border-[#005B97] border text-[#005B97]
                 rounded-lg px-6 py-2 w-full md:w-auto flex items-center justify-center gap-2 transition"
                 onClick={() => setIsModalOpen(true)}
               >
@@ -2019,7 +2017,7 @@ const MasterPage = () => {
                     ? handleOcrToggle
                     : undefined
                 }
-                className={` ${buttonColor} flex justify-center items-center w-full md:w-auto px-4 py-2 rounded-lg text-white transition 
+                className={` ${buttonColor} flex justify-center items-center w-full md:w-auto px-4 py-2 rounded-lg text-white transition
                 ${
                   selectedRows.length === 0 && !isOcrRunning
                     ? "bg-gray-400 cursor-not-allowed border border-gray-400"
@@ -2052,7 +2050,7 @@ const MasterPage = () => {
                           ? handleOcrToggle
                           : undefined
                       }
-                      className={` ${buttonColor} flex justify-center items-center w-fit px-4 py-2 rounded-lg text-white transition 
+                      className={` ${buttonColor} flex justify-center items-center w-fit px-4 py-2 rounded-lg text-white transition
                     ${
                       selectedRows.length === 0 && !isOcrRunning
                         ? "bg-gray-400 cursor-not-allowed border border-gray-400"
