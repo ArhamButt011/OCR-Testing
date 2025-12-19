@@ -15,6 +15,7 @@ interface ReferenceImage {
   image_id: string;
   file_path: string;
   preview?: string;
+  original_name?: string;
 }
 
 interface VisualRegionEditorProps {

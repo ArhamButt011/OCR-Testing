@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { useTemplate } from "@/app/context/TemplateContext";
-import Image from "next/image";
 import { useApiConfig } from "@/app/context/ApiConfigContext";
 
 export const Step2ReferenceImages: React.FC = () => {
@@ -10,17 +9,25 @@ export const Step2ReferenceImages: React.FC = () => {
     useTemplate();
   const { baseUrl } = useApiConfig();
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
-    {}
-  );
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const images = templateData.identification?.reference_images || [];
   const maxImages = 5;
-  console.log("Current reference images:", images);
+
+  console.log("📸 Current images:", images.length);
+  console.log("🌐 Base URL:", baseUrl);
 
   const handleFileSelect = useCallback(
     async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
+      console.log("🔵 File selection triggered");
+      
+      if (!files || files.length === 0) {
+        console.log("❌ No files selected");
+        return;
+      }
 
       const currentCount = images.length;
       const availableSlots = maxImages - currentCount;
@@ -28,13 +35,17 @@ export const Step2ReferenceImages: React.FC = () => {
       if (files.length > availableSlots) {
         setError(
           "reference_images",
-          `You can only upload ${availableSlots} more image(s)`
+          `You can only upload ${availableSlots} more image(s). You have ${currentCount}/${maxImages} images.`
         );
         return;
       }
 
       // Validate files
       const validFiles: File[] = [];
+      const duplicateFiles: string[] = [];
+      
+      console.log("🔍 Validating", files.length, "file(s)...");
+      
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
@@ -50,31 +61,66 @@ export const Step2ReferenceImages: React.FC = () => {
           continue;
         }
 
+        // Check for duplicates (compare by name, size, and type)
+        const isDuplicate = images.some((existingImage) => {
+          if (existingImage.file) {
+            return (
+              existingImage.file.name === file.name &&
+              existingImage.file.size === file.size &&
+              existingImage.file.type === file.type
+            );
+          }
+          // Also check by original_name if file object isn't available
+          return existingImage.original_name === file.name;
+        });
+
+        if (isDuplicate) {
+          console.log(`🔴 Duplicate: ${file.name}`);
+          duplicateFiles.push(file.name);
+          continue;
+        }
+
         validFiles.push(file);
       }
 
-      if (validFiles.length === 0) return;
+      // Show duplicate error
+      if (duplicateFiles.length > 0) {
+        const errorMsg = `Duplicate image(s): ${duplicateFiles.join(", ")}. Already uploaded.`;
+        console.log("⚠️", errorMsg);
+        setError("reference_images", errorMsg);
+        
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        
+        if (validFiles.length === 0) {
+          return;
+        }
+      }
+
+      if (validFiles.length === 0) {
+        console.log("❌ No valid files after validation");
+        return;
+      }
+
+      console.log("✅ Valid files:", validFiles.map(f => f.name).join(", "));
 
       setUploading(true);
       clearError("reference_images");
 
       try {
-        // Create FormData
         const formData = new FormData();
         validFiles.forEach((file) => {
           formData.append("images", file);
         });
 
-        // Upload with progress tracking
+        // Upload with progress
         const xhr = new XMLHttpRequest();
 
         xhr.upload.addEventListener("progress", (e) => {
           if (e.lengthComputable) {
-            const percentComplete = (e.loaded / e.total) * 100;
-            setUploadProgress((prev) => ({
-              ...prev,
-              [validFiles[0].name]: percentComplete,
-            }));
+            const percent = (e.loaded / e.total) * 100;
+            setUploadProgress({ all: percent });
           }
         });
 
@@ -83,29 +129,31 @@ export const Step2ReferenceImages: React.FC = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
               resolve(JSON.parse(xhr.responseText));
             } else {
-              reject(new Error("Upload failed"));
+              reject(new Error(`Upload failed: ${xhr.status}`));
             }
           });
 
-          xhr.addEventListener("error", () =>
-            reject(new Error("Upload failed"))
-          );
-          xhr.addEventListener("abort", () =>
-            reject(new Error("Upload cancelled"))
-          );
+          xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+          xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
 
           xhr.open("POST", "/api/templates/reference-images");
           xhr.send(formData);
         });
 
         const response = await uploadPromise;
+        console.log("📤 Upload response:", response);
 
-        // Update template data with uploaded images
-        const newImages = response.images.map((img: any) => ({
+        // Store File objects with uploaded images
+        const newImages = response.images.map((img: any, idx: number) => ({
           image_id: img.image_id,
-          file_path: img.file_path,
-          preview: `/templates/reference-images/${img.image_id}`,
+          file_path: img.file_path, // Will be /api/templates/images/xxx.png
+          original_name: img.original_name,
+          size: img.size,
+          mime_type: img.mime_type,
+          file: validFiles[idx], // Store original File
         }));
+
+        console.log("✅ New images:", newImages.map((img: any) => img.original_name).join(", "));
 
         updateTemplateData({
           identification: {
@@ -114,40 +162,36 @@ export const Step2ReferenceImages: React.FC = () => {
           },
         });
 
-        console.log("✅ Images uploaded successfully");
+        console.log("✅ Upload complete!");
       } catch (error) {
-        console.error("❌ Upload failed:", error);
-        setError("reference_images", "Failed to upload images");
+        console.error("❌ Upload error:", error);
+        setError("reference_images", "Failed to upload images. Please try again.");
       } finally {
         setUploading(false);
         setUploadProgress({});
+        
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       }
     },
-    [
-      images,
-      templateData.identification,
-      updateTemplateData,
-      setError,
-      clearError,
-    ]
+    [images, templateData.identification, updateTemplateData, setError, clearError]
   );
 
   const handleRemoveImage = useCallback(
     async (imageId: string) => {
       try {
-        // Delete from server
+        console.log("🗑️ Removing:", imageId);
+
         const response = await fetch(
           `/api/templates/reference-images/${imageId}`,
-          {
-            method: "DELETE",
-          }
+          { method: "DELETE" }
         );
 
         if (!response.ok) {
-          throw new Error("Failed to delete image");
+          throw new Error("Failed to delete");
         }
 
-        // Update template data
         const updatedImages = images.filter((img) => img.image_id !== imageId);
         updateTemplateData({
           identification: {
@@ -156,18 +200,29 @@ export const Step2ReferenceImages: React.FC = () => {
           },
         });
 
-        console.log("✅ Image removed successfully");
+        console.log("✅ Removed successfully");
       } catch (error) {
-        console.error("❌ Failed to remove image:", error);
+        console.error("❌ Delete error:", error);
         setError("reference_images", "Failed to remove image");
       }
     },
     [images, templateData.identification, updateTemplateData, setError]
   );
 
-  console.log("Base URL from context:", baseUrl);
+  const handleImageError = useCallback((imageId: string, filePath: string) => {
+    console.error("❌ Image load failed:", {
+      imageId,
+      filePath,
+      fullUrl: `${baseUrl}${filePath}`
+    });
+    setImageLoadErrors(prev => ({ ...prev, [imageId]: true }));
+  }, [baseUrl]);
 
-  console.log("Rendering Step2ReferenceImages with images:", images);
+  const handleImageLoad = useCallback((imageId: string) => {
+    console.log("✅ Image loaded:", imageId);
+    setImageLoadErrors(prev => ({ ...prev, [imageId]: false }));
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -213,6 +268,7 @@ export const Step2ReferenceImages: React.FC = () => {
                     multiple
                     accept="image/*"
                     disabled={uploading}
+                    ref={fileInputRef}
                     onChange={(e) => handleFileSelect(e.target.files)}
                   />
                 </label>
@@ -233,22 +289,18 @@ export const Step2ReferenceImages: React.FC = () => {
         )}
 
         {/* Upload Progress */}
-        {uploading && (
-          <div className="mt-4">
-            {Object.entries(uploadProgress).map(([filename, progress]) => (
-              <div key={filename} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">{filename}</span>
-                  <span className="text-gray-600">{Math.round(progress)}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-primary h-2 rounded-full transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+        {uploading && uploadProgress.all !== undefined && (
+          <div className="mt-4 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Uploading...</span>
+              <span className="text-gray-600">{Math.round(uploadProgress.all)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all"
+                style={{ width: `${uploadProgress.all}%` }}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -260,57 +312,77 @@ export const Step2ReferenceImages: React.FC = () => {
             Uploaded Images ({images.length})
           </h3>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {images.map((image, index) => (
-              <div
-                key={image.image_id}
-                className="relative group rounded-lg border border-gray-300 overflow-hidden"
-              >
-                {image.file_path && (
-                  <>
-                    {" "}
-                    <div className="aspect-square relative bg-gray-100">
-                      <img
-                        src={`${baseUrl}${image.file_path}`}
-                        alt={`Reference image ${index + 1}`}
-                        className="object-contain w-full h-full"
-                      />
-                    </div>
-                    {/* <div>
-                      <p>
-                        {" "}
-                        {baseUrl}{image.file_path}
-                      </p>
-                    </div> */}
-                  </>
-                )}
+            {images.map((image, index) => {
+              const fullUrl = `${baseUrl}${image.file_path}`;
+              const hasError = imageLoadErrors[image.image_id];
 
-                {/* Remove Button */}
-                <button
-                  onClick={() => handleRemoveImage(image.image_id)}
-                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                  title="Remove image"
+              return (
+                <div
+                  key={image.image_id}
+                  className={`relative group rounded-lg border overflow-hidden ${
+                    hasError ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  }`}
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                  <div className="aspect-square relative bg-gray-100">
+                    {!hasError ? (
+                      <img
+                        src={fullUrl}
+                        alt={image.original_name || `Image ${index + 1}`}
+                        className="object-contain w-full h-full"
+                        onError={() => handleImageError(image.image_id, image.file_path)}
+                        onLoad={() => handleImageLoad(image.image_id)}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-red-500 p-4">
+                        <svg
+                          className="w-12 h-12 mb-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
+                        </svg>
+                        <p className="text-xs text-center font-medium">Failed to load</p>
+                        <p className="text-xs text-center text-gray-500 mt-1 break-all px-2">
+                          {image.file_path}
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-                {/* Image Label */}
-                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs px-2 py-1 truncate">
-                  Image {index + 1}
+                  {/* Remove Button */}
+                  <button
+                    onClick={() => handleRemoveImage(image.image_id)}
+                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 focus:opacity-100"
+                    title="Remove image"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* Image Label */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs px-2 py-1 truncate">
+                    {image.original_name || `Image ${index + 1}`}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

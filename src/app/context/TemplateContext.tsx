@@ -19,6 +19,7 @@ export interface ReferenceImage {
   image_id: string;
   file_path: string;
   file?: File;
+  original_name?: string;
   preview?: string;
 }
 

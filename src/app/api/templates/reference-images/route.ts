@@ -76,7 +76,7 @@ export async function uploadImageHandler(
 
       uploadedImages.push({
         image_id: imageId,
-        file_path: `/templates/images/${filename}`,
+        file_path: `/api/templates/serve-image/${filename}`,
         original_name: file.name,
         size: file.size,
         mime_type: file.type,
