@@ -116,6 +116,8 @@ interface ProcessedData {
   confidence?: number;
   processing_time?: number;
   template_id?: string | null;
+  classification_details: any;
+  suggested_templates: any;
 }
 
 interface OcrJob {
@@ -750,9 +752,33 @@ const MasterPage = () => {
                     : data?.Seal_Intact === "no"
                     ? "N"
                     : data?.Seal_Intact,
+                // ✅ NEW FIELDS
                 confidence: data?.Confidence || data?.confidence || 0.0,
-                processing_time: data?.Processing_Time || data?.processing_time || 0,
+                processing_time:
+                  data?.Processing_Time || data?.processing_time || 0,
                 template_id: data?.Template_ID || data?.template_id || null,
+                // classification details
+                classification_details: {
+                  primary_model_prediction:
+                    data?.classification_details?.primary_model_prediction ??
+                    "",
+                  primary_confidence:
+                    data?.classification_details?.primary_confidence ?? 0,
+                  secondary_model_prediction:
+                    data?.classification_details?.secondary_model_prediction ??
+                    "",
+                  secondary_confidence:
+                    data?.classification_details?.secondary_confidence ?? 0,
+                },
+                // suggested_templates
+                suggested_templates: Array.isArray(data?.suggested_templates)
+                  ? data.suggested_templates.map((tpl: any) => ({
+                      template_id: tpl?.template_id ?? "",
+                      template_name: tpl?.template_name ?? "",
+                      match_score: tpl?.match_score ?? 0,
+                      priority: tpl?.priority ?? 0,
+                    }))
+                  : [],
               };
             });
 

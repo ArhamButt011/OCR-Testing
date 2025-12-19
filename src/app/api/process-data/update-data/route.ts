@@ -1,4 +1,4 @@
-// app/api/mock/update/route.ts
+// app/api/process-data/update-data/route.ts
 import { NextResponse } from "next/server";
 import { ObjectId, AnyBulkWriteOperation, Document, Filter } from "mongodb";
 import clientPromise from "@/lib/mongodb";
@@ -22,6 +22,62 @@ async function putHandler(req: Request, context?: any) {
           const { _id, ...updatedData } = doc;
           if (!_id) return null; 
 
+          // ✅ Process new OCR fields
+          const processedData: any = { ...updatedData };
+
+          // 1. Confidence (float between 0-1)
+          if (updatedData.confidence !== undefined) {
+            processedData.confidence = parseFloat(updatedData.confidence) || 0;
+          }
+
+          // 2. Processing time (integer in milliseconds)
+          if (updatedData.processing_time !== undefined) {
+            processedData.processing_time = parseInt(updatedData.processing_time) || 0;
+          }
+
+          // 3. Template ID (string or null)
+          if (updatedData.template_id !== undefined) {
+            processedData.template_id = updatedData.template_id || null;
+          }
+
+          // 4. Classification details (object)
+          if (updatedData.classification_details) {
+            processedData.classification_details = {
+              primary_model_prediction: updatedData.classification_details.primary_model_prediction || "",
+              primary_confidence: parseFloat(updatedData.classification_details.primary_confidence) || 0,
+              secondary_model_prediction: updatedData.classification_details.secondary_model_prediction || "",
+              secondary_confidence: parseFloat(updatedData.classification_details.secondary_confidence) || 0,
+            };
+          }
+
+          // 5. Suggested templates (array of objects)
+          if (updatedData.suggested_templates && Array.isArray(updatedData.suggested_templates)) {
+            processedData.suggested_templates = updatedData.suggested_templates.map((template: any) => ({
+              template_id: template.template_id || "",
+              template_name: template.template_name || "",
+              match_score: parseFloat(template.match_score) || 0,
+              priority: parseInt(template.priority) || 0,
+            }));
+          }
+
+          // Convert numeric string fields to integers if needed
+          const intFields = ["totalQty", "received", "damaged", "short", "over", "refused"];
+          for (const field of intFields) {
+            if (processedData[field] !== undefined) {
+              const value = processedData[field];
+              if (typeof value === "string" && /^\d+$/.test(value)) {
+                processedData[field] = parseInt(value, 10);
+              }
+            }
+          }
+
+          // Convert blNumber to integer if it's a numeric string
+          if (processedData.blNumber !== undefined) {
+            if (typeof processedData.blNumber === "string" && /^\d+$/.test(processedData.blNumber)) {
+              processedData.blNumber = parseInt(processedData.blNumber, 10);
+            }
+          }
+
           let filter: Filter<Document> = { _id };
           if (ObjectId.isValid(_id)) {
             filter = { $or: [{ _id }, { _id: new ObjectId(_id) }] };
@@ -30,7 +86,7 @@ async function putHandler(req: Request, context?: any) {
           return {
             updateOne: {
               filter,
-              update: { $set: { ...updatedData, updatedAt: new Date() } },
+              update: { $set: { ...processedData, updatedAt: new Date() } },
             },
           } as AnyBulkWriteOperation<Document>;
         })
@@ -52,9 +108,66 @@ async function putHandler(req: Request, context?: any) {
       );
     }
 
+    // Single document update
     const { _id, ...updatedData } = body;
     if (!_id) {
-      return NextResponse.json({ error: "Missing job ID" }, { status: 400 });
+      return NextResponse.json({ error: "Missing document ID" }, { status: 400 });
+    }
+
+    // ✅ Process new OCR fields for single update
+    const processedData: any = { ...updatedData };
+
+    // 1. Confidence
+    if (updatedData.confidence !== undefined) {
+      processedData.confidence = parseFloat(updatedData.confidence) || 0;
+    }
+
+    // 2. Processing time
+    if (updatedData.processing_time !== undefined) {
+      processedData.processing_time = parseInt(updatedData.processing_time) || 0;
+    }
+
+    // 3. Template ID
+    if (updatedData.template_id !== undefined) {
+      processedData.template_id = updatedData.template_id || null;
+    }
+
+    // 4. Classification details
+    if (updatedData.classification_details) {
+      processedData.classification_details = {
+        primary_model_prediction: updatedData.classification_details.primary_model_prediction || "",
+        primary_confidence: parseFloat(updatedData.classification_details.primary_confidence) || 0,
+        secondary_model_prediction: updatedData.classification_details.secondary_model_prediction || "",
+        secondary_confidence: parseFloat(updatedData.classification_details.secondary_confidence) || 0,
+      };
+    }
+
+    // 5. Suggested templates
+    if (updatedData.suggested_templates && Array.isArray(updatedData.suggested_templates)) {
+      processedData.suggested_templates = updatedData.suggested_templates.map((template: any) => ({
+        template_id: template.template_id || "",
+        template_name: template.template_name || "",
+        match_score: parseFloat(template.match_score) || 0,
+        priority: parseInt(template.priority) || 0,
+      }));
+    }
+
+    // Convert numeric fields
+    const intFields = ["totalQty", "received", "damaged", "short", "over", "refused"];
+    for (const field of intFields) {
+      if (processedData[field] !== undefined) {
+        const value = processedData[field];
+        if (typeof value === "string" && /^\d+$/.test(value)) {
+          processedData[field] = parseInt(value, 10);
+        }
+      }
+    }
+
+    // Convert blNumber
+    if (processedData.blNumber !== undefined) {
+      if (typeof processedData.blNumber === "string" && /^\d+$/.test(processedData.blNumber)) {
+        processedData.blNumber = parseInt(processedData.blNumber, 10);
+      }
     }
 
     let filter: Filter<Document> = { _id };
@@ -64,21 +177,21 @@ async function putHandler(req: Request, context?: any) {
 
     const result = await dataCollection.updateOne(
       filter,
-      { $set: { ...updatedData, updatedAt: new Date() } }
+      { $set: { ...processedData, updatedAt: new Date() } }
     );
 
     if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
     return NextResponse.json(
-      { message: "Job updated successfully", updatedData },
+      { message: "Document updated successfully", updatedData: processedData },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error updating job:", error);
+    console.error("Error updating document:", error);
     return NextResponse.json(
-      { error: "Failed to update job" },
+      { error: "Failed to update document" },
       { status: 500 }
     );
   }
