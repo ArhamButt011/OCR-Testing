@@ -33,7 +33,7 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
   const [userName, setUserName] = useState("User");
   const [userRole, setUserRole] = useState("");
   const router = useRouter();
-  const { isExpanded, toggleSidebar } = useSidebar();
+const { isExpanded, isManual, toggleSidebar, setManual } = useSidebar();
   const [isImageLoaded, setIsImageLoaded] = useState(true);
 
   // NEW: templates collapse state
@@ -59,7 +59,8 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
   const [originalPort, setOriginalPort] = useState("");
   const [originalServiceName, setOriginalServiceName] = useState("");
 
-  const [isInputActive, setIsInputActive] = useState(false); // Track input foc
+  const [isInputActive, setIsInputActive] = useState(false);
+  
   const [dataBase, setDataBase] = useState("local");
   console.log(dataBase);
   const [status, setStatus] = useState<"online" | "offline" | "loading">(
@@ -377,10 +378,33 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
   const isActive = (path: string) => {
     return pathname?.startsWith(path);
   };
+  
+const handleMouseEnter = () => {
+  if (!isExpanded) {
+    toggleSidebar(true);
+  }
+};
+
+const handleMouseLeave = () => {
+  if (!isManual) {
+    toggleSidebar(false); 
+  }
+};
+
+useEffect(() => {
+  if (isActive("/templates") || isActive("/drafts")) {
+    setIsTemplatesOpen(true);
+  }
+}, [pathname]);
+
+
+console.log('is templates open:', isTemplatesOpen);
 
   return (
     <>
       <div
+      onMouseEnter={handleMouseEnter}
+  onMouseLeave={handleMouseLeave}
         className={`fixed top-0 left-0 bg-gray-100 text-gray-800 h-screen z-30 transform transition-all duration-300 ease-in-out ${
           !isExpanded ? "w-24" : "w-64"
         } flex flex-col justify-between`}
@@ -570,6 +594,7 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                     <li>
                       <Link
                         href="/templates"
+                        onClick={() => setIsTemplatesOpen(true)}
                         className={`block py-1 pl-2 pr-0 rounded-md text-[15px] ${
                           isActive("/templates")
                             ? "text-[#005B97] font-semibold"
@@ -583,6 +608,7 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                     <li>
                       <Link
                         href="/drafts"
+                        onClick={() => setIsTemplatesOpen(true)}
                         className={`block py-1 pl-2 pr-0 rounded-md text-[15px] ${
                           isActive("/drafts")
                             ? "text-[#005B97] font-semibold"
@@ -1135,20 +1161,30 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
           </div>
         </div>
       </div>
-      <button
-        onClick={toggleExpand}
-        className={`fixed top-16 ${
-          isExpanded ? "translate-x-60" : "translate-x-20"
-        } z-30 text-white px-[2px] rounded-full transition-all duration-300 ease-in-out flex items-center justify-center`}
-      >
-        <span
-          className={`transition-all duration-300 ease-in-out ${
-            isExpanded ? "rotate-180" : "rotate-0"
-          }`}
-        >
-          <IoIosArrowDroprightCircle fill="#979EAF" size={29} />
-        </span>
-      </button>
+   <button
+  onClick={() => {
+    if (isExpanded) {
+      // closing manually → release manual lock
+      setManual(false);
+      toggleSidebar(false);
+    } else {
+      // opening manually → lock manual mode
+      setManual(true);
+      toggleSidebar(true);
+    }
+  }}
+  className={`fixed top-16 ${
+    isExpanded ? "translate-x-60" : "translate-x-20"
+  } z-50 transition-all duration-300`}
+>
+  <IoIosArrowDroprightCircle
+    size={29}
+    fill="#979EAF"
+    className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+  />
+</button>
+
+
     </>
   );
 }

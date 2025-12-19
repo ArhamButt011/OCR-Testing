@@ -15,7 +15,7 @@ import { useTemplate } from "@/app/context/TemplateContext";
 
 interface CreateTemplateModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (shouldRefresh?: boolean) => void;
   draftId?: string;
   templateId?: string;
 }
@@ -49,7 +49,7 @@ function ModalContentInner({
   onClose,
   isEditMode,
 }: {
-  onClose: () => void;
+  onClose: (shouldRefresh?: boolean) => void;
   isEditMode: boolean;
 }) {
   const {
@@ -88,12 +88,11 @@ function ModalContentInner({
 
   const handleClose = () => {
     if (
-      !isEditMode &&
-      confirm("Are you sure you want to close? Your progress has been auto-saved.")
+      !isEditMode
     ) {
-      onClose();
+      onClose(false);
     } else {
-      onClose();
+      onClose(false);
     }
   };
 
@@ -272,7 +271,7 @@ export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
   templateId,
 }) => {
   return (
-    <ModalPortal isOpen={isOpen} onClose={onClose}>
+    <ModalPortal isOpen={isOpen} onClose={() => onClose(false)}>
       <TemplateProvider
         initialDraftId={draftId}
         initialTemplateId={templateId}

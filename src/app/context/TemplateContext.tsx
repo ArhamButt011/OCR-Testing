@@ -153,7 +153,7 @@ interface TemplateContextType {
   errors: Record<string, any>;
   isEditMode: boolean;
   originalDraftId: string | null;
-  onModalClose?: () => void;
+  onModalClose?: (shouldRefresh?: boolean) => void;
   setCurrentStep: (step: number) => void;
   updateTemplateData: (data: Partial<TemplateData>) => void;
   saveDraft: () => Promise<void>;
@@ -191,7 +191,7 @@ interface TemplateProviderProps {
   children: React.ReactNode;
   initialDraftId?: string;
   initialTemplateId?: string;
-  onModalClose?: () => void;
+  onModalClose?: (shouldRefresh?: boolean) => void;
 }
 
 export const TemplateProvider: React.FC<TemplateProviderProps> = ({
@@ -253,7 +253,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
         data = response.data;
       }
 
-      console.log(" Draft save response:", data);
+      console.log("✅ Draft save response:", data);
 
       if (!draftId && data._id) {
         setDraftId(data._id);
@@ -301,7 +301,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       console.log("Extracted draft:", draft);
 
       setOriginalDraftId(draft._id);
-      console.log(" Stored originalDraftId:", draft._id);
+      console.log("📌 Stored originalDraftId:", draft._id);
 
       setDraftId(draft._id);
 
@@ -309,7 +309,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       setCurrentStep(stepNumber);
 
       const partialData = draft.partial_data || {};
-      console.log(" Loading partial data into form:", partialData);
+      console.log("📝 Loading partial data into form:", partialData);
       setTemplateData(partialData);
 
       const lastSavedTime = draft.metadata?.last_saved_at || draft.updated_at;
@@ -564,7 +564,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       }
 
       try {
-      await axios.post("/api/templates/validate", templateBody);
+        await axios.post("/api/templates/validate", templateBody);
       } catch (error: any) {
         throw {
           error: error.response?.data?.error || "Template validation failed",

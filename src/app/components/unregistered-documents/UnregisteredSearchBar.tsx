@@ -55,7 +55,7 @@ export const UnregisteredSearchBar: React.FC<UnregisteredSearchBarProps> = ({
           </div>
 
           {/* Category Filter */}
-          <div>
+          {/* <div>
             <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
               Category
             </label>
@@ -70,7 +70,7 @@ export const UnregisteredSearchBar: React.FC<UnregisteredSearchBarProps> = ({
               <option value="Notation">Notation</option>
               <option value="Receipt">Receipt</option>
             </select>
-          </div>
+          </div> */}
         </div>
 
         {/* Second Row: Sort and Actions */}

@@ -220,9 +220,15 @@ export default function DraftsPage() {
     }
   };
 
-  const handleModalClose = () => {
+  const handleModalClose = (shouldRefresh?: boolean) => {
     setIsModalOpen(false);
     setSelectedDraftId(undefined);
+    
+    // If shouldRefresh is true, refresh the drafts list
+    if (shouldRefresh) {
+      console.log("🔄 Refreshing drafts list after template creation");
+      fetchDrafts();
+    }
   };
 
   const handleSidebarStateChange = (newState: boolean) => {

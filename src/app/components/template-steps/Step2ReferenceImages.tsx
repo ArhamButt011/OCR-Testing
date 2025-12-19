@@ -275,12 +275,12 @@ export const Step2ReferenceImages: React.FC = () => {
                         className="object-contain w-full h-full"
                       />
                     </div>
-                    <div>
+                    {/* <div>
                       <p>
                         {" "}
                         {baseUrl}{image.file_path}
                       </p>
-                    </div>
+                    </div> */}
                   </>
                 )}
 

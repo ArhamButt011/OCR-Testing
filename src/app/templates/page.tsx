@@ -197,20 +197,23 @@ export default function TemplatesPage() {
     setIsModalOpen(true);
   };
 
-  // Handle modal close
-  const handleModalClose = () => {
+  // Handle modal close with refresh
+  const handleModalClose = (shouldRefresh?: boolean) => {
     setIsModalOpen(false);
     setSelectedDraftId(undefined);
     setSelectedTemplateId(undefined);
+    
+    // Refresh templates list if requested
+    if (shouldRefresh) {
+      fetchTemplates();
+    }
   };
 
-  // ✅ NEW: Handle test template
   const handleTest = (template: Template) => {
     setSelectedTemplate(template);
     setTestModalOpen(true);
   };
-
-  // ✅ NEW: Handle test modal close
+  
   const handleTestModalClose = () => {
     setTestModalOpen(false);
     setSelectedTemplate(null);
@@ -331,7 +334,7 @@ export default function TemplatesPage() {
                     onDeprecate={handleDeprecate}
                     onDelete={handleDelete}
                     onEdit={handleEdit}
-                    onTest={handleTest} // ✅ NEW: Pass test handler
+                    onTest={handleTest}
                   />
 
                   {/* Pagination */}

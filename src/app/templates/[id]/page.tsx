@@ -220,12 +220,12 @@ export default function TemplateDetailsPage() {
                       <p className="text-sm text-gray-600 mb-1">Usage Count</p>
                       <p className="font-medium text-gray-900">{template.metadata.usage_count.toLocaleString()}</p>
                     </div>
-                    <div>
+                    {/* <div>
                       <p className="text-sm text-gray-600 mb-1">Success Rate</p>
                       <p className="font-medium text-gray-900">
                         {(template.metadata.success_rate * 100).toFixed(1)}%
                       </p>
-                    </div>
+                    </div> */}
                   </div>
                   {template.description && (
                     <div className="mt-6">

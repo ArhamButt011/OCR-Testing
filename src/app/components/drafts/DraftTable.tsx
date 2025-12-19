@@ -151,7 +151,7 @@ export const DraftTable: React.FC<DraftTableProps> = ({
               </th>
 
               {/* Category - Sortable */}
-              <th
+              {/* <th
                 onClick={() => onSort("partial_data.category")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
@@ -159,7 +159,7 @@ export const DraftTable: React.FC<DraftTableProps> = ({
                   Category
                   {renderSortIcon("partial_data.category")}
                 </div>
-              </th>
+              </th> */}
 
               {/* Progress - Sortable */}
               <th
