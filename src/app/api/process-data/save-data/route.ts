@@ -1,3 +1,4 @@
+// app/api/process-data/save-data/route.ts
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -11,7 +12,7 @@ async function postMockDataHandler(
 ): Promise<NextResponse> {
   try {
     const dataArray = await request.json();
-    console.log('data ara-> ', dataArray)
+    console.log('data array-> ', dataArray);
 
     if (!Array.isArray(dataArray)) {
       return NextResponse.json(
@@ -21,7 +22,6 @@ async function postMockDataHandler(
     }
 
     const requiredFields = [
-      "_id",
       "fileId",
       "blNumber",
       "jobId",
@@ -60,12 +60,14 @@ async function postMockDataHandler(
     const bulkOps = [];
 
     for (const data of dataArray) {
+      // Trim string fields
       for (const field of requiredFields) {
         if (typeof data[field] === "string") {
           data[field] = data[field].trim();
         }
       }
 
+      // Convert numeric string fields to integers
       const intFields = [
         "totalQty",
         "received",
@@ -94,12 +96,58 @@ async function postMockDataHandler(
         data.jobName = job ? job.jobName : "";
       }
 
-      // if (typeof data.blNumber === "number") {
-      //   data.blNumber = data.blNumber.toString();
-      // }
-
+      // Convert blNumber to integer if it's a numeric string
       if (typeof data.blNumber === "string" && /^\d+$/.test(data.blNumber)) {
         data.blNumber = parseInt(data.blNumber, 10);
+      }
+
+      // ✅ Handle new OCR fields
+      const updateData: any = { ...data };
+
+      // 1. Confidence (float between 0-1)
+      if (data.confidence !== undefined) {
+        updateData.confidence = parseFloat(data.confidence) || 0;
+      }
+
+      // 2. Processing time (integer in milliseconds)
+      if (data.processing_time !== undefined) {
+        updateData.processing_time = parseInt(data.processing_time) || 0;
+      }
+
+      // 3. Template ID (string or null)
+      if (data.template_id !== undefined) {
+        updateData.template_id = data.template_id || null;
+      }
+
+      // 4. Classification details (object)
+      if (data.classification_details) {
+        updateData.classification_details = {
+          primary_model_prediction: data.classification_details.primary_model_prediction || "",
+          primary_confidence: parseFloat(data.classification_details.primary_confidence) || 0,
+          secondary_model_prediction: data.classification_details.secondary_model_prediction || "",
+          secondary_confidence: parseFloat(data.classification_details.secondary_confidence) || 0,
+        };
+      } else {
+        // Set default if not provided
+        updateData.classification_details = {
+          primary_model_prediction: "",
+          primary_confidence: 0,
+          secondary_model_prediction: "",
+          secondary_confidence: 0,
+        };
+      }
+
+      // 5. Suggested templates (array of objects)
+      if (data.suggested_templates && Array.isArray(data.suggested_templates)) {
+        updateData.suggested_templates = data.suggested_templates.map((template: any) => ({
+          template_id: template.template_id || "",
+          template_name: template.template_name || "",
+          match_score: parseFloat(template.match_score) || 0,
+          priority: parseInt(template.priority) || 0,
+        }));
+      } else {
+        // Set empty array if not provided
+        updateData.suggested_templates = [];
       }
 
       // If pdfUrl already exists, update it instead of inserting a new record
@@ -107,15 +155,19 @@ async function postMockDataHandler(
         bulkOps.push({
           updateOne: {
             filter: { pdfUrl },
-            update: { $set: { ...data } },
-            // update: { $set: { ...data, updatedAt: new Date() } }
+            update: { 
+              $set: { 
+                ...updateData,
+                updatedAt: new Date() 
+              } 
+            },
           },
         });
       } else {
         bulkOps.push({
           insertOne: {
             document: {
-              ...data,
+              ...updateData,
               createdAt: new Date(),
             },
           },
