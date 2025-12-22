@@ -125,7 +125,7 @@ export const TemplateTestModal: React.FC<TemplateTestModalProps> = ({
 
       const response = await axios.post<TestResponse>(testTemplateApiUrl, {
         template: template,
-        file_url: "/workspace/POD_OCR/stamps/CASE_01/17755216_160566871_1737405920016.jpg",
+        file_url: fileUrl,
       });
 
       console.log("Test response:", response.data);
