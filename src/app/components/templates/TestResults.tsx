@@ -18,14 +18,14 @@ export const TestResults: React.FC<TestResultsProps> = ({ results }) => {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Predicted Category:</span>
             <span className="text-sm font-semibold text-gray-900">
-              {results.classification.predicted_category}
+              {results?.classification?.predicted_category}
             </span>
           </div>
 
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Confidence:</span>
             <span className="text-sm font-semibold text-green-600">
-              {(results.classification.confidence * 100).toFixed(1)}%
+              {(results?.classification?.confidence * 100).toFixed(1)}%
             </span>
           </div>
 
@@ -34,20 +34,20 @@ export const TestResults: React.FC<TestResultsProps> = ({ results }) => {
               <div>
                 <p className="text-xs font-medium text-gray-600 mb-1">Primary Model</p>
                 <p className="text-sm text-gray-900">
-                  {results.classification.primary_model.prediction}
+                  {results?.classification?.primary_model.prediction}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {(results.classification.primary_model.confidence * 100).toFixed(1)}%
+                  {(results?.classification?.primary_model.confidence * 100).toFixed(1)}%
                 </p>
               </div>
 
               <div>
                 <p className="text-xs font-medium text-gray-600 mb-1">Secondary Model</p>
                 <p className="text-sm text-gray-900">
-                  {results.classification.secondary_model.prediction}
+                  {results?.classification?.secondary_model?.prediction}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {(results.classification.secondary_model.confidence * 100).toFixed(1)}%
+                  {(results?.classification?.secondary_model?.confidence * 100).toFixed(1)}%
                 </p>
               </div>
             </div>
@@ -63,28 +63,28 @@ export const TestResults: React.FC<TestResultsProps> = ({ results }) => {
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-700">Classification:</span>
             <span className="text-sm font-medium text-gray-900">
-              {results.processing_time.classification_ms}ms
+              {results?.processing_time?.classification_ms}ms
             </span>
           </div>
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-700">Region Detection:</span>
             <span className="text-sm font-medium text-gray-900">
-              {results.processing_time.region_detection_ms}ms
+              {results?.processing_time?.region_detection_ms}ms
             </span>
           </div>
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-700">OCR Extraction:</span>
             <span className="text-sm font-medium text-gray-900">
-              {results.processing_time.ocr_extraction_ms}ms
+              {results?.processing_time?.ocr_extraction_ms}ms
             </span>
           </div>
 
           <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-900">Total:</span>
             <span className="text-sm font-bold text-primary">
-              {results.processing_time.total_ms}ms
+              {results?.processing_time?.total_ms}ms
             </span>
           </div>
         </div>
@@ -113,7 +113,7 @@ export const TestResults: React.FC<TestResultsProps> = ({ results }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {Object.entries(results.extracted_fields).map(([fieldName, fieldData]: [string, any]) => (
+              {Object.entries(results?.extracted_fields).map(([fieldName, fieldData]: [string, any]) => (
                 <tr key={fieldName} className="hover:bg-gray-50">
                   <td className="px-3 py-2 text-sm font-medium text-gray-900">
                     {fieldName.replace(/_/g, " ")}
@@ -153,29 +153,29 @@ export const TestResults: React.FC<TestResultsProps> = ({ results }) => {
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Detected Regions</h3>
         
         <div className="space-y-2">
-          {results.regions_detected.map((region: any, index: number) => (
+          {results?.regions_detected.map((region: any, index: number) => (
             <div
               key={index}
               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
             >
               <div>
                 <p className="text-sm font-medium text-gray-900">
-                  {region.region_name.replace(/_/g, " ")}
+                  {region?.region_name.replace(/_/g, " ")}
                 </p>
                 <p className="text-xs text-gray-600">
-                  Method: <span className="font-medium">{region.detection_method}</span>
+                  Method: <span className="font-medium">{region?.detection_method}</span>
                 </p>
               </div>
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  region.confidence >= 0.9
+                  region?.confidence >= 0.9
                     ? "bg-green-100 text-green-800"
-                    : region.confidence >= 0.8
+                    : region?.confidence >= 0.8
                     ? "bg-yellow-100 text-yellow-800"
                     : "bg-red-100 text-red-800"
                 }`}
               >
-                {(region.confidence * 100).toFixed(0)}%
+                {(region?.confidence * 100).toFixed(0)}%
               </span>
             </div>
           ))}
