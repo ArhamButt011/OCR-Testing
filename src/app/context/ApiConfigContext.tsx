@@ -44,8 +44,8 @@ export const ApiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
           
           // For remote use below lines
           setOcrApiUrl(`https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr`);
-          // setBaseUrl(`https://fzi6t0m8gas6eb-8080.proxy.runpod.net`);
-          setBaseUrl(`http://localhost:3000`);
+          setBaseUrl(`https://fzi6t0m8gas6eb-8080.proxy.runpod.net`);
+          // setBaseUrl(`http://localhost:3000`);
 
         }
       } catch (err) {
