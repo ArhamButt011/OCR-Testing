@@ -821,7 +821,7 @@ async function processPrimaryBatch(
           console.warn(`  - Deferring to fallback`);
           forFallback.push({
             _id: fileId,
-            file_url_or_path: filePath,
+            file_url: filePath,
             FILE_TABLE: fileTable,
             errorCategory: 'URL_CHECK_FAILED'
           });
@@ -840,7 +840,7 @@ async function processPrimaryBatch(
             console.warn(`PDF validation failed for ${fileId}: ${pdfValidation.reason} - ${pdfValidation.details}`);
             forFallback.push({
               _id: fileId,
-              file_url_or_path: filePath,
+              file_url: filePath,
               FILE_TABLE: fileTable,
               errorCategory: pdfValidation.reason,
               errorDetails: pdfValidation.details
@@ -851,7 +851,7 @@ async function processPrimaryBatch(
               console.log(`Large file detected (${fileSize.sizeMB.toFixed(2)}MB): ${fileId} - queuing separately`);
               largeFilePayload.push({
                 _id: fileId,
-                file_url_or_path: filePath,
+                file_url: filePath,
                 FILE_TABLE: fileTable,
                 fileSize: fileSize.sizeMB,
               });
@@ -861,7 +861,7 @@ async function processPrimaryBatch(
               }
               payload.push({
                 _id: fileId,
-                file_url_or_path: filePath,
+                file_url: filePath,
                 FILE_TABLE: fileTable,
                 fileSize: fileSize?.sizeMB,
               });
@@ -875,7 +875,7 @@ async function processPrimaryBatch(
         );
         forFallback.push({
           _id: fileId,
-          file_url_or_path: "",
+          file_url: "",
           FILE_TABLE: fileTable,
           errorCategory,
           errorMessage: e.message

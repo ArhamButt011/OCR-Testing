@@ -138,7 +138,7 @@ cron.schedule("*/1 * * * *", async () => {
                 const ocrResponse = await fetch(ocrUrl, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ file_url_or_path: filePath }),
+                  body: JSON.stringify({ file_url: filePath }),
                 });
 
                 if (!ocrResponse.ok) {
@@ -428,7 +428,7 @@ async function processBatch(
         const filePath = `${base_url}/access-file?filename=${encodeURIComponent(
           fileData.FILE_NAME
         )}`;
-        payload.push({ _id: fileId, file_url_or_path: filePath });
+        payload.push({ _id: fileId, file_url: filePath });
       })
     );
     console.log("payload is-> ", payload);
@@ -1105,14 +1105,14 @@ Live
 
 //       const filePath = `${base_url}/access-file?filename=${encodeURIComponent(fileData.FILE_NAME)}`;
 //       if (await isUrlOk(filePath)) {
-//         payload.push({ _id: fileId, file_url_or_path: filePath, FILE_TABLE: fileTable });
+//         payload.push({ _id: fileId, file_url: filePath, FILE_TABLE: fileTable });
 //       } else {
 //         console.warn(`Preflight failed; defer to fallback: ${fileId}`);
-//         forFallback.push({ _id: fileId, file_url_or_path: filePath, FILE_TABLE: fileTable });
+//         forFallback.push({ _id: fileId, file_url: filePath, FILE_TABLE: fileTable });
 //       }
 //     } catch (e) {
 //       console.warn(`Meta/store failed; defer to fallback: ${fileId} (${e.message})`);
-//       forFallback.push({ _id: fileId, file_url_or_path: "", FILE_TABLE: fileTable });
+//       forFallback.push({ _id: fileId, file_url: "", FILE_TABLE: fileTable });
 //     }
 //   }));
 

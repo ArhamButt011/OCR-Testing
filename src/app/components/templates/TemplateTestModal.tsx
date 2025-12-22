@@ -78,6 +78,7 @@ export const TemplateTestModal: React.FC<TemplateTestModalProps> = ({
     setIsUploading(true);
 
     try {
+      // Create FormData to upload the file
       const formData = new FormData();
       formData.append("file", file);
 
@@ -124,7 +125,7 @@ export const TemplateTestModal: React.FC<TemplateTestModalProps> = ({
 
       const response = await axios.post<TestResponse>(testTemplateApiUrl, {
         template: template,
-        file_url: fileUrl,
+        file_url: "/workspace/POD_OCR/stamps/CASE_01/17755216_160566871_1737405920016.jpg",
       });
 
       console.log("Test response:", response.data);

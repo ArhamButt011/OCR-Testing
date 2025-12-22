@@ -507,7 +507,7 @@ const MasterPage = () => {
         }
         if (!fileName) return null;
         return {
-          file_url_or_path: `${baseUrl}/api/access-file?filename=${encodeURIComponent(
+          file_url: `${baseUrl}/api/access-file?filename=${encodeURIComponent(
             fileName
           )}`,
           _id: job?._id,
@@ -625,22 +625,22 @@ const MasterPage = () => {
         const batch = pdfFiles
           .slice(i, i + batchSize)
           .filter(
-            (f): f is { file_url_or_path: string; _id: string } => f !== null
+            (f): f is { file_url: string; _id: string } => f !== null
           );
         console.log("Processing batch:", batch);
         batch.forEach((pdfFile) => {
-          if (!pdfFile || !pdfFile.file_url_or_path) return;
+          if (!pdfFile || !pdfFile.file_url) return;
 
           setProgress((prev) => ({
             ...prev,
-            [pdfFile.file_url_or_path]: 10,
+            [pdfFile.file_url]: 10,
           }));
         });
 console.log()
         try {
           const payload = batch.map((pdfFile) => ({
             _id: pdfFile._id,
-            file_url_or_path: pdfFile.file_url_or_path,
+            file_url: pdfFile.file_url,
           }));
 
           const ocrResponse = await fetch(ocrApiUrl, {
@@ -705,7 +705,7 @@ console.log()
               const recognitionStatus = recognitionStatusMap[status] || "null";
 
               const matchingFile = batch.find((f) => f._id === data?._id);
-              const urlObj = new URL(matchingFile?.file_url_or_path || "");
+              const urlObj = new URL(matchingFile?.file_url || "");
               const filename = urlObj.searchParams.get("filename") || "";
               const decodedFilePath = `/file/${decodeURIComponent(filename)}`;
 
@@ -806,7 +806,7 @@ console.log()
             batch.forEach((pdfFile) => {
               setProgress((prev) => ({
                 ...prev,
-                [pdfFile.file_url_or_path]: p,
+                [pdfFile.file_url]: p,
               }));
             });
           }
@@ -814,7 +814,7 @@ console.log()
           batch.forEach((pdfFile) => {
             setProgress((prev) => ({
               ...prev,
-              [pdfFile.file_url_or_path]: 1,
+              [pdfFile.file_url]: 1,
             }));
           });
 

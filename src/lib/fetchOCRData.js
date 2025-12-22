@@ -31,7 +31,7 @@ export async function fetchOCRData(pdfUrl) {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ file_url_or_path: pdfUrl }),
+            body: JSON.stringify({ file_url: pdfUrl }),
         }, timeout);
 
         if (!response.ok) {

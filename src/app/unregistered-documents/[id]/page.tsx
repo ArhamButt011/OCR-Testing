@@ -173,7 +173,7 @@ export default function DocumentDetailsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             _id: document._id,
-            file_url_or_path: document.pdfUrl,
+            file_url: document.pdfUrl,
             template_id: selectedTemplateId
           })
         });
