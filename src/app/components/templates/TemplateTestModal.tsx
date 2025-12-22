@@ -83,7 +83,7 @@ export const TemplateTestModal: React.FC<TemplateTestModalProps> = ({
       formData.append("file", file);
 
       // Upload file to the server
-      const uploadResponse = await axios.post("/api/templates/test/upload-file/upload-file", formData, {
+      const uploadResponse = await axios.post("/api/templates/test/upload-file", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
