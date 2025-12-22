@@ -478,7 +478,7 @@ const MasterPage = () => {
           // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
           // setBaseUrl(`http://${data.secondaryIp}:3000`);
           //for remote use below lines
-          setOcrApiUrl(`https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr`);
+          setOcrApiUrl(`https://4lrl8vwxpqp35t-8080.proxy.runpod.net/run-ocr`);
           // setBaseUrl(`https://h0palyajms52cn-8080.proxy.runpod.net`);
         }
       } catch (error) {
