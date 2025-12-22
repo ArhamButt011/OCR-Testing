@@ -117,13 +117,20 @@ async function statusChangeHandler(
             template: templateData,
           };
         }
-      } else {
+      } else if(status ==='inactive') {
         // For inactive or deprecated, only send template_id and status
         aiServerPayload = {
           template_id: params.id,
-          status: status,
+          status: "remove",
+        }
+        }
+        else {
+          aiServerPayload = {
+          template_id: params.id,
+          status: "remove",
         };
-      }
+        }
+      
 
       const aiServerResponse = await fetch(`${AI_SERVER_URL}/api/templates/sync`, {
         method: "POST",
@@ -132,6 +139,7 @@ async function statusChangeHandler(
         },
         body: JSON.stringify(aiServerPayload),
       });
+      console.log('ai server payload-> ', aiServerPayload)
 
       if (!aiServerResponse.ok) {
         const errorText = await aiServerResponse.text();
