@@ -42,7 +42,7 @@ interface TemplateTableProps {
   onDeprecate: (templateId: string) => void;
   onDelete: (templateId: string) => void;
   onEdit: (templateId: string) => void;
-  onTest: (template: Template) => void; // ✅ NEW: Test function
+  onTest: (template: Template) => void;
 }
 
 export const TemplateTable: React.FC<TemplateTableProps> = ({
@@ -228,6 +228,11 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                   {template.metadata.usage_count?.toLocaleString() || "0"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {template.metadata.success_rate !== undefined
+                    ? `${(template.metadata.success_rate * 100).toFixed(1)}%`
+                    : "N/A"}
+                </td>
+                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {template.metadata.success_rate !== undefined
                     ? `${(template.metadata.success_rate * 100).toFixed(1)}%`
                     : "N/A"}

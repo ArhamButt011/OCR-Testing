@@ -210,6 +210,7 @@ export default function TemplatesPage() {
   };
 
   const handleTest = (template: Template) => {
+    console.log('testing this templtae-> ', template);
     setSelectedTemplate(template);
     setTestModalOpen(true);
   };

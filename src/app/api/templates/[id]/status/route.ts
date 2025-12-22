@@ -6,7 +6,7 @@ import { ObjectId } from "mongodb";
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const SECRET_KEY = process.env.JWT_SECRET as string;
-const AI_SERVER_URL = process.env.AI_SERVER_URL;
+const AI_SERVER_URL = process.env.AI_SERVER_URL || "https://4lrl8vwxpqp35t-19123-8080.proxy.runpod.net";
 
 async function statusChangeHandler(
   req: NextRequest | Request,
@@ -92,38 +92,56 @@ async function statusChangeHandler(
       );
     }
 
-    if (status === "active" && AI_SERVER_URL) {
-      try {
-        await fetch(`${AI_SERVER_URL}/api/templates/reload`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            template_id: params.id,
-            action: "activate",
-          }),
-        });
-      } catch (error) {
-        console.warn("Failed to notify AI server:", error);
-      }
-    }
+    // Sync with AI server
+    try {
+      let aiServerPayload: any = {
+        template_id: params.id,
+        status: status,
+      };
 
-    if ((status === "inactive" || status === "deprecated") && AI_SERVER_URL) {
-      try {
-        await fetch(`${AI_SERVER_URL}/api/templates/reload`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            template_id: params.id,
-            action: status === "deprecated" ? "deprecate" : "deactivate",
-          }),
+      // If status is active, fetch full template data and include it
+      if (status === "active") {
+        const fullTemplate = await templatesCollection.findOne({
+          _id: ObjectId.createFromHexString(params.id),
         });
-      } catch (error) {
-        console.warn("Failed to notify AI server:", error);
+
+        if (fullTemplate) {
+          // Convert MongoDB _id to string for JSON serialization
+          const templateData = {
+            ...fullTemplate,
+            _id: fullTemplate._id.toString(),
+          };
+
+          aiServerPayload = {
+            action: "add",
+            template: templateData,
+          };
+        }
+      } else {
+        // For inactive or deprecated, only send template_id and status
+        aiServerPayload = {
+          template_id: params.id,
+          status: status,
+        };
       }
+
+      const aiServerResponse = await fetch(`${AI_SERVER_URL}/api/templates/sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(aiServerPayload),
+      });
+
+      if (!aiServerResponse.ok) {
+        const errorText = await aiServerResponse.text();
+        console.warn("AI server sync failed:", errorText);
+      } else {
+        const aiResponseData = await aiServerResponse.json();
+        console.log("AI server sync successful:", aiResponseData);
+      }
+    } catch (error) {
+      console.warn("Failed to sync with AI server:", error);
     }
 
     return NextResponse.json({

@@ -14,6 +14,7 @@ export const Step1BasicInfo: React.FC = () => {
     message: string;
   } | null>(null);
   const [checkTimeout, setCheckTimeout] = useState<NodeJS.Timeout | null>(null);
+  
   const checkTemplateIdUniqueness = useCallback(async (templateId: string) => {
     if (!templateId || templateId.length < 3) {
       setIdCheckResult(null);
@@ -42,10 +43,9 @@ export const Step1BasicInfo: React.FC = () => {
       const data = response.data;
 
       if (data.available) {
-        // Template ID is unique - allow to proceed
         setIdCheckResult({
           available: true,
-          message: '✓ Template ID is available'
+          message: 'Template ID is available'
         });
         clearError('template_id');
       } else {

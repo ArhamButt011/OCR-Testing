@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useTemplate, ConditionalRule } from '@/app/context/TemplateContext';
-import { toast } from 'react-toastify';
+import { useTemplate } from '@/app/context/TemplateContext';
+import { ValidationRulesForm } from './ValidationRules';
+import { TransformationRulesForm } from './TransformationRules';
+import { BusinessLogicRulesForm } from './BusinessLogicRules';
+
+type RuleType = 'validation_rules' | 'transformation_rules' | 'business_logic';
 
 export const Step5Prompts: React.FC = () => {
   const { templateData, updateTemplateData, errors, setErrors } = useTemplate();
@@ -10,15 +14,8 @@ export const Step5Prompts: React.FC = () => {
   const [schemaText, setSchemaText] = useState<string>('');
   const [schemaError, setSchemaError] = useState<string>('');
   const [showPostProcessing, setShowPostProcessing] = useState(false);
-  
-  // New rule state
-  const [newRule, setNewRule] = useState<ConditionalRule>({
-    rule_name: '',
-    condition: '',
-    action: 'set_to_null',
-    field: '',
-  });
-  
+  const [selectedRuleType, setSelectedRuleType] = useState<RuleType>('validation_rules');
+
   // Get regions from region_config
   const regions = React.useMemo(() => {
     const regionSet = new Set<string>();
@@ -39,6 +36,7 @@ export const Step5Prompts: React.FC = () => {
   }, [templateData.region_config]);
 
   const prompts = templateData.prompts || {};
+  const postProcessingRules = templateData.post_processing_rules || {};
 
   const updatePrompt = (region: string, field: string, value: any) => {
     updateTemplateData({
@@ -48,6 +46,15 @@ export const Step5Prompts: React.FC = () => {
           ...prompts[region],
           [field]: value
         }
+      }
+    });
+  };
+
+  const updatePostProcessingRules = (rules: Partial<typeof postProcessingRules>) => {
+    updateTemplateData({
+      post_processing_rules: {
+        ...postProcessingRules,
+        ...rules
       }
     });
   };
@@ -62,7 +69,6 @@ export const Step5Prompts: React.FC = () => {
       setSchemaError('');
     }
     
-    // Reset post-processing view when changing regions
     setShowPostProcessing(false);
   }, [selectedRegion, prompts]);
 
@@ -99,39 +105,59 @@ export const Step5Prompts: React.FC = () => {
     }
   };
 
-  // Add post-processing rule
-  const addPostProcessingRule = () => {
-    if (!newRule.rule_name || !newRule.condition || !newRule.field) {
-      toast.error('Please fill in all required fields: Rule Name, Condition, and Field');
-      return;
-    }
-
-    const currentPostProcessing = prompts[selectedRegion]?.post_processing || { validations: [] };
-    const updatedValidations = [...(currentPostProcessing.validations || []), { ...newRule }];
-
-    updatePrompt(selectedRegion, 'post_processing', {
-      ...currentPostProcessing,
-      validations: updatedValidations
-    });
-
-    // Reset form
-    setNewRule({
-      rule_name: '',
-      condition: '',
-      action: 'set_to_null',
-      field: '',
-    });
+  // Add Validation Rule
+  const addValidationRule = (rule: any) => {
+    const updatedRules = [...(postProcessingRules.validation_rules || []), rule];
+    updatePostProcessingRules({ validation_rules: updatedRules });
   };
 
-  // Delete post-processing rule
-  const deletePostProcessingRule = (index: number) => {
-    const currentPostProcessing = prompts[selectedRegion]?.post_processing || { validations: [] };
-    const updatedValidations = (currentPostProcessing.validations || []).filter((_, i) => i !== index);
+  // Edit Validation Rule
+  const editValidationRule = (index: number, rule: any) => {
+    const updatedRules = [...(postProcessingRules.validation_rules || [])];
+    updatedRules[index] = rule;
+    updatePostProcessingRules({ validation_rules: updatedRules });
+  };
 
-    updatePrompt(selectedRegion, 'post_processing', {
-      ...currentPostProcessing,
-      validations: updatedValidations
-    });
+  // Add Transformation Rule
+  const addTransformationRule = (rule: any) => {
+    const updatedRules = [...(postProcessingRules.transformation_rules || []), rule];
+    updatePostProcessingRules({ transformation_rules: updatedRules });
+  };
+
+  // Edit Transformation Rule
+  const editTransformationRule = (index: number, rule: any) => {
+    const updatedRules = [...(postProcessingRules.transformation_rules || [])];
+    updatedRules[index] = rule;
+    updatePostProcessingRules({ transformation_rules: updatedRules });
+  };
+
+  // Add Business Logic Rule
+  const addBusinessLogicRule = (rule: any) => {
+    const updatedRules = [...(postProcessingRules.business_logic || []), rule];
+    updatePostProcessingRules({ business_logic: updatedRules });
+  };
+
+  // Edit Business Logic Rule
+  const editBusinessLogicRule = (index: number, rule: any) => {
+    const updatedRules = [...(postProcessingRules.business_logic || [])];
+    updatedRules[index] = rule;
+    updatePostProcessingRules({ business_logic: updatedRules });
+  };
+
+  // Delete rules
+  const deleteValidationRule = (index: number) => {
+    const updated = (postProcessingRules.validation_rules || []).filter((_, i) => i !== index);
+    updatePostProcessingRules({ validation_rules: updated });
+  };
+
+  const deleteTransformationRule = (index: number) => {
+    const updated = (postProcessingRules.transformation_rules || []).filter((_, i) => i !== index);
+    updatePostProcessingRules({ transformation_rules: updated });
+  };
+
+  const deleteBusinessLogicRule = (index: number) => {
+    const updated = (postProcessingRules.business_logic || []).filter((_, i) => i !== index);
+    updatePostProcessingRules({ business_logic: updated });
   };
 
   // Validate current region
@@ -171,9 +197,9 @@ export const Step5Prompts: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Region Prompts</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Region Prompts & Post-Processing</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Configure VLM prompts and post-processing rules for each detected region
+          Configure VLM prompts and global post-processing rules
         </p>
       </div>
 
@@ -267,15 +293,9 @@ Output JSON only.`}
   "stamp_exist": "string",
   "seal_intact": "string",
   "pod_date": "string",
-  "pod_sign": "string",
   "total_received": "integer",
   "damage": "integer",
-  "short": "integer",
-  "over": "integer",
-  "refused": "integer",
-  "roc_damaged": "integer",
-  "damaged_kept": "integer",
-  "notation_exist": "integer"
+  "short": "integer"
 }`}
                 className={`block w-full rounded-md border px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 ${
                   schemaError 
@@ -301,10 +321,6 @@ Output JSON only.`}
               ) : (
                 <p className="mt-1 text-sm text-red-600">Expected output schema is required</p>
               )}
-
-              <p className="mt-2 text-xs text-gray-500">
-                Define the exact JSON structure that the VLM should output for this region.
-              </p>
             </div>
 
             {/* Quick Actions */}
@@ -342,184 +358,118 @@ Output JSON only.`}
               </div>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Post-Processing Rules Card */}
-          <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  Post-Processing Rules
-                  <span className="ml-2 text-sm font-normal text-gray-500">(Optional)</span>
-                </h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Define validation and transformation rules for extracted data
-                </p>
-              </div>
+      {/* Global Post-Processing Rules Card */}
+      <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">
+              Global Post-Processing Rules
+              <span className="ml-2 text-sm font-normal text-gray-500">(Optional)</span>
+            </h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Define validation, transformation, and business logic rules applied across all regions
+            </p>
+          </div>
+          <button
+            onClick={() => setShowPostProcessing(!showPostProcessing)}
+            className="inline-flex items-center px-3 py-1.5 border border-purple-300 text-sm font-medium rounded text-purple-700 bg-white hover:bg-purple-100"
+          >
+            {showPostProcessing ? 'Hide' : 'Show'} Rules
+            <svg 
+              className={`ml-2 h-4 w-4 transition-transform ${showPostProcessing ? 'rotate-180' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
+        {showPostProcessing && (
+          <div className="space-y-4 pt-4 border-t border-purple-200">
+            {/* Rule Type Selector */}
+            <div className="flex gap-2">
               <button
-                onClick={() => setShowPostProcessing(!showPostProcessing)}
-                className="inline-flex items-center px-3 py-1.5 border border-purple-300 text-sm font-medium rounded text-purple-700 bg-white hover:bg-purple-100"
+                onClick={() => setSelectedRuleType('validation_rules')}
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border ${
+                  selectedRuleType === 'validation_rules'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
               >
-                {showPostProcessing ? 'Hide' : 'Show'} Rules
-                <svg 
-                  className={`ml-2 h-4 w-4 transition-transform ${showPostProcessing ? 'rotate-180' : ''}`}
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                Validation Rules
+                {(postProcessingRules.validation_rules?.length || 0) > 0 && (
+                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-purple-200 text-purple-800">
+                    {postProcessingRules.validation_rules?.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setSelectedRuleType('transformation_rules')}
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border ${
+                  selectedRuleType === 'transformation_rules'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Transformation Rules
+                {(postProcessingRules.transformation_rules?.length || 0) > 0 && (
+                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-purple-200 text-purple-800">
+                    {postProcessingRules.transformation_rules?.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setSelectedRuleType('business_logic')}
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border ${
+                  selectedRuleType === 'business_logic'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Business Logic
+                {(postProcessingRules.business_logic?.length || 0) > 0 && (
+                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-purple-200 text-purple-800">
+                    {postProcessingRules.business_logic?.length}
+                  </span>
+                )}
               </button>
             </div>
 
-            {showPostProcessing && (
-              <div className="space-y-4 pt-4 border-t border-purple-200">
-                {/* Add New Rule Form */}
-                <div className="bg-white rounded-lg border border-purple-200 p-4 space-y-4">
-                  <h4 className="text-sm font-medium text-gray-900">Add Validation Rule</h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Rule Name */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Rule Name *
-                      </label>
-                      <input
-                        type="text"
-                        value={newRule.rule_name}
-                        onChange={(e) => setNewRule({ ...newRule, rule_name: e.target.value })}
-                        placeholder="reject_suspicious_values"
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      />
-                    </div>
+            {/* Forms */}
+            {selectedRuleType === 'validation_rules' && (
+              <ValidationRulesForm
+                rules={postProcessingRules.validation_rules || []}
+                onAdd={addValidationRule}
+                onEdit={editValidationRule}
+                onDelete={deleteValidationRule}
+              />
+            )}
 
-                    {/* Field */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Field *
-                      </label>
-                      <input
-                        type="text"
-                        value={newRule.field}
-                        onChange={(e) => setNewRule({ ...newRule, field: e.target.value })}
-                        placeholder="total_received"
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      />
-                    </div>
+            {selectedRuleType === 'transformation_rules' && (
+              <TransformationRulesForm
+                rules={postProcessingRules.transformation_rules || []}
+                onAdd={addTransformationRule}
+                onEdit={editTransformationRule}
+                onDelete={deleteTransformationRule}
+              />
+            )}
 
-                    {/* Condition */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Condition *
-                      </label>
-                      <input
-                        type="text"
-                        value={newRule.condition}
-                        onChange={(e) => setNewRule({ ...newRule, condition: e.target.value })}
-                        placeholder="total_received in [226, 3511, 2028]"
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                      </p>
-                    </div>
-
-                    {/* Action */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Action *
-                      </label>
-                      <select
-                        value={newRule.action}
-                        onChange={(e) => setNewRule({ ...newRule, action: e.target.value })}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      >
-                        <option value="set_to_null">Set to null</option>
-                        <option value="set_to_empty">Set to empty</option>
-                        <option value="reject">Reject value</option>
-                        <option value="flag">Flag for review</option>
-                      </select>
-                    </div>
-
-                    {/* Message (Optional) */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Message <span className="text-xs text-gray-500">(Optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={newRule.message || ''}
-                        onChange={(e) => setNewRule({ ...newRule, message: e.target.value })}
-                        placeholder="Suspicious value detected"
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={addPostProcessingRule}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                  >
-                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Rule
-                  </button>
-                </div>
-
-                {/* Existing Rules List */}
-                {prompts[selectedRegion]?.post_processing?.validations && 
-                 prompts[selectedRegion].post_processing.validations.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-gray-900">
-                      Configured Rules ({prompts[selectedRegion].post_processing.validations.length})
-                    </h4>
-                    
-                    {prompts[selectedRegion].post_processing.validations.map((rule, index) => (
-                      <div
-                        key={index}
-                        className="bg-white rounded-lg border border-purple-200 p-4 space-y-2"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                {rule.rule_name}
-                              </span>
-                              <span className="text-xs text-gray-500">→ Field: {rule.field}</span>
-                            </div>
-                            <div className="mt-2 text-sm text-gray-700">
-                              <span className="font-medium">Condition:</span>
-                              <code className="ml-2 bg-gray-100 px-2 py-0.5 rounded text-xs font-mono">
-                                {rule.condition}
-                              </code>
-                            </div>
-                            <div className="mt-1 text-sm text-gray-700">
-                              <span className="font-medium">Action:</span>
-                              <span className="ml-2 text-purple-600">{rule.action}</span>
-                              {rule.message && (
-                                <span className="ml-2 text-gray-500">- {rule.message}</span>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => deletePostProcessingRule(index)}
-                            className="ml-4 text-red-600 hover:text-red-700"
-                            title="Delete rule"
-                          >
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-              </div>
+            {selectedRuleType === 'business_logic' && (
+              <BusinessLogicRulesForm
+                rules={postProcessingRules.business_logic || []}
+                onAdd={addBusinessLogicRule}
+                onEdit={editBusinessLogicRule}
+                onDelete={deleteBusinessLogicRule}
+              />
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Configured Regions List */}
       <div>
@@ -541,8 +491,6 @@ Output JSON only.`}
               const isValid = prompts[region]?.prompt_text && 
                             prompts[region]?.expected_output_schema && 
                             Object.keys(prompts[region].expected_output_schema).length > 0;
-              
-              const rulesCount = prompts[region]?.post_processing?.validations?.length || 0;
               
               return (
                 <div
@@ -571,11 +519,6 @@ Output JSON only.`}
                         <span className="text-xs text-gray-500">
                           {Object.keys(prompts[region]?.expected_output_schema || {}).length} fields
                         </span>
-                        {rulesCount > 0 && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
-                            {rulesCount} rule{rulesCount !== 1 ? 's' : ''}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -591,6 +534,35 @@ Output JSON only.`}
           </div>
         )}
       </div>
+
+      {/* Summary of Post-Processing Rules */}
+      {(postProcessingRules.validation_rules?.length || 
+        postProcessingRules.transformation_rules?.length || 
+        postProcessingRules.business_logic?.length) ? (
+        <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-2">Post-Processing Rules Summary</h3>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold text-indigo-600">
+                {postProcessingRules.validation_rules?.length || 0}
+              </div>
+              <div className="text-xs text-gray-600">Validation Rules</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-indigo-600">
+                {postProcessingRules.transformation_rules?.length || 0}
+              </div>
+              <div className="text-xs text-gray-600">Transformation Rules</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-indigo-600">
+                {postProcessingRules.business_logic?.length || 0}
+              </div>
+              <div className="text-xs text-gray-600">Business Logic Rules</div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

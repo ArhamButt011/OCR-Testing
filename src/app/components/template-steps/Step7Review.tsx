@@ -305,7 +305,7 @@ export const Step7Review: React.FC = () => {
                   <span className="text-primary">
                     {(mapping as any).source_field}
                   </span>
-                  {" → "}
+                  {"->"}
                   <span className="text-green-600">{target}</span>
                 </div>
               )

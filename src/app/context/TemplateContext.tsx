@@ -58,28 +58,9 @@ export interface RegionConfig {
   hybrid_config?: HybridConfig;
 }
 
-export interface PromptPostProcessing {
-  transforms?: Array<{
-    field: string;
-    transform: string;
-    description?: string;
-  }>;
-  validations?: Array<{
-    rule_name: string;
-    field: string;
-    condition: string;
-    action: string;
-    message?: string;
-    reject_values?: any[];
-    validate?: string;
-    reason?: string;
-  }>;
-}
-
 export interface RegionPrompt {
   prompt_text: string;
   expected_output_schema: Record<string, string>;
-  post_processing?: PromptPostProcessing;
 }
 
 export interface FieldMapping {
@@ -103,25 +84,37 @@ export interface FieldMapping {
   };
 }
 
-export interface ConditionalRule {
+// New Post-Processing Rule Types
+export interface ValidationRule {
+  rule_name: string;
+  field: string | string[];
+  condition: string;
+  action: string;
+  reason?: string;
+}
+
+export interface TransformationRule {
+  rule_name: string;
+  field: string;
+  action: string;
+  formats?: string[];
+  pattern?: string;
+  description?: string;
+}
+
+export interface BusinessLogicRule {
   rule_name: string;
   condition: string;
-  action?: string;
-  actions?: any[];
-  field?: string;
-  message?: string;
-  formula?: string;
-  expected?: string;
-  on_mismatch?: any;
+  action: string;
+  target_field: string;
+  value: string;
+  reason?: string;
 }
 
 export interface PostProcessingRules {
-  conditional_rules?: ConditionalRule[];
-  transformation_rules?: Array<{
-    field: string;
-    transform: string;
-  }>;
-  cross_field_rules?: any[];
+  validation_rules?: ValidationRule[];
+  transformation_rules?: TransformationRule[];
+  business_logic?: BusinessLogicRule[];
 }
 
 export interface TemplateData {
@@ -282,7 +275,6 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
       }, 2000);
     }
 
-    // Cleanup
     return () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
@@ -338,7 +330,6 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
       console.log("Final template data (with _id):", template);
 
-      // Set template data WITH _id
       setTemplateData(template);
       setIsEditMode(true);
       setDraftId(null);
@@ -493,7 +484,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
           }
           break;
 
-        case 7: // Review
+        case 7:
           break;
       }
 
@@ -505,7 +496,6 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
 
   const submitTemplate = useCallback(async (): Promise<string> => {
     try {
-      // Validate all steps
       for (let step = 1; step <= 6; step++) {
         if (!validateStep(step)) {
           throw new Error(`Validation failed at step ${step}`);
@@ -590,7 +580,6 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
           };
         }
       } else {
-        // Create new template
         const createBody = {
           ...templateBody,
           status: "inactive",

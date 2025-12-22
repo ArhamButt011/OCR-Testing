@@ -30,11 +30,6 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  /**
-   * toggleSidebar
-   * - toggleSidebar() → manual toggle
-   * - toggleSidebar(true/false) → force expand/collapse
-   */
   const toggleSidebar = (value?: boolean) => {
     const newState =
       typeof value === "boolean" ? value : !isExpanded;
