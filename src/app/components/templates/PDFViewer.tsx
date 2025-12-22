@@ -5,18 +5,13 @@ import React, { useRef, useEffect, useState } from "react";
 
 interface Region {
   region_name: string;
-  detection_method: string;
-  confidence: number;
-  bounding_box_original: {
+  bbox: {
     x1: number;
     y1: number;
     x2: number;
     y2: number;
-    x1_pixel: number;
-    y1_pixel: number;
-    x2_pixel: number;
-    y2_pixel: number;
   };
+  confidence: number;
 }
 
 interface PDFViewerProps {
@@ -26,6 +21,7 @@ interface PDFViewerProps {
 
 const REGION_COLORS: Record<string, string> = {
   stamp: "#10B981",
+  bill_of_lading: "#3B82F6",
   bill_of_lading_header: "#3B82F6",
   customer_order_info: "#F59E0B",
   signatures: "#8B5CF6",
@@ -237,14 +233,18 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ file, regions }) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     regions.forEach((region) => {
-      const box = region.bounding_box_original;
+      const box = region.bbox;
       const color = REGION_COLORS[region.region_name] || REGION_COLORS.default;
 
-      // Calculate scaled coordinates
-      const x1 = box.x1_pixel * scale;
-      const y1 = box.y1_pixel * scale;
-      const x2 = box.x2_pixel * scale;
-      const y2 = box.y2_pixel * scale;
+      // Calculate the scale factor between original image and rendered image
+      const scaleX = imageData.width / canvas.width;
+      const scaleY = imageData.height / canvas.height;
+
+      // Calculate scaled coordinates (bbox coordinates are in original image space)
+      const x1 = (box.x1 / scaleX) * scale;
+      const y1 = (box.y1 / scaleY) * scale;
+      const x2 = (box.x2 / scaleX) * scale;
+      const y2 = (box.y2 / scaleY) * scale;
 
       const width = x2 - x1;
       const height = y2 - y1;
@@ -417,10 +417,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ file, regions }) => {
       {/* Legend */}
       <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
         <div className="flex flex-wrap gap-3">
-          {regions.map((region) => {
+          {regions.map((region, index) => {
             const color = REGION_COLORS[region.region_name] || REGION_COLORS.default;
             return (
-              <div key={region.region_name} className="flex items-center gap-2">
+              <div key={`${region.region_name}-${index}`} className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded" style={{ backgroundColor: color }} />
                 <span className="text-xs text-gray-700">
                   {region.region_name} ({(region.confidence * 100).toFixed(0)}%)
