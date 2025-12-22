@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTemplate } from '@/app/context/TemplateContext';
 import axios from 'axios';
 
@@ -14,6 +14,10 @@ export const Step1BasicInfo: React.FC = () => {
     message: string;
   } | null>(null);
   const [checkTimeout, setCheckTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Ref to maintain focus
+  const templateIdInputRef = useRef<HTMLInputElement>(null);
+  const shouldMaintainFocus = useRef(false);
   
   const checkTemplateIdUniqueness = useCallback(async (templateId: string) => {
     if (!templateId || templateId.length < 3) {
@@ -32,6 +36,8 @@ export const Step1BasicInfo: React.FC = () => {
       return;
     }
 
+    // Set flag to maintain focus after API call
+    shouldMaintainFocus.current = true;
     setIsCheckingId(true);
     setIdCheckResult(null);
 
@@ -79,8 +85,16 @@ export const Step1BasicInfo: React.FC = () => {
     }
   }, [setError, clearError]);
 
+  // Restore focus after API call completes
+  useEffect(() => {
+    if (!isCheckingId && shouldMaintainFocus.current && templateIdInputRef.current) {
+      templateIdInputRef.current.focus();
+      shouldMaintainFocus.current = false;
+    }
+  }, [isCheckingId]);
+
   /**
-   * Debounced template ID check (500ms delay)
+   * Debounced template ID check (20 seconds delay)
    */
   const handleTemplateIdChange = (value: string) => {
     const upperValue = value.toUpperCase();
@@ -94,11 +108,11 @@ export const Step1BasicInfo: React.FC = () => {
     // Clear previous check result
     setIdCheckResult(null);
 
-    // Set new timeout for API check (debounce)
+    // Set new timeout for API check (20 second debounce)
     if (upperValue.length >= 3) {
       const timeout = setTimeout(() => {
         checkTemplateIdUniqueness(upperValue);
-      }, 500); // 500ms debounce
+      }, 20000); // Changed from 500ms to 20000ms (20 seconds)
       setCheckTimeout(timeout);
     }
   };
@@ -133,6 +147,7 @@ export const Step1BasicInfo: React.FC = () => {
         </label>
         <div className="relative">
           <input
+            ref={templateIdInputRef}
             type="text"
             id="template_id"
             value={templateData.template_id || ''}
@@ -182,7 +197,8 @@ export const Step1BasicInfo: React.FC = () => {
         )}
         {!errors.template_id && !idCheckResult && (
           <p className="mt-1 text-xs text-gray-500">
-            Uppercase letters, numbers, and underscores only (e.g., STAMP_FEDEX_V1)
+            Uppercase letters, numbers, and underscores only (e.g., STAMP_FEDEX_V1). 
+            Uniqueness will be checked after 20 seconds of inactivity.
           </p>
         )}
       </div>
@@ -288,7 +304,8 @@ export const Step1BasicInfo: React.FC = () => {
                 <li>Use descriptive names: STAMP_FEDEX_V1, RECEIPT_USPS_V2</li>
                 <li>Include version number for tracking changes</li>
                 <li>Keep it concise but meaningful</li>
-                <li>Template ID must be unique across all templates</li>
+              <li>Template ID must be unique across all templates</li>
+                <li>Uniqueness check occurs 20 seconds after you stop typing</li>
               </ul>
             </div>
           </div>

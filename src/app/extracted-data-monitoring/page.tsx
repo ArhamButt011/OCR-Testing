@@ -479,7 +479,7 @@ const MasterPage = () => {
           // setBaseUrl(`http://${data.secondaryIp}:3000`);
           //for remote use below lines
           setOcrApiUrl(`https://4lrl8vwxpqp35t-8080.proxy.runpod.net/run-ocr`);
-          // setBaseUrl(`https://h0palyajms52cn-8080.proxy.runpod.net`);
+          setBaseUrl(`https://fzi6t0m8gas6eb-3000.proxy.runpod.net`);
         }
       } catch (error) {
         console.error("Failed to fetch OCR API URL:", error);
@@ -636,7 +636,7 @@ const MasterPage = () => {
             [pdfFile.file_url_or_path]: 10,
           }));
         });
-
+console.log()
         try {
           const payload = batch.map((pdfFile) => ({
             _id: pdfFile._id,

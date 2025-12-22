@@ -117,8 +117,8 @@ export const TemplateTestModal: React.FC<TemplateTestModalProps> = ({
 
     try {
       // Construct the publicly accessible file URL
-      // const baseUrl = window.location.origin;
-      const fileUrl = `/api/access-file?filename=${uploadedFileName}`;
+      const baseUrl = window.location.origin;
+      const fileUrl = `${baseUrl}/api/access-file?filename=${uploadedFileName}`;
 
       console.log("Testing with file URL:", fileUrl);
 
