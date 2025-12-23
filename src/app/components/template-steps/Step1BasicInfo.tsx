@@ -13,15 +13,19 @@ export const Step1BasicInfo: React.FC = () => {
     available: boolean;
     message: string;
   } | null>(null);
-  const [checkTimeout, setCheckTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Ref to maintain focus
   const templateIdInputRef = useRef<HTMLInputElement>(null);
-  const shouldMaintainFocus = useRef(false);
+  const lastCheckedIdRef = useRef<string>('');
   
   const checkTemplateIdUniqueness = useCallback(async (templateId: string) => {
     if (!templateId || templateId.length < 3) {
       setIdCheckResult(null);
+      return;
+    }
+
+    // Don't check if we already checked this ID
+    if (lastCheckedIdRef.current === templateId) {
       return;
     }
 
@@ -36,8 +40,6 @@ export const Step1BasicInfo: React.FC = () => {
       return;
     }
 
-    // Set flag to maintain focus after API call
-    shouldMaintainFocus.current = true;
     setIsCheckingId(true);
     setIdCheckResult(null);
 
@@ -54,6 +56,7 @@ export const Step1BasicInfo: React.FC = () => {
           message: 'Template ID is available'
         });
         clearError('template_id');
+        lastCheckedIdRef.current = templateId;
       } else {
         // Template ID already exists - block next step
         setIdCheckResult({
@@ -61,6 +64,7 @@ export const Step1BasicInfo: React.FC = () => {
           message: data.message || 'Template ID already exists'
         });
         setError('template_id', 'This template ID is already taken. Please choose a different ID.');
+        lastCheckedIdRef.current = '';
       }
     } catch (error) {
       console.error('Error checking template ID:', error);
@@ -80,51 +84,46 @@ export const Step1BasicInfo: React.FC = () => {
         });
         setError('template_id', 'Failed to validate template ID. Please try again.');
       }
+      lastCheckedIdRef.current = '';
     } finally {
       setIsCheckingId(false);
     }
   }, [setError, clearError]);
 
-  // Restore focus after API call completes
-  useEffect(() => {
-    if (!isCheckingId && shouldMaintainFocus.current && templateIdInputRef.current) {
-      templateIdInputRef.current.focus();
-      shouldMaintainFocus.current = false;
-    }
-  }, [isCheckingId]);
-
   /**
-   * Debounced template ID check (20 seconds delay)
+   * Handle template ID change - convert to uppercase and clear previous results
    */
   const handleTemplateIdChange = (value: string) => {
     const upperValue = value.toUpperCase();
     updateTemplateData({ template_id: upperValue });
     
-    // Clear previous timeout
-    if (checkTimeout) {
-      clearTimeout(checkTimeout);
+    // Clear previous check result when user types
+    if (idCheckResult) {
+      setIdCheckResult(null);
     }
-
-    // Clear previous check result
-    setIdCheckResult(null);
-
-    // Set new timeout for API check (20 second debounce)
-    if (upperValue.length >= 3) {
-      const timeout = setTimeout(() => {
-        checkTemplateIdUniqueness(upperValue);
-      }, 20000); // Changed from 500ms to 20000ms (20 seconds)
-      setCheckTimeout(timeout);
+    
+    // Clear error if user is fixing the ID
+    if (errors.template_id) {
+      clearError('template_id');
     }
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (checkTimeout) {
-        clearTimeout(checkTimeout);
-      }
-    };
-  }, [checkTimeout]);
+  /**
+   * Handle blur event - check uniqueness when user leaves the field
+   */
+  const handleTemplateIdBlur = () => {
+    const templateId = templateData.template_id?.trim();
+    
+    if (templateId && templateId.length >= 3) {
+      checkTemplateIdUniqueness(templateId);
+    } else if (templateId && templateId.length < 3) {
+      setIdCheckResult({
+        available: false,
+        message: 'Template ID must be at least 3 characters long'
+      });
+      setError('template_id', 'Template ID must be at least 3 characters long');
+    }
+  };
 
   const handleChange = (field: string, value: string) => {
     updateTemplateData({ [field]: value });
@@ -152,6 +151,7 @@ export const Step1BasicInfo: React.FC = () => {
             id="template_id"
             value={templateData.template_id || ''}
             onChange={(e) => handleTemplateIdChange(e.target.value)}
+            onBlur={handleTemplateIdBlur}
             placeholder="STAMP_FEDEX_V1"
             className={`mt-1 block w-full rounded-md border ${
               errors.template_id 
@@ -198,7 +198,7 @@ export const Step1BasicInfo: React.FC = () => {
         {!errors.template_id && !idCheckResult && (
           <p className="mt-1 text-xs text-gray-500">
             Uppercase letters, numbers, and underscores only (e.g., STAMP_FEDEX_V1). 
-            Uniqueness will be checked after 20 seconds of inactivity.
+            Uniqueness will be checked when you move to the next field.
           </p>
         )}
       </div>
@@ -304,8 +304,8 @@ export const Step1BasicInfo: React.FC = () => {
                 <li>Use descriptive names: STAMP_FEDEX_V1, RECEIPT_USPS_V2</li>
                 <li>Include version number for tracking changes</li>
                 <li>Keep it concise but meaningful</li>
-              <li>Template ID must be unique across all templates</li>
-                <li>Uniqueness check occurs 20 seconds after you stop typing</li>
+                <li>Template ID must be unique across all templates</li>
+                <li>Uniqueness check occurs when you move to the next field</li>
               </ul>
             </div>
           </div>

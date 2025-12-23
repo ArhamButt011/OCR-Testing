@@ -114,20 +114,22 @@ export const ValidationRulesForm: React.FC<ValidationRulesFormProps> = ({
             className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
           />
         </div>
-
-        <div>
+            <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Field *
+            Action *
           </label>
           <input
             type="text"
-            value={typeof newRule.field === 'string' ? newRule.field : newRule.field.join(', ')}
-            onChange={(e) => setNewRule({ ...newRule, field: e.target.value })}
-            placeholder="stamp.total_received or stamp.damage,stamp.short"
+            value={newRule.action}
+            onChange={(e) => setNewRule({ ...newRule, action: e.target.value })}
+            placeholder="set_to_null"
             className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
           />
-          <p className="mt-1 text-xs text-gray-500">Use comma-separated for multiple fields</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Common: set_to_null, set_to_empty, set_to_no, set_to_yes, reject, flag
+          </p>
         </div>
+
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -145,21 +147,7 @@ export const ValidationRulesForm: React.FC<ValidationRulesFormProps> = ({
           </p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Action *
-          </label>
-          <input
-            type="text"
-            value={newRule.action}
-            onChange={(e) => setNewRule({ ...newRule, action: e.target.value })}
-            placeholder="set_to_null"
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Common: set_to_null, set_to_empty, set_to_no, set_to_yes, reject, flag
-          </p>
-        </div>
+    
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -172,6 +160,33 @@ export const ValidationRulesForm: React.FC<ValidationRulesFormProps> = ({
             placeholder="Known false positive values from OCR misreading"
             className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Field *
+          </label>
+          {/* <input
+            type="text"
+            value={typeof newRule.field === 'string' ? newRule.field : newRule.field.join(', ')}
+            onChange={(e) => setNewRule({ ...newRule, field: e.target.value })}
+            placeholder="stamp.total_received or stamp.damage,stamp.short"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+          /> */}
+          <textarea
+  value={
+    typeof newRule.field === 'string'
+      ? newRule.field
+      : newRule.field.join(', ')
+  }
+  onChange={(e) =>
+    setNewRule({ ...newRule, field: e.target.value })
+  }
+  placeholder="stamp.total_received or stamp.damage,stamp.short"
+  rows={3}
+  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+/>
+          <p className="mt-1 text-xs text-gray-500">Use comma-separated for multiple fields</p>
         </div>
       </div>
 

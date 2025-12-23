@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaInfo, FaTrash } from 'react-icons/fa'
+import { FaInfo, FaTrash } from 'react-icons/fa';
 
 interface CoordinateRegion {
   region_name: string;
@@ -8,7 +8,7 @@ interface CoordinateRegion {
   x2_ratio: number;
   y2_ratio: number;
   confidence_threshold?: number;
-  image_id?: string; // Track which image this region belongs to
+  image_id?: string;
 }
 
 interface ReferenceImage {
@@ -25,6 +25,30 @@ interface VisualRegionEditorProps {
   detectionMethod: 'yolo' | 'coordinates' | 'hybrid';
 }
 
+// Define a vibrant color palette for regions - expanded to 20 unique colors
+const REGION_COLORS = [
+  { stroke: '#ef4444', fill: 'rgba(239, 68, 68, 0.15)', label: '#dc2626' },    // Red
+  { stroke: '#8b5cf6', fill: 'rgba(139, 92, 246, 0.15)', label: '#7c3aed' },   // Purple
+  { stroke: '#10b981', fill: 'rgba(16, 185, 129, 0.15)', label: '#059669' },   // Green
+  { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.15)', label: '#d97706' },   // Amber
+  { stroke: '#3b82f6', fill: 'rgba(59, 130, 246, 0.15)', label: '#2563eb' },   // Blue
+  { stroke: '#ec4899', fill: 'rgba(236, 72, 153, 0.15)', label: '#db2777' },   // Pink
+  { stroke: '#14b8a6', fill: 'rgba(20, 184, 166, 0.15)', label: '#0d9488' },   // Teal
+  { stroke: '#f97316', fill: 'rgba(249, 115, 22, 0.15)', label: '#ea580c' },   // Orange
+  { stroke: '#6366f1', fill: 'rgba(99, 102, 241, 0.15)', label: '#4f46e5' },   // Indigo
+  { stroke: '#84cc16', fill: 'rgba(132, 204, 22, 0.15)', label: '#65a30d' },   // Lime
+  { stroke: '#06b6d4', fill: 'rgba(6, 182, 212, 0.15)', label: '#0891b2' },    // Cyan
+  { stroke: '#d946ef', fill: 'rgba(217, 70, 239, 0.15)', label: '#c026d3' },   // Fuchsia
+  { stroke: '#22c55e', fill: 'rgba(34, 197, 94, 0.15)', label: '#16a34a' },    // Light Green
+  { stroke: '#eab308', fill: 'rgba(234, 179, 8, 0.15)', label: '#ca8a04' },    // Yellow
+  { stroke: '#0ea5e9', fill: 'rgba(14, 165, 233, 0.15)', label: '#0284c7' },   // Sky Blue
+  { stroke: '#f43f5e', fill: 'rgba(244, 63, 94, 0.15)', label: '#e11d48' },    // Rose
+  { stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.15)', label: '#9333ea' },   // Violet
+  { stroke: '#10b981', fill: 'rgba(16, 185, 129, 0.15)', label: '#059669' },   // Emerald
+  { stroke: '#fb923c', fill: 'rgba(251, 146, 60, 0.15)', label: '#f97316' },   // Light Orange
+  { stroke: '#2dd4bf', fill: 'rgba(45, 212, 191, 0.15)', label: '#14b8a6' },   // Turquoise
+];
+
 export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
   referenceImages,
   regions,
@@ -40,27 +64,28 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Get current image ID
   const currentImageId = referenceImages[selectedImageIndex]?.image_id;
-
-  // Filter regions for current image only
   const currentImageRegions = regions.filter(r => r.image_id === currentImageId);
 
-  // Load reference image
+  // Helper function to get color for a region - ensures unique color per region
+  const getRegionColor = (globalIndex: number) => {
+    // Use modulo to cycle through colors, but with more colors in palette
+    const colorIndex = globalIndex % REGION_COLORS.length;
+    return REGION_COLORS[colorIndex];
+  };
+
   useEffect(() => {
     if (referenceImages.length > 0 && selectedImageIndex < referenceImages.length) {
       const imgData = referenceImages[selectedImageIndex];
       const img = new Image();
       img.crossOrigin = "anonymous";
       
-      // Use file_path from the template data
       if (imgData.file_path) {
         img.src = imgData.file_path;
       }
       
       img.onload = () => {
         setCurrentImage(img);
-        // Resize canvas to fit container while maintaining aspect ratio
         if (canvasRef.current && containerRef.current) {
           const container = containerRef.current;
           const maxWidth = container.clientWidth;
@@ -82,12 +107,11 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
     }
   }, [selectedImageIndex, referenceImages]);
 
-  // Draw canvas - only show regions for current image
   useEffect(() => {
     if (currentImage && canvasRef.current) {
       drawCanvas();
     }
-  }, [currentImage, currentImageRegions, currentRegion, hoveredRegionIndex]);
+  }, [currentImage, currentImageRegions, currentRegion, hoveredRegionIndex, regions]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -98,13 +122,12 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw image
     if (currentImage) {
       ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
     }
     
-    // Draw existing regions for current image only
-    currentImageRegions.forEach((region, index) => {
+    // Draw existing regions for current image with different colors
+    currentImageRegions.forEach((region) => {
       const globalIndex = regions.findIndex(r => 
         r.image_id === region.image_id && 
         r.region_name === region.region_name &&
@@ -112,19 +135,20 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
         r.y1_ratio === region.y1_ratio
       );
       const isHovered = globalIndex === hoveredRegionIndex;
-      drawRegion(ctx, region, index, false, isHovered);
+      drawRegion(ctx, region, globalIndex, false, isHovered);
     });
     
-    // Draw current region being drawn
+    // Draw current region being drawn (use next available color)
     if (currentRegion) {
-      drawRegion(ctx, currentRegion, currentImageRegions.length, true, false);
+      const nextColorIndex = regions.length;
+      drawRegion(ctx, currentRegion, nextColorIndex, true, false);
     }
   };
 
   const drawRegion = (
     ctx: CanvasRenderingContext2D, 
     region: CoordinateRegion, 
-    index: number, 
+    globalIndex: number, 
     isCurrent: boolean,
     isHovered: boolean
   ) => {
@@ -136,36 +160,37 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
     const width = (region.x2_ratio - region.x1_ratio) * canvas.width;
     const height = (region.y2_ratio - region.y1_ratio) * canvas.height;
     
-    // Draw rectangle
-    ctx.strokeStyle = isCurrent ? '#3b82f6' : (isHovered ? '#f59e0b' : '#10b981');
+    // Get color for this region
+    const colors = getRegionColor(globalIndex);
+    
+    // Draw rectangle with region-specific color
+    ctx.strokeStyle = colors.stroke;
     ctx.lineWidth = isHovered ? 3 : 2;
     ctx.strokeRect(x, y, width, height);
     
     // Draw semi-transparent fill
-    ctx.fillStyle = isCurrent 
-      ? 'rgba(59, 130, 246, 0.15)' 
-      : (isHovered ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.1)');
+    ctx.fillStyle = colors.fill;
     ctx.fillRect(x, y, width, height);
     
     // Draw label with background
-    const labelText = region.region_name || `region_${index + 1}`;
+    const labelText = region.region_name || `region_${globalIndex + 1}`;
     ctx.font = 'bold 14px Arial';
     const textMetrics = ctx.measureText(labelText);
     const textWidth = textMetrics.width;
     const textHeight = 20;
     
-    // Label background
-    ctx.fillStyle = isCurrent ? '#3b82f6' : (isHovered ? '#f59e0b' : '#10b981');
+    // Label background with region color
+    ctx.fillStyle = isHovered ? '#000000' : colors.label;
     ctx.fillRect(x, y - textHeight - 5, textWidth + 10, textHeight);
     
     // Label text
     ctx.fillStyle = '#ffffff';
     ctx.fillText(labelText, x + 5, y - 10);
     
-    // Draw resize handles (only for existing regions, not while drawing)
+    // Draw resize handles
     if (!isCurrent) {
       const handleSize = 8;
-      ctx.fillStyle = isHovered ? '#f59e0b' : '#10b981';
+      ctx.fillStyle = isHovered ? '#000000' : colors.stroke;
       
       // Corner handles
       ctx.fillRect(x - handleSize/2, y - handleSize/2, handleSize, handleSize);
@@ -213,13 +238,11 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
     const handleSize = 8 / canvas.width;
     const tolerance = handleSize * 2;
     
-    // Corner handles
     if (Math.abs(x - region.x1_ratio) < tolerance && Math.abs(y - region.y1_ratio) < tolerance) return 'tl';
     if (Math.abs(x - region.x2_ratio) < tolerance && Math.abs(y - region.y1_ratio) < tolerance) return 'tr';
     if (Math.abs(x - region.x1_ratio) < tolerance && Math.abs(y - region.y2_ratio) < tolerance) return 'bl';
     if (Math.abs(x - region.x2_ratio) < tolerance && Math.abs(y - region.y2_ratio) < tolerance) return 'br';
     
-    // Side handles
     const midX = (region.x1_ratio + region.x2_ratio) / 2;
     const midY = (region.y1_ratio + region.y2_ratio) / 2;
     
@@ -228,7 +251,6 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
     if (Math.abs(x - region.x1_ratio) < tolerance && Math.abs(y - midY) < tolerance) return 'l';
     if (Math.abs(x - region.x2_ratio) < tolerance && Math.abs(y - midY) < tolerance) return 'r';
     
-    // Check if inside region for move
     if (x >= region.x1_ratio && x <= region.x2_ratio && y >= region.y1_ratio && y <= region.y2_ratio) {
       return 'move';
     }
@@ -239,11 +261,9 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoordinates(e);
     
-    // Check if clicking on existing region (only current image regions)
     for (let i = currentImageRegions.length - 1; i >= 0; i--) {
       const handle = getHandleAtPosition(x, y, currentImageRegions[i]);
       if (handle) {
-        // Find global index
         const globalIndex = regions.findIndex(r => 
           r.image_id === currentImageRegions[i].image_id && 
           r.region_name === currentImageRegions[i].region_name &&
@@ -262,7 +282,6 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
       }
     }
     
-    // Start drawing new region
     setIsDrawing(true);
     setCurrentRegion({ 
       region_name: '', 
@@ -271,21 +290,19 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
       x2_ratio: x, 
       y2_ratio: y,
       confidence_threshold: undefined,
-      image_id: currentImageId // Associate with current image
+      image_id: currentImageId
     });
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoordinates(e);
     
-    // Update cursor and hover state
     if (!isDrawing && !dragState) {
       let foundHover = false;
       for (let i = currentImageRegions.length - 1; i >= 0; i--) {
         const handle = getHandleAtPosition(x, y, currentImageRegions[i]);
         if (handle) {
           foundHover = true;
-          // Find global index
           const globalIndex = regions.findIndex(r => 
             r.image_id === currentImageRegions[i].image_id && 
             r.region_name === currentImageRegions[i].region_name &&
@@ -294,7 +311,6 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
           );
           setHoveredRegionIndex(globalIndex);
           
-          // Set cursor based on handle type
           const canvas = canvasRef.current;
           if (canvas) {
             if (handle === 'move') canvas.style.cursor = 'move';
@@ -365,10 +381,9 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
         x2_ratio: Math.max(currentRegion.x1_ratio, currentRegion.x2_ratio),
         y2_ratio: Math.max(currentRegion.y1_ratio, currentRegion.y2_ratio),
         region_name: `region_${currentImageRegions.length + 1}`,
-        image_id: currentImageId // Ensure image_id is set
+        image_id: currentImageId
       };
       
-      // Only add if region has minimum size
       if ((region.x2_ratio - region.x1_ratio) > 0.02 && (region.y2_ratio - region.y1_ratio) > 0.02) {
         onRegionsChange([...regions, region]);
       }
@@ -389,7 +404,6 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
 
   const handleImageChange = (index: number) => {
     setSelectedImageIndex(index);
-    // Reset drawing state when changing images
     setIsDrawing(false);
     setCurrentRegion(null);
     setDragState(null);
@@ -418,7 +432,6 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
         </div>
       </div>
 
-      {/* Image Selector */}
       {referenceImages.length > 1 && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -454,7 +467,6 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
         </div>
       )}
 
-      {/* Canvas Container */}
       <div className="border-2 border-orange-200 rounded-lg p-4 bg-gradient-to-br from-orange-50 to-white">
         <div className="bg-white rounded-lg shadow-inner overflow-hidden" ref={containerRef}>
           <canvas
@@ -468,14 +480,13 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
           />
         </div>
 
-        {/* Instructions */}
         <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <div className="flex items-start gap-2">
             <FaInfo className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-900">
               <p className="font-medium mb-1">How to use:</p>
               <ul className="list-disc list-inside space-y-1 text-blue-800">
-                <li>Click and drag to draw new regions</li>
+                <li>Click and drag to draw new regions (each gets a unique color)</li>
                 <li>Click inside a region to move it</li>
                 <li>Drag corner/side handles to resize</li>
                 <li>Each image has its own independent regions</li>
@@ -486,7 +497,6 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
         </div>
       </div>
 
-      {/* Regions List for Current Image */}
       {currentImageRegions.length > 0 && (
         <div className="mt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">
@@ -500,24 +510,35 @@ export const VisualRegionEditor: React.FC<VisualRegionEditorProps> = ({
                 r.x1_ratio === region.x1_ratio &&
                 r.y1_ratio === region.y1_ratio
               );
+              const colors = getRegionColor(globalIndex);
               
               return (
                 <div
                   key={localIndex}
                   onMouseEnter={() => setHoveredRegionIndex(globalIndex)}
                   onMouseLeave={() => setHoveredRegionIndex(null)}
-                  className={`flex items-center justify-between p-3 rounded-md border transition-colors ${
+                  className={`flex items-center justify-between p-3 rounded-md border-2 transition-colors ${
                     hoveredRegionIndex === globalIndex
-                      ? 'border-orange-400 bg-orange-50'
+                      ? 'border-gray-900 bg-gray-50'
                       : 'border-gray-200 bg-white hover:bg-gray-50'
                   }`}
+                  style={{
+                    borderLeftWidth: '6px',
+                    borderLeftColor: colors.stroke
+                  }}
                 >
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{region.region_name}</p>
-                    <p className="text-xs text-gray-600 font-mono">
-                      x1: {region.x1_ratio.toFixed(3)}, y1: {region.y1_ratio.toFixed(3)}, 
-                      x2: {region.x2_ratio.toFixed(3)}, y2: {region.y2_ratio.toFixed(3)}
-                    </p>
+                  <div className="flex items-center gap-3 flex-1">
+                    <div 
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: colors.stroke }}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{region.region_name}</p>
+                      <p className="text-xs text-gray-600 font-mono">
+                        x1: {region.x1_ratio.toFixed(3)}, y1: {region.y1_ratio.toFixed(3)}, 
+                        x2: {region.x2_ratio.toFixed(3)}, y2: {region.y2_ratio.toFixed(3)}
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={() => handleDeleteRegion(globalIndex)}
