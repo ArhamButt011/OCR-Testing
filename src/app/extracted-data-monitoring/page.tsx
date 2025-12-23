@@ -479,7 +479,7 @@ const MasterPage = () => {
           // setBaseUrl(`http://${data.secondaryIp}:3000`);
           //for remote use below lines
           setOcrApiUrl(`https://4lrl8vwxpqp35t-8080.proxy.runpod.net/run-ocr`);
-          // setBaseUrl(`https://glr8hki86gyn0c-3000.proxy.runpod.net`);
+          setBaseUrl(`https://glr8hki86gyn0c-3000.proxy.runpod.net`);
         }
       } catch (error) {
         console.error("Failed to fetch OCR API URL:", error);
