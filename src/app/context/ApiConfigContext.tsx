@@ -49,9 +49,8 @@ export const ApiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
           // For remote use below lines
           setOcrApiUrl(`https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr`);
           setTestTemplateApiUrl(`https://4lrl8vwxpqp35t-19123-8080.proxy.runpod.net/api/templates/test`);
-          setBaseUrl(`https://fzi6t0m8gas6eb-8080.proxy.runpod.net`);
+          setBaseUrl(`https://glr8hki86gyn0c-3000.proxy.runpod.net`);
           // setBaseUrl(`http://localhost:3000`);
-
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch API configuration";
