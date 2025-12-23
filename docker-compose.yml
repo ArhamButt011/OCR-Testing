@@ -76,8 +76,6 @@ services:
     container_name: nextjs-frontend
     ports:
       - "3000:3000"
-    depends_on:
-      - mongodb
     environment:
       - NODE_ENV=production
     env_file:
@@ -103,9 +101,6 @@ services:
     networks:
       - my-network
     restart: always
-
-volumes:
-  mongo_data:
 
 networks:
   my-network:
