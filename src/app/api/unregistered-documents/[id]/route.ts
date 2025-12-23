@@ -46,6 +46,7 @@ export async function GET(
     const doc = await mockDataCollection.findOne({
       _id: new ObjectId(documentId)
     });
+console.log('Full document from DB:', JSON.stringify(doc, null, 2)); // Add this line
 
     if (!doc) {
       return NextResponse.json(

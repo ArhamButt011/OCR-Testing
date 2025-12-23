@@ -83,9 +83,8 @@ interface Job {
   createdAt: string;
   updatedAt?: string;
   customerOrderNum?: string | string[] | null;
-  template:any
+  template: any;
 }
-
 
 interface ProcessedData {
   _id?: string;
@@ -617,16 +616,13 @@ const MasterPage = () => {
     setIsProcessModalOpen(true);
     setProgress({});
 
-
     async function processPdfsSequentially() {
       const batchSize = 4;
 
       for (let i = 0; i < pdfFiles.length; i += batchSize) {
         const batch = pdfFiles
           .slice(i, i + batchSize)
-          .filter(
-            (f): f is { file_url: string; _id: string } => f !== null
-          );
+          .filter((f): f is { file_url: string; _id: string } => f !== null);
         console.log("Processing batch:", batch);
         batch.forEach((pdfFile) => {
           if (!pdfFile || !pdfFile.file_url) return;
@@ -636,7 +632,7 @@ const MasterPage = () => {
             [pdfFile.file_url]: 10,
           }));
         });
-console.log()
+        console.log();
         try {
           const payload = batch.map((pdfFile) => ({
             _id: pdfFile._id,
@@ -739,7 +735,8 @@ console.log()
                     : data?.Stamp_Exists === "no"
                     ? "no"
                     : data?.Stamp_Exists,
-               uptd_Usr_Cd: data?.Template_ID || data?.template_id === null ? "" : "OCR",
+                uptd_Usr_Cd:
+                  data?.Template_ID || data?.template_id === null ? "" : "OCR",
                 finalStatus: "valid",
                 reviewStatus: "unConfirmed",
                 recognitionStatus: recognitionStatus,
@@ -873,7 +870,6 @@ console.log()
         fetchJobs();
       }
     }
-
 
     await processPdfsSequentially();
   };
@@ -1939,7 +1935,7 @@ console.log()
                         <th className=" px-4 py-2 text-left text-black border-b border-gray-400">
                           File Name
                         </th>
-                        
+
                         <th className=" px-4 py-2 text-black min-w-72 text-center border-b border-gray-400">
                           Progress
                         </th>
@@ -2118,7 +2114,7 @@ console.log()
                       <th className="py-2 px-4 border-b text-center min-w-44 max-w-44 sticky left-44 bg-white z-10">
                         File Name
                       </th>
- 
+
                       <th className="py-2 px-4 border-b text-center min-w-44 max-w-44 sticky left-[22rem] bg-white z-10">
                         Job Name
                       </th>
@@ -2227,13 +2223,12 @@ console.log()
                                 </span>
                               </Link>
                             </td>
-                            <td className="py-2 px-4 border-b text-start m-0 sticky left-0 bg-white z-10">
-
-                            <FileNameCell
-                              pdfUrl={job.pdfUrl}
-                              fileId={job.fileName}
-                            />
-                            </td>
+                            {/* <td className="py-2 px-4 border-b text-center"> */}
+                              <FileNameCell
+                                pdfUrl={job.pdfUrl}
+                                fileId={job.fileName}
+                              />
+                            {/* </td> */}
 
                             <td className="py-2 px-4 border-b text-center min-w-44 max-w-44 sticky left-[22rem] bg-white z-10">
                               {job.jobName}
@@ -2241,7 +2236,7 @@ console.log()
                             <TruncatedCell
                               value={job.fileId || job._id || "N/A"}
                             />
- <td className="py-2 px-4 border-b text-center">
+                            <td className="py-2 px-4 border-b text-center">
                               {job?.template?.template_id}
                             </td>
                             <td className="py-2 px-4 border-b text-center">

@@ -4,6 +4,7 @@
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import FileNameCell from "../UI/FileNameCell";
+import FileNameUnregistered from "../UI/FileNameUnregistered";
 
 interface ClassificationDetails {
   primary_model_prediction: string;
@@ -122,7 +123,7 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
             {documents.map((doc) => (
               <tr key={doc._id} className="hover:bg-gray-50 transition-colors">
                 <td className="">
-                  <FileNameCell
+                  <FileNameUnregistered
                     pdfUrl={doc.pdfUrl}
                     className="left-0"
                   />
