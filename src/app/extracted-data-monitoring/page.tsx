@@ -83,7 +83,9 @@ interface Job {
   createdAt: string;
   updatedAt?: string;
   customerOrderNum?: string | string[] | null;
+  template:any
 }
+
 
 interface ProcessedData {
   _id?: string;
@@ -111,8 +113,6 @@ interface ProcessedData {
   deliveryDate: string;
   jobId: string | null;
   noOfPages: number;
-
-  // ✅ NEW FIELDS
   confidence?: number;
   processing_time?: number;
   template_id?: string | null;
@@ -752,7 +752,6 @@ console.log()
                     : data?.Seal_Intact === "no"
                     ? "N"
                     : data?.Seal_Intact,
-                // ✅ NEW FIELDS
                 confidence: data?.Confidence || data?.confidence || 0.0,
                 processing_time:
                   data?.Processing_Time || data?.processing_time || 0,
@@ -1618,6 +1617,7 @@ console.log()
                   />
                 </div>
               </div>
+
               <div className="flex flex-col">
                 <label
                   htmlFor="search"
@@ -1939,6 +1939,7 @@ console.log()
                         <th className=" px-4 py-2 text-left text-black border-b border-gray-400">
                           File Name
                         </th>
+                        
                         <th className=" px-4 py-2 text-black min-w-72 text-center border-b border-gray-400">
                           Progress
                         </th>
@@ -2117,12 +2118,15 @@ console.log()
                       <th className="py-2 px-4 border-b text-center min-w-44 max-w-44 sticky left-44 bg-white z-10">
                         File Name
                       </th>
-
+ 
                       <th className="py-2 px-4 border-b text-center min-w-44 max-w-44 sticky left-[22rem] bg-white z-10">
                         Job Name
                       </th>
                       <th className="py-2 px-4 border-b text-center min-w-44 max-w-44 left-44 bg-white z-10">
                         File ID
+                      </th>
+                      <th className="py-2 px-4 border-b text-center min-w-32">
+                        Template ID
                       </th>
                       <th className="py-2 px-4 border-b text-center min-w-32">
                         POD Date
@@ -2223,11 +2227,13 @@ console.log()
                                 </span>
                               </Link>
                             </td>
+                            <td className="py-2 px-4 border-b text-start m-0 sticky left-0 bg-white z-10">
 
                             <FileNameCell
                               pdfUrl={job.pdfUrl}
                               fileId={job.fileName}
                             />
+                            </td>
 
                             <td className="py-2 px-4 border-b text-center min-w-44 max-w-44 sticky left-[22rem] bg-white z-10">
                               {job.jobName}
@@ -2235,7 +2241,9 @@ console.log()
                             <TruncatedCell
                               value={job.fileId || job._id || "N/A"}
                             />
-
+ <td className="py-2 px-4 border-b text-center">
+                              {job?.template?.template_id}
+                            </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.podDate}
                             </td>

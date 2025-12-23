@@ -8,6 +8,7 @@ interface ApiConfigContextType {
   isLoading: boolean;
   error: string | null;
   testTemplateApiUrl: string;
+  aiBaseUrl:string
 }
 
 const ApiConfigContext = createContext<ApiConfigContextType | undefined>(
@@ -20,6 +21,8 @@ export const ApiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
   const [ocrApiUrl, setOcrApiUrl] = useState<string>("");
   const [baseUrl, setBaseUrl] = useState<string>("");
   const [testTemplateApiUrl, setTestTemplateApiUrl] = useState<string>("");
+  const [aiBaseUrl, setAIBaseUrl] = useState<string>("");
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,11 +47,12 @@ export const ApiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
           // setOcrApiUrl(`http://${data.ip}:8080/run-ocr`);
           // setBaseUrl(`http://${data.secondaryIp}:3000`);
           // setTestTemplateApiUrl(`http://${data.ip}:8080/api/templates/test`);
-
+          // setAIBaseUrl(`http://${data.ip}:8080`);
           
           // For remote use below lines
           setOcrApiUrl(`https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr`);
           setTestTemplateApiUrl(`https://4lrl8vwxpqp35t-19123-8080.proxy.runpod.net/api/templates/test`);
+          setAIBaseUrl(`https://4lrl8vwxpqp35t-19123-8080.proxy.runpod.net`)
           setBaseUrl(`https://glr8hki86gyn0c-3000.proxy.runpod.net`);
           // setBaseUrl(`http://localhost:3000`);
         }
@@ -65,7 +69,7 @@ export const ApiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   return (
-    <ApiConfigContext.Provider value={{ ocrApiUrl, baseUrl, isLoading, error, testTemplateApiUrl }}>
+    <ApiConfigContext.Provider value={{ ocrApiUrl, baseUrl, isLoading, error, testTemplateApiUrl, aiBaseUrl }}>
       {children}
     </ApiConfigContext.Provider>
   );

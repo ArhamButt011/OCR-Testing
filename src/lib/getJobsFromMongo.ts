@@ -28,9 +28,36 @@ interface Job {
   createdAt?: Date;
   updatedAt?: string;
   uptd_Usr_Cd?: string;
+  template_id?: string;
+}
+
+interface Template {
+  _id: ObjectId;
+  template_id: string;
+  template_name: string;
+  category: string;
+  version: string;
+  description: string;
+  status: string;
+}
+
+interface EnrichedJob extends Job {
+  template?: {
+    template_id: string;
+    template_name: string;
+    category: string;
+    version: string;
+    description: string;
+    status: string;
+  } | null;
 }
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
+
+// Helper function to validate ObjectId
+function isValidObjectId(id: string): boolean {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+}
 
 export async function getJobsFromMongo(
   url: URL,
@@ -41,6 +68,7 @@ export async function getJobsFromMongo(
   const client = await clientPromise;
   const db = client.db(DB_NAME);
   const dataCollection = db.collection<Job>("mockData");
+  const templatesCollection = db.collection<Template>("templates");
 
   const recognitionStatus = url.searchParams.get("recognitionStatus") || "";
   const reviewStatus = url.searchParams.get("reviewStatus") || "";
@@ -147,16 +175,66 @@ export async function getJobsFromMongo(
     filter.pdfUrl = { $regex: fileNameRegex };
   }
 
+  // Fetch jobs
   const jobs = await dataCollection
     .find(filter)
     .sort(sortQuery)
     .skip(skip)
     .limit(limit)
     .toArray();
+
+  // Collect all unique template_ids from jobs
+  const templateIds = new Set<string>();
+  jobs.forEach(job => {
+    if (job.template_id && isValidObjectId(job.template_id)) {
+      templateIds.add(job.template_id);
+    }
+  });
+
+  // Fetch all templates in a single query
+  const templates = templateIds.size > 0
+    ? await templatesCollection.find(
+        { _id: { $in: Array.from(templateIds).map(id => new ObjectId(id)) } },
+        { 
+          projection: {
+            template_id: 1,
+            template_name: 1,
+            category: 1,
+            version: 1,
+            description: 1,
+            status: 1
+          }
+        }
+      ).toArray()
+    : [];
+
+  // Create template lookup map
+  const templateMap = new Map(
+    templates.map(t => [String(t._id), {
+      template_id: t.template_id,
+      template_name: t.template_name,
+      category: t.category,
+      version: t.version,
+      description: t.description,
+      status: t.status
+    }])
+  );
+
+  // Enrich jobs with template data
+  const enrichedJobs: EnrichedJob[] = jobs.map(job => ({
+    ...job,
+    template: job.template_id ? (templateMap.get(job.template_id) || null) : null
+  }));
+
   const totalJobs = await dataCollection.countDocuments(filter);
 
   return NextResponse.json(
-    { jobs, totalJobs, page, totalPages: Math.ceil(totalJobs / limit) },
+    { 
+      jobs: enrichedJobs, 
+      totalJobs, 
+      page, 
+      totalPages: Math.ceil(totalJobs / limit) 
+    },
     { status: 200 }
   );
 }

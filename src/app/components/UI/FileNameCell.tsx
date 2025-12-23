@@ -14,9 +14,9 @@ const FileNameCell = ({ pdfUrl, fileId, className }: FileNameCellProps) => {
   const { displayText, isTruncated } = getTruncatedText(fileName, 15, showFull);
 
   return (
-    <td
+    <div
       className={`py-2 px-4  ${
-        className ? className : "left-44 border-b"
+        className ? className : "left-44"
       } sticky text-center bg-white z-10 min-w-44 max-w-44 cursor-pointer ${
         isTruncated ? "truncate" : "whitespace-normal break-words"
       }`}
@@ -24,7 +24,7 @@ const FileNameCell = ({ pdfUrl, fileId, className }: FileNameCellProps) => {
       title={!showFull ? "Click to show full name" : "Click to hide"}
     >
       {displayText}
-    </td>
+  </div>
   );
 };
 
