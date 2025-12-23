@@ -8,7 +8,7 @@
  * - Supports browser back/forward buttons
  */
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import Sidebar from "../components/Sidebar";
@@ -24,7 +24,8 @@ import { CreateTemplateModal } from "../components/CreateTemplateModal";
 import { TemplateTestModal } from "../components/templates/TemplateTestModal";
 import { useTemplateActions } from "@/hooks/useTemplateActions";
 
-export default function TemplatesPage() {
+// Separate component that uses useSearchParams
+function TemplatesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isExpanded } = useSidebar();
@@ -448,5 +449,14 @@ export default function TemplatesPage() {
         template={selectedTemplate}
       />
     </>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function TemplatesPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <TemplatesContent />
+    </Suspense>
   );
 }

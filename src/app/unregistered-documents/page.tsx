@@ -1,7 +1,7 @@
 // src/app/admin/unregistered-documents/page.tsx
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
@@ -46,7 +46,8 @@ interface UnregisteredDocument {
   document_thumbnail?: string;
 }
 
-export default function UnregisteredDocumentsPage() {
+// Separate component that uses useSearchParams
+function UnregisteredDocumentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isExpanded } = useSidebar();
@@ -344,5 +345,14 @@ export default function UnregisteredDocumentsPage() {
         templateId={undefined}
       />
     </>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function UnregisteredDocumentsPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <UnregisteredDocumentsContent />
+    </Suspense>
   );
 }
