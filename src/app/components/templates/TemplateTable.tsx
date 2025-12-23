@@ -1,8 +1,8 @@
-// src/app/admin/components/templates/TemplateTable.tsx
+// src/app/components/templates/TemplateTable.tsx
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { BiSolidEditAlt } from "react-icons/bi";
 import { MdDelete } from "react-icons/md";
 import { AiOutlineEye } from "react-icons/ai";
@@ -58,6 +58,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   onTest,
 }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -128,7 +129,13 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   };
 
   const handleViewDetails = (templateId: string) => {
-    router.push(`/templates/${templateId}`);
+    // Preserve current search params when navigating to details
+    const currentParams = searchParams.toString();
+    const detailsUrl = currentParams 
+      ? `/templates/${templateId}?${currentParams}`
+      : `/templates/${templateId}`;
+    
+    router.push(detailsUrl);
   };
 
   return (
@@ -228,11 +235,6 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                   {template.metadata.usage_count?.toLocaleString() || "0"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {template.metadata.success_rate !== undefined
-                    ? `${(template.metadata.success_rate * 100).toFixed(1)}%`
-                    : "N/A"}
-                </td>
-                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {template.metadata.success_rate !== undefined
                     ? `${(template.metadata.success_rate * 100).toFixed(1)}%`
                     : "N/A"}

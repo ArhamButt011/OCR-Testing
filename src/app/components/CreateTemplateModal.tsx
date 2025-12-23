@@ -12,10 +12,11 @@ import { Step5Prompts } from "./template-steps/Step5Prompts";
 import { Step6FieldMapping } from "./template-steps/Step6FieldMapping";
 import { Step7Review } from "./template-steps/Step7Review";
 import { useTemplate } from "@/app/context/TemplateContext";
+import type { Template } from "./templates/TemplateTable";
 
 interface CreateTemplateModalProps {
   isOpen: boolean;
-  onClose: (shouldRefresh?: boolean) => void;
+  onClose: (shouldRefresh?: boolean, templateData?: any) => void; // Updated signature
   draftId?: string;
   templateId?: string;
 }
@@ -49,7 +50,7 @@ function ModalContentInner({
   onClose,
   isEditMode,
 }: {
-  onClose: (shouldRefresh?: boolean) => void;
+  onClose: (shouldRefresh?: boolean, newTemplate?: Template, updatedTemplate?: Template) => void;
   isEditMode: boolean;
 }) {
   const {
@@ -87,13 +88,7 @@ function ModalContentInner({
   };
 
   const handleClose = () => {
-    if (
-      !isEditMode
-    ) {
-      onClose(false);
-    } else {
-      onClose(false);
-    }
+    onClose(false);
   };
 
   return (

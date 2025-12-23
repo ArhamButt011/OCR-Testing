@@ -1,8 +1,8 @@
 // src/app/admin/unregistered-documents/page.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Spinner from "../components/Spinner";
@@ -12,7 +12,6 @@ import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { UnregisteredDocumentsTable } from "../components/unregistered-documents";
 import { UnregisteredSearchBar } from "../components/unregistered-documents";
-// import { DocumentReviewModal } from "../components/unregistered-documents/DocumentViewModal";
 import { CreateTemplateModal } from "../components/CreateTemplateModal";
 import Swal from "sweetalert2";
 
@@ -49,7 +48,19 @@ interface UnregisteredDocument {
 
 export default function UnregisteredDocumentsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isExpanded } = useSidebar();
+  
+  // Get initial values from URL or use defaults
+  const getInitialValue = (key: string, defaultValue: any) => {
+    const value = searchParams.get(key);
+    if (value === null) return defaultValue;
+    
+    if (key === 'page' || key === 'limit') {
+      return parseInt(value) || defaultValue;
+    }
+    return value;
+  };
   
   const [loading, setLoading] = useState(true);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -57,21 +68,40 @@ export default function UnregisteredDocumentsPage() {
   
   const [documents, setDocuments] = useState<UnregisteredDocument[]>([]);
   const [totalDocs, setTotalDocs] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  // Initialize state from URL params
+  const [currentPage, setCurrentPage] = useState(() => getInitialValue('page', 1));
+  const [itemsPerPage, setItemsPerPage] = useState(() => getInitialValue('limit', 10));
+  const [searchQuery, setSearchQuery] = useState(() => getInitialValue('search', ''));
+  const [categoryFilter, setCategoryFilter] = useState(() => getInitialValue('category', 'all'));
+  const [sortBy, setSortBy] = useState(() => getInitialValue('sortBy', 'createdAt'));
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => 
+    getInitialValue('sortOrder', 'desc') as "asc" | "desc"
+  );
   
-  const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<UnregisteredDocument | null>(null);
   const [createTemplateModalOpen, setCreateTemplateModalOpen] = useState(false);
   const [selectedDocForTemplate, setSelectedDocForTemplate] = useState<string | null>(null);
 
   const isFetchingRef = useRef(false);
+
+  // Update URL when state changes
+  const updateURL = useCallback((params: Record<string, any>) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === '' || value === 'all' || value === null || value === undefined) {
+        current.delete(key);
+      } else {
+        current.set(key, String(value));
+      }
+    });
+
+    const search = current.toString();
+    const query = search ? `?${search}` : '';
+    
+    router.replace(`/unregistered-documents${query}`, { scroll: false });
+  }, [router, searchParams]);
 
   // Auth check
   useEffect(() => {
@@ -173,76 +203,35 @@ export default function UnregisteredDocumentsPage() {
     }
   };
 
-  const handleAssignTemplate = async (documentId: string, templateId: string) => {
-    try {
-      const response = await fetch("/api/unregistered-documents/assign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentIds: [documentId],
-          templateId,
-          reprocess: true
-        })
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        Swal.fire({
-          icon: "success",
-          title: "Success!",
-          html: `
-            <div class="text-left">
-              <p class="mb-2">${result.message}</p>
-              <p class="text-sm text-gray-600">The document has been reprocessed with the assigned template.</p>
-            </div>
-          `,
-          timer: 3000
-        });
-        
-        fetchDocuments();
-      } else {
-        throw new Error(result.error || "Assignment failed");
-      }
-    } catch (error) {
-      console.error("Assignment error:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: String(error)
-      });
-    }
-  };
-
-  const handleCreateNewTemplate = (documentId: string) => {
-    setSelectedDocForTemplate(documentId);
-    setReviewModalOpen(false);
-    setCreateTemplateModalOpen(true);
-  };
-
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);
+    updateURL({ search: query, page: 1 });
   };
 
   const handleCategoryChange = (category: string) => {
     setCategoryFilter(category);
     setCurrentPage(1);
+    updateURL({ category, page: 1 });
   };
 
   const handleSort = (field: string) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(field);
-      setSortOrder("asc");
-    }
+    const newSortOrder = sortBy === field && sortOrder === "asc" ? "desc" : "asc";
+    setSortBy(field);
+    setSortOrder(newSortOrder);
     setCurrentPage(1);
+    updateURL({ sortBy: field, sortOrder: newSortOrder, page: 1 });
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    updateURL({ page });
   };
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1);
+    updateURL({ limit: newItemsPerPage, page: 1 });
   };
 
   const clearFilters = () => {
@@ -251,6 +240,9 @@ export default function UnregisteredDocumentsPage() {
     setSortBy("createdAt");
     setSortOrder("desc");
     setCurrentPage(1);
+    setItemsPerPage(10);
+    
+    router.replace('/unregistered-documents', { scroll: false });
   };
 
   const hasActiveFilters = searchQuery || categoryFilter !== "all";
@@ -274,15 +266,8 @@ export default function UnregisteredDocumentsPage() {
             isExpanded ? "lg:ml-64" : "ml-24"
           }`}
         >
-          <Header
-            leftContent="Unregistered Documents"
-            totalContent={totalDocs}
-            rightContent={null}
-            buttonContent={null}
-          />
-
           <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
+            <div className="mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
               <div className="mb-4 sm:mb-8">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
@@ -327,7 +312,6 @@ export default function UnregisteredDocumentsPage() {
                     sortField={sortBy as any}
                     sortDirection={sortOrder}
                     onSort={handleSort}
-                    // onReviewDocument={handleReviewDocument}
                   />
 
                   <div className="mt-4">
@@ -336,7 +320,7 @@ export default function UnregisteredDocumentsPage() {
                       totalPages={totalPages}
                       itemsPerPage={itemsPerPage}
                       totalItems={totalDocs}
-                      onPageChange={setCurrentPage}
+                      onPageChange={handlePageChange}
                       onItemsPerPageChange={handleItemsPerPageChange}
                       showItemsPerPage={true}
                       showItemsInfo={true}
@@ -349,19 +333,6 @@ export default function UnregisteredDocumentsPage() {
         </div>
       </div>
 
-      {/* Document Review Modal */}
-      {/* <DocumentReviewModal
-        isOpen={reviewModalOpen}
-        onClose={() => {
-          setReviewModalOpen(false);
-          setSelectedDocument(null);
-        }}
-        document={selectedDocument}
-        onAssignTemplate={handleAssignTemplate}
-        onCreateNewTemplate={handleCreateNewTemplate}
-      /> */}
-
-      {/* Create Template Modal */}
       <CreateTemplateModal
         isOpen={createTemplateModalOpen}
         onClose={() => {

@@ -1,8 +1,15 @@
 // src/app/templates/page.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+/**
+ * Optimized Templates Page with URL State Management
+ * - Uses URL search params to persist pagination, filters, and sorting
+ * - Maintains state when navigating back from detail pages
+ * - Supports browser back/forward buttons
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
@@ -14,12 +21,26 @@ import { TemplateSearchBar } from "../components/templates/TemplateSearchBar";
 import { TemplateTable } from "../components/templates/TemplateTable";
 import type { Template } from "../components/templates/TemplateTable";
 import { CreateTemplateModal } from "../components/CreateTemplateModal";
-import { TemplateTestModal } from "../components/templates/TemplateTestModal"; 
+import { TemplateTestModal } from "../components/templates/TemplateTestModal";
 import { useTemplateActions } from "@/hooks/useTemplateActions";
 
 export default function TemplatesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isExpanded } = useSidebar();
+  
+  // Get initial values from URL or use defaults
+  const getInitialValue = (key: string, defaultValue: any) => {
+    const value = searchParams.get(key);
+    if (value === null) return defaultValue;
+    
+    // Handle different types
+    if (key === 'page' || key === 'limit') {
+      return parseInt(value) || defaultValue;
+    }
+    return value;
+  };
+
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -29,17 +50,42 @@ export default function TemplatesPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [sortBy, setSortBy] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Initialize state from URL params
+  const [searchQuery, setSearchQuery] = useState(() => getInitialValue('search', ''));
+  const [filterStatus, setFilterStatus] = useState(() => getInitialValue('status', 'all'));
+  const [filterCategory, setFilterCategory] = useState(() => getInitialValue('category', 'all'));
+  const [sortBy, setSortBy] = useState(() => getInitialValue('sortBy', ''));
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => 
+    getInitialValue('sortOrder', 'asc') as "asc" | "desc"
+  );
+  const [currentPage, setCurrentPage] = useState(() => getInitialValue('page', 1));
+  const [itemsPerPage, setItemsPerPage] = useState(() => getInitialValue('limit', 10));
+  
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const isFetchingRef = useRef(false);
 
+  // Update URL when state changes
+  const updateURL = useCallback((params: Record<string, any>) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === '' || value === 'all' || value === null || value === undefined) {
+        current.delete(key);
+      } else {
+        current.set(key, String(value));
+      }
+    });
+
+    const search = current.toString();
+    const query = search ? `?${search}` : '';
+    
+    // Use replace to avoid adding to history for every state change
+    router.replace(`/templates${query}`, { scroll: false });
+  }, [router, searchParams]);
+
+  // Authentication check
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -79,6 +125,7 @@ export default function TemplatesPage() {
     setLoadingAuth(false);
   }, [router]);
 
+  // Fetch templates when URL params change
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchTemplates();
@@ -136,39 +183,77 @@ export default function TemplatesPage() {
     }
   };
 
+  // Local state update functions
+  const updateTemplateInState = useCallback((templateId: string, updates: Partial<Template>) => {
+    setTemplates(prev => 
+      prev.map(template => 
+        template._id === templateId 
+          ? { ...template, ...updates }
+          : template
+      )
+    );
+  }, []);
+
+  const addTemplateToState = useCallback((newTemplate: Template) => {
+    setTemplates(prev => [newTemplate, ...prev]);
+    setTotalItems(prev => prev + 1);
+  }, []);
+
+  const removeTemplateFromState = useCallback((templateId: string) => {
+    setTemplates(prev => prev.filter(template => template._id !== templateId));
+    setTotalItems(prev => prev - 1);
+  }, []);
+
+  // Enhanced template actions with local state updates
   const { handleActivate, handleDeactivate, handleDeprecate, handleDelete } =
-    useTemplateActions(fetchTemplates);
+    useTemplateActions((templateId, action, data) => {
+      switch (action) {
+        case 'activate':
+        case 'deactivate':
+        case 'deprecate':
+          updateTemplateInState(templateId, { status: data.status });
+          break;
+        case 'delete':
+          removeTemplateFromState(templateId);
+          break;
+      }
+    });
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);
+    updateURL({ search: query, page: 1 });
   };
 
   const handleStatusChange = (status: string) => {
     setFilterStatus(status);
     setCurrentPage(1);
+    updateURL({ status, page: 1 });
   };
 
   const handleCategoryChange = (category: string) => {
-    console.log("Selected category:", category);
     setFilterCategory(category);
     setCurrentPage(1);
+    updateURL({ category, page: 1 });
   };
 
   const handleSort = (field: string) => {
-    console.log("Sorting by field:", field);
-    if (sortBy === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(field);
-      setSortOrder("asc");
-    }
-    setCurrentPage(1); 
+    const newSortOrder = sortBy === field && sortOrder === "asc" ? "desc" : "asc";
+    setSortBy(field);
+    setSortOrder(newSortOrder);
+    setCurrentPage(1);
+    updateURL({ sortBy: field, sortOrder: newSortOrder, page: 1 });
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    updateURL({ page });
   };
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1); 
+    setCurrentPage(1);
+    updateURL({ limit: newItemsPerPage, page: 1 });
   };
 
   const clearFilters = () => {
@@ -178,6 +263,10 @@ export default function TemplatesPage() {
     setSortBy("");
     setSortOrder("asc");
     setCurrentPage(1);
+    setItemsPerPage(10);
+    
+    // Clear all URL params
+    router.replace('/templates', { scroll: false });
   };
 
   const hasActiveFilters =
@@ -197,20 +286,22 @@ export default function TemplatesPage() {
     setIsModalOpen(true);
   };
 
-  // Handle modal close with refresh
-  const handleModalClose = (shouldRefresh?: boolean) => {
+  // Handle modal close with local state update
+  const handleModalClose = (shouldRefresh?: boolean, templateData?: any) => {
     setIsModalOpen(false);
     setSelectedDraftId(undefined);
     setSelectedTemplateId(undefined);
     
-    // Refresh templates list if requested
-    if (shouldRefresh) {
-      fetchTemplates();
+    if (templateData) {
+      if (selectedTemplateId) {
+        updateTemplateInState(selectedTemplateId, templateData);
+      } else {
+        addTemplateToState(templateData);
+      }
     }
   };
 
   const handleTest = (template: Template) => {
-    console.log('testing this templtae-> ', template);
     setSelectedTemplate(template);
     setTestModalOpen(true);
   };
@@ -240,18 +331,8 @@ export default function TemplatesPage() {
             isExpanded ? "lg:ml-64" : "ml-24"
           }`}
         >
-          {/* Header */}
-          <Header
-            leftContent="Templates"
-            totalContent={totalItems}
-            rightContent={null}
-            buttonContent={null}
-          />
-
-          {/* Main content */}
           <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
-              {/* Page Header */}
+            <div className="mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
               <div className="mb-4 sm:mb-8">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
@@ -284,7 +365,6 @@ export default function TemplatesPage() {
                 </div>
               </div>
 
-              {/* Search & Filters */}
               <TemplateSearchBar
                 searchQuery={searchQuery}
                 onSearchChange={handleSearchChange}
@@ -297,7 +377,6 @@ export default function TemplatesPage() {
                 onClearFilters={clearFilters}
               />
 
-              {/* Table or Empty State */}
               {loading ? (
                 <LoadingState type="skeleton-table" rows={10} />
               ) : templates.length === 0 ? (
@@ -338,14 +417,13 @@ export default function TemplatesPage() {
                     onTest={handleTest}
                   />
 
-                  {/* Pagination */}
                   <div className="mt-4">
                     <Pagination
                       currentPage={currentPage}
                       totalPages={totalPages}
                       itemsPerPage={itemsPerPage}
                       totalItems={totalItems}
-                      onPageChange={setCurrentPage}
+                      onPageChange={handlePageChange}
                       onItemsPerPageChange={handleItemsPerPageChange}
                       showItemsPerPage={true}
                       showItemsInfo={true}
@@ -358,7 +436,6 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      {/* Create/Edit Template Modal */}
       <CreateTemplateModal
         isOpen={isModalOpen}
         onClose={handleModalClose}

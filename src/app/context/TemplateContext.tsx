@@ -147,7 +147,7 @@ interface TemplateContextType {
   errors: Record<string, any>;
   isEditMode: boolean;
   originalDraftId: string | null;
-  onModalClose?: (shouldRefresh?: boolean) => void;
+  onModalClose?: (shouldRefresh?: boolean, templateData?: any) => void; // Updated signature
   setCurrentStep: (step: number) => void;
   updateTemplateData: (data: Partial<TemplateData>) => void;
   saveDraft: () => Promise<void>;
@@ -160,6 +160,7 @@ interface TemplateContextType {
   clearError: (field: string) => void;
   setErrors: (errors: Record<string, any>) => void;
 }
+
 
 // ============================================================================
 // CONTEXT

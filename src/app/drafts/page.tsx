@@ -253,16 +253,16 @@ export default function DraftsPage() {
           }`}
         >
           {/* Header */}
-          <Header
+          {/* <Header
             leftContent="Drafts"
             totalContent={totalItems}
             rightContent={null}
             buttonContent={null}
-          />
+          /> */}
 
           {/* Main content */}
           <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
+            <div className="mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
               {/* Page Header */}
               <div className="mb-4 sm:mb-8">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

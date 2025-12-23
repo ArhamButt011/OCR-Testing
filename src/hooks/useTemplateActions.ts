@@ -1,4 +1,4 @@
-// src/app/admin/hooks/useTemplateActions.ts
+// src/app/hooks/useTemplateActions.ts
 "use client";
 
 import { useState } from "react";
@@ -6,7 +6,13 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 
-export const useTemplateActions = (onRefresh: () => void) => {
+type ActionCallback = (
+  templateId: string,
+  action: 'activate' | 'deactivate' | 'deprecate' | 'delete',
+  data?: any
+) => void;
+
+export const useTemplateActions = (onActionComplete: ActionCallback) => {
   const [loading, setLoading] = useState(false);
 
   const getUserId = (): string => {
@@ -71,15 +77,15 @@ export const useTemplateActions = (onRefresh: () => void) => {
       cancelButtonText: "Cancel",
       confirmButtonText: "Yes, Activate",
     });
-    if (!result.isConfirmed) {
-      return;
-    }
+    
+    if (!result.isConfirmed) return;
 
     try {
-      const result = await updateTemplateStatus(templateId, "active");
-      console.log("result", result);
-      toast.success(result.message || "Template activated successfully!");
-      onRefresh();
+      const response = await updateTemplateStatus(templateId, "active");
+      toast.success(response.message || "Template activated successfully!");
+      
+      // Update local state
+      onActionComplete(templateId, 'activate', { status: 'active' });
     } catch (error: any) {
       if (error.message.includes("deprecated")) {
         toast.error(
@@ -100,16 +106,17 @@ export const useTemplateActions = (onRefresh: () => void) => {
       confirmButtonColor: "#005B97",
       cancelButtonColor: "#F0F1F3",
       cancelButtonText: "Cancel",
-      confirmButtonText: "Yes, Deactivate ",
+      confirmButtonText: "Yes, Deactivate",
     });
-    if (!result.isConfirmed) {
-      return;
-    }
+    
+    if (!result.isConfirmed) return;
 
     try {
-      const result = await updateTemplateStatus(templateId, "inactive");
-      toast.success(result.message || "Template deactivated successfully!");
-      onRefresh();
+      const response = await updateTemplateStatus(templateId, "inactive");
+      toast.success(response.message || "Template deactivated successfully!");
+      
+      // Update local state
+      onActionComplete(templateId, 'deactivate', { status: 'inactive' });
     } catch (error: any) {
       toast.error(`Failed to deactivate template: ${error.message}`);
     }
@@ -126,13 +133,15 @@ export const useTemplateActions = (onRefresh: () => void) => {
       cancelButtonText: "Cancel",
       confirmButtonText: "Yes, Deprecate",
     });
-    if (!result.isConfirmed) {
-      return;
-    }
+    
+    if (!result.isConfirmed) return;
+
     try {
-      const result = await updateTemplateStatus(templateId, "deprecated");
-      toast.success(result.message || "Template deprecated successfully!");
-      onRefresh();
+      const response = await updateTemplateStatus(templateId, "deprecated");
+      toast.success(response.message || "Template deprecated successfully!");
+      
+      // Update local state
+      onActionComplete(templateId, 'deprecate', { status: 'deprecated' });
     } catch (error: any) {
       toast.error(`Failed to deprecate template: ${error.message}`);
     }
@@ -150,15 +159,16 @@ export const useTemplateActions = (onRefresh: () => void) => {
       confirmButtonText: "Delete",
     });
 
-    if (!result.isConfirmed) {
-      return;
-    }
+    if (!result.isConfirmed) return;
+
     try {
       setLoading(true);
       await axios.delete(`/api/templates/${templateId}`);
 
       toast.success("Template deleted successfully!");
-      onRefresh();
+      
+      // Update local state
+      onActionComplete(templateId, 'delete');
     } catch (error: any) {
       console.error("Failed to delete template:", error);
       if (axios.isAxiosError(error) && error.response) {

@@ -1,8 +1,8 @@
 // src/app/admin/unregistered-documents/[id]/page.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import Spinner from "../../components/Spinner";
@@ -47,6 +47,7 @@ interface UnregisteredDocument {
 export default function DocumentDetailsPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const { isExpanded } = useSidebar();
   const documentId = params?.id as string;
 
@@ -60,7 +61,6 @@ export default function DocumentDetailsPage() {
   const [selectedTemplateForDetails, setSelectedTemplateForDetails] = useState<string | null>(null);
   const [createTemplateModalOpen, setCreateTemplateModalOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState("");
-
 
   // Auth check
   useEffect(() => {
@@ -128,7 +128,10 @@ export default function DocumentDetailsPage() {
         title: "Error",
         text: "Failed to fetch document details"
       });
-      router.push("/unregistered-documents");
+      // Preserve URL params when redirecting back
+      const queryString = searchParams.toString();
+      const backUrl = queryString ? `/unregistered-documents?${queryString}` : '/unregistered-documents';
+      router.push(backUrl);
     } finally {
       setLoading(false);
     }
@@ -192,7 +195,10 @@ export default function DocumentDetailsPage() {
             `,
             timer: 3000
           }).then(() => {
-            router.push("/unregistered-documents");
+            // Preserve URL params when redirecting back
+            const queryString = searchParams.toString();
+            const backUrl = queryString ? `/unregistered-documents?${queryString}` : '/unregistered-documents';
+            router.push(backUrl);
           });
         } else {
           throw new Error(resultData.error || "Assignment failed");
@@ -221,21 +227,26 @@ export default function DocumentDetailsPage() {
     return "text-red-600 bg-red-100";
   };
 
+  // Handle back navigation with preserved URL params
+  const handleBackNavigation = () => {
+    const queryString = searchParams.toString();
+    const backUrl = queryString ? `/unregistered-documents?${queryString}` : '/unregistered-documents';
+    router.push(backUrl);
+  };
+
   const handleSidebarStateChange = (newState: boolean) => {
     return newState;
   };
+
   const fileName = document?.pdfUrl.split("/").pop();
 
-     useEffect(() => {
+  useEffect(() => {
     const accessUrl = fileName
-      ? `/api/access-file?filename=${encodeURIComponent(
-          fileName
-        )}&t=${Date.now()}`
+      ? `/api/access-file?filename=${encodeURIComponent(fileName)}&t=${Date.now()}`
       : "";
     setPdfUrl(accessUrl);
-    console.log("Generated PDF URL:", accessUrl);
   }, [document?.pdfUrl]);
-console.log("PDF URL:", pdfUrl);
+
   if (loadingAuth) return <Spinner />;
   if (!isAuthenticated) return <p className="p-8">Access Denied. Redirecting...</p>;
 
@@ -262,7 +273,7 @@ console.log("PDF URL:", pdfUrl);
             <div className="max-w-7xl mx-auto px-4 py-6">
               {/* Back Button */}
               <button
-                onClick={() => router.push("/unregistered-documents")}
+                onClick={handleBackNavigation}
                 className="mb-6 inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
               >
                 <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -279,34 +290,8 @@ console.log("PDF URL:", pdfUrl);
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left: Document Preview & Classification */}
+                  {/* Left: Document Preview */}
                   <div className="space-y-6">
-                    {/* Document Info Card */}
-                    {/* <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                      <h2 className="text-lg font-semibold text-gray-900 mb-4">Document Information</h2>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-xs text-gray-600 mb-1">BL Number</p>
-                          <p className="font-medium text-gray-900">{document.blNumber || "N/A"}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 mb-1">File ID</p>
-                          <p className="font-mono text-sm text-gray-900">{document.fileId}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 mb-1">Date Added</p>
-                          <p className="text-sm text-gray-900">
-                            {new Date(document.createdAt).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric"
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    </div> */}
-
-                    {/* Document Preview */}
                     <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
                       <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
                         <h3 className="font-semibold text-gray-900">Document Preview</h3>
@@ -324,10 +309,7 @@ console.log("PDF URL:", pdfUrl);
                           </div>
                         )}
                       </div>
-                    </div> 
-
-                    {/* Classification Details */}
-                   
+                    </div>
                   </div>
 
                   {/* Right: Suggested Templates */}
@@ -360,12 +342,10 @@ console.log("PDF URL:", pdfUrl);
                               }`}
                             >
                               <div className="flex items-start gap-4">
-                                {/* Priority Badge */}
                                 <div className="flex-shrink-0 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm">
                                   {template.priority}
                                 </div>
 
-                                {/* Template Thumbnail */}
                                 <div className="flex-shrink-0 w-20 h-28 bg-gray-100 rounded overflow-hidden relative">
                                   {template.thumbnail_url ? (
                                     <Image
@@ -381,7 +361,6 @@ console.log("PDF URL:", pdfUrl);
                                   )}
                                 </div>
 
-                                {/* Template Details */}
                                 <div className="flex-1 min-w-0">
                                   <h4 className="font-semibold text-gray-900 mb-2">
                                     {template.template_name}
@@ -396,7 +375,6 @@ console.log("PDF URL:", pdfUrl);
                                     </span>
                                   </div>
 
-                                  {/* Match Score Bar */}
                                   <div className="mb-2">
                                     <div className="flex items-center justify-between mb-1">
                                       <span className="text-xs text-gray-600">Match Score</span>
@@ -416,7 +394,6 @@ console.log("PDF URL:", pdfUrl);
                                     </div>
                                   </div>
 
-                                  {/* View Details Button */}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -428,7 +405,6 @@ console.log("PDF URL:", pdfUrl);
                                   </button>
                                 </div>
 
-                                {/* Selection Indicator */}
                                 {selectedTemplateId === template.template_id && (
                                   <div className="flex-shrink-0">
                                     <svg className="w-6 h-6 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -442,12 +418,11 @@ console.log("PDF URL:", pdfUrl);
                         </div>
                       )}
 
-                      {/* Action Buttons */}
                       <div className="mt-6 flex items-center justify-between">
                         <button
                           onClick={() => setCreateTemplateModalOpen(true)}
                           disabled={isAssigning}
-                          className="px-4 py-2  border-gray-300 text-white bg-[#6B7280] rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                          className="px-4 py-2 border-gray-300 text-white bg-[#6B7280] rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
                           Create New Template
                         </button>
@@ -471,13 +446,13 @@ console.log("PDF URL:", pdfUrl);
                         </button>
                       </div>
                     </div>
-                     <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+
+                    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">
                         Classification Details
                       </h3>
                       
                       <div className="space-y-3">
-                        {/* Primary Classification */}
                         <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                           <div>
                             <p className="text-xs text-gray-600 mb-1">Primary Model</p>
@@ -490,7 +465,6 @@ console.log("PDF URL:", pdfUrl);
                           </span>
                         </div>
 
-                        {/* Secondary Classification */}
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
                             <p className="text-xs text-gray-600 mb-1">Secondary Model</p>
@@ -502,27 +476,9 @@ console.log("PDF URL:", pdfUrl);
                             {(document.classification_details.secondary_confidence * 100).toFixed(0)}%
                           </span>
                         </div>
-
-                        {/* Overall Confidence */}
-                        {/* <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                          <div>
-                            <p className="text-xs text-gray-600 mb-1">Overall Confidence</p>
-                            <p className="font-medium text-gray-900">Document Quality</p>
-                          </div>
-                          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getConfidenceColor(document.confidence)}`}>
-                            {(document.confidence * 100).toFixed(0)}%
-                          </span>
-                        </div> */}
-
-                        {/* Processing Time */}
-                        {/* <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                          <p className="text-sm text-gray-600">Processing Time</p>
-                          <p className="font-medium text-gray-900">{document.processing_time}ms</p>
-                        </div> */}
                       </div>
                     </div>
                   </div>
-                  
                 </div>
               )}
             </div>
@@ -530,7 +486,6 @@ console.log("PDF URL:", pdfUrl);
         </div>
       </div>
 
-      {/* Template Details Modal */}
       <TemplateDetailsModal
         isOpen={templateDetailsModalOpen}
         onClose={() => {
@@ -540,7 +495,6 @@ console.log("PDF URL:", pdfUrl);
         templateId={selectedTemplateForDetails}
       />
 
-      {/* Create Template Modal */}
       <CreateTemplateModal
         isOpen={createTemplateModalOpen}
         onClose={() => {

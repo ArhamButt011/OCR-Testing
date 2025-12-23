@@ -2,13 +2,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import Spinner from "../../components/Spinner";
 import { useSidebar } from "../../context/SidebarContext";
 import { LoadingState } from "@/app/components/common/LoadingState";
-import Image from "next/image";
 
 interface TemplateDetails {
   _id: string;
@@ -45,6 +44,7 @@ interface TemplateDetails {
 export default function TemplateDetailsPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const { isExpanded } = useSidebar();
   const templateId = params?.id as string;
 
@@ -132,6 +132,14 @@ export default function TemplateDetailsPage() {
     return colors[status as keyof typeof colors] || colors.inactive;
   };
 
+  // Handle back navigation with preserved URL params
+  const handleBackNavigation = () => {
+    // Get all current search params from when we navigated here
+    const queryString = searchParams.toString();
+    const backUrl = queryString ? `/templates?${queryString}` : '/templates';
+    router.push(backUrl);
+  };
+
   const handleSidebarStateChange = (newState: boolean) => {
     return newState;
   };
@@ -161,8 +169,8 @@ export default function TemplateDetailsPage() {
           <div className="max-w-7xl mx-auto px-4 py-6">
             {/* Back Button */}
             <button
-              onClick={() => router.push("/templates")}
-              className="mb-6 inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+              onClick={handleBackNavigation}
+              className="mb-6 inline-flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors"
             >
               <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -220,12 +228,6 @@ export default function TemplateDetailsPage() {
                       <p className="text-sm text-gray-600 mb-1">Usage Count</p>
                       <p className="font-medium text-gray-900">{template.metadata.usage_count.toLocaleString()}</p>
                     </div>
-                    {/* <div>
-                      <p className="text-sm text-gray-600 mb-1">Success Rate</p>
-                      <p className="font-medium text-gray-900">
-                        {(template.metadata.success_rate * 100).toFixed(1)}%
-                      </p>
-                    </div> */}
                   </div>
                   {template.description && (
                     <div className="mt-6">
@@ -364,9 +366,6 @@ export default function TemplateDetailsPage() {
                         <tr>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Target Field</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Source</th>
-                          {/* <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Type</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Required</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Default Value</th> */}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -374,58 +373,12 @@ export default function TemplateDetailsPage() {
                           <tr key={key} className="hover:bg-gray-50">
                             <td className="px-4 py-3 font-mono text-sm text-gray-900">{value.target_field}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{value.source_field}</td>
-                            {/* <td className="px-4 py-3">
-                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                {value.data_type}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {value.required ? (
-                                <span className="text-green-600 font-bold text-lg">✓</span>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {value.default_value !== undefined ? String(value.default_value) : '-'}
-                            </td> */}
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 </div>
-
-                {/* Metadata */}
-                {/* <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Metadata</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">Created At</p>
-                      <p className="text-gray-900 font-medium">
-                        {new Date(template.metadata.created_at).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        })}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">Last Updated</p>
-                      <p className="text-gray-900 font-medium">
-                        {new Date(template.metadata.updated_at).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </div> */}
               </div>
             )}
           </div>

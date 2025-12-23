@@ -1,19 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import axios from "axios";
 import { useTemplate } from "@/app/context/TemplateContext";
 import { toast } from "react-toastify";
 import { getErrorToastText } from "@/lib/common/getErrorToastText";
-import { useRouter } from "next/navigation";
 import { useApiConfig } from "@/app/context/ApiConfigContext";
 
 export const Step7Review: React.FC = () => {
   const { templateData, submitTemplate, isEditMode, onModalClose } = useTemplate();
-  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [testResults, setTestResults] = useState<any>(null);
-  const [isTesting, setIsTesting] = useState(false);
   const { baseUrl } = useApiConfig();
 
   const handleSaveInactive = async () => {
@@ -21,25 +16,24 @@ export const Step7Review: React.FC = () => {
 
     try {
       const templateRes = await submitTemplate();
-      console.log("Template saved as inactive:", templateRes);
+      console.log("Template saved:", templateRes);
 
+      const templateInfo = templateRes?.template || templateRes;
+      
       toast.success(
-        `${templateRes?.message} ${
-          templateRes?.template_id || templateRes?.template?.template_id
-        }, and version ${
-          templateRes?.version || templateRes?.template?.version
-        }`
+        `${templateRes?.message || (isEditMode ? 'Template updated successfully' : 'Template created successfully')} - ID: ${
+          templateInfo?.template_id || templateData.template_id
+        }, Version: ${templateInfo?.version || templateData.version}`
       );
 
-      // Close modal and trigger refresh after a short delay
+      // Pass the template data back to parent to update local state
       setTimeout(() => {
         if (onModalClose) {
-          onModalClose(true)
+          onModalClose(false, templateInfo); // Don't refresh, pass template data
         }
-        router.refresh();
       }, 1000);
     } catch (err: any) {
-      console.error("Save inactive failed:", err);
+      console.error("Save failed:", err);
       toast.error(getErrorToastText(err, "Failed to save template"));
     } finally {
       setIsSubmitting(false);
@@ -49,9 +43,9 @@ export const Step7Review: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Review & Activate</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Review & Save</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Review your template configuration before activation
+          Review your template configuration before saving
         </p>
       </div>
 
@@ -305,7 +299,7 @@ export const Step7Review: React.FC = () => {
                   <span className="text-primary">
                     {(mapping as any).source_field}
                   </span>
-                  {"->"}
+                  {" -> "}
                   <span className="text-green-600">{target}</span>
                 </div>
               )

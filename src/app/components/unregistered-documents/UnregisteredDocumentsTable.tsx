@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import FileNameCell from "../UI/FileNameCell";
 
 interface ClassificationDetails {
@@ -50,6 +50,7 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
   onSort
 }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -87,10 +88,14 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
   );
 
   const handleReview = (documentId: string) => {
-    router.push(`/unregistered-documents/${documentId}`);
+    // Preserve current search params when navigating to details
+    const currentParams = searchParams.toString();
+    const detailsUrl = currentParams 
+      ? `/unregistered-documents/${documentId}?${currentParams}`
+      : `/unregistered-documents/${documentId}`;
+    
+    router.push(detailsUrl);
   };
-
-  console.log("Rendering UnregisteredDocumentsTable with documents:", documents);
 
   return (
     <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
@@ -98,14 +103,13 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {/* <SortableHeader field="blNumber">BL Number</SortableHeader> */}
-               <SortableHeader field="fileName">File Name</SortableHeader>
+              <SortableHeader field="fileName">File Name</SortableHeader>
               
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Classification
               </th>
               <SortableHeader field="createdAt">Date Added</SortableHeader>
-              {/* <SortableHeader field="confidence">Confidence</SortableHeader> */}
+              
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Suggestions
               </th>
@@ -117,23 +121,13 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
           <tbody className="bg-white divide-y divide-gray-200">
             {documents.map((doc) => (
               <tr key={doc._id} className="hover:bg-gray-50 transition-colors">
-                {/* BL Number */}
-                {/* <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {doc.blNumber || "N/A"}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    ID: {doc.fileId}
-                  </div>
-                </td> */}
                 <td className="">
-                <FileNameCell
-                pdfUrl={doc.pdfUrl}
-                className="left-0"
-                />
+                  <FileNameCell
+                    pdfUrl={doc.pdfUrl}
+                    className="left-0"
+                  />
                 </td>
 
-                {/* Classification */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm">
                     <div className="font-medium text-gray-900">
@@ -145,19 +139,10 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
                   </div>
                 </td>
 
-                {/* Date */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {formatDate(doc.createdAt)}
                 </td>
 
-                {/* Overall Confidence */}
-                {/* <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getConfidenceColor(doc.confidence)}`}>
-                    {(doc.confidence * 100).toFixed(0)}%
-                  </span>
-                </td> */}
-
-                {/* Suggestions Count */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900">
@@ -171,7 +156,6 @@ export const UnregisteredDocumentsTable: React.FC<UnregisteredDocumentsTableProp
                   </div>
                 </td>
 
-                {/* Actions */}
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <button
                     onClick={() => handleReview(doc._id)}
