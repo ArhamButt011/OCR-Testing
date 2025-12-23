@@ -2,7 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLogCapture } from './logCapture';
 
-type RouteContext = { params: Record<string, string | string[]> };
+// ✅ Updated for Next.js 15 - params is now a Promise
+type RouteContext = { 
+  params: Promise<Record<string, string | string[]>> 
+};
 
 type RouteHandler = (
   request: NextRequest | Request,
@@ -33,6 +36,7 @@ export function withLogging(handler: RouteHandler) {
           body = JSON.parse(text);
         }
       } catch (e) {
+        // Ignore JSON parse errors
       }
 
       let type: 'success' | 'error' | 'warning' | 'info' = 'info';
@@ -64,7 +68,6 @@ export function withLogging(handler: RouteHandler) {
       });
 
       console.log('Logged:', { endpoint, method, statusCode, type, duration: `${duration}ms` });
-
 
       return response;
     } catch (error: any) {

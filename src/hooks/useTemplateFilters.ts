@@ -53,8 +53,8 @@ export const useTemplateFilters = (templates: Template[]) => {
           bValue = b.status;
           break;
         case 'documents_processed':
-          aValue = a.metadata.usage_count || 0;
-          bValue = b.metadata.usage_count || 0;
+          aValue = a.metadata?.usage_count || 0;
+          bValue = b.metadata?.usage_count || 0;
           break;
         case 'accuracy_rate':
           aValue = a.metadata.success_rate || 0;

@@ -236,16 +236,34 @@ async function createTemplateHandler(
       });
     }
 
+    // ✅ FIX: Return the complete template object, not just minimal fields
+    const createdTemplate = {
+      _id: result.insertedId.toString(), // Convert ObjectId to string for frontend
+      template_id: templateDoc.template_id,
+      template_name: templateDoc.template_name,
+      category: templateDoc.category,
+      version: templateDoc.version,
+      description: templateDoc.description,
+      status: templateDoc.status,
+      identification: templateDoc.identification,
+      region_config: templateDoc.region_config,
+      prompts: templateDoc.prompts,
+      field_mapping: templateDoc.field_mapping,
+      post_processing_rules: templateDoc.post_processing_rules,
+      metadata: {
+        created_at: templateDoc.metadata.created_at.toISOString(),
+        updated_at: templateDoc.metadata.updated_at.toISOString(),
+        usage_count: templateDoc.metadata.usage_count,
+        success_rate: templateDoc.metadata.success_rate,
+      },
+    };
+
     return NextResponse.json(
       {
         success: true,
-        template_id: body.template_id,
-        _id: result.insertedId,
-        version: templateDoc.version,
-        status: "inactive",
-        message:
-          "Template created successfully. Activate it to use in OCR processing.",
-        drafts_deleted: deleteDraftResult.deletedCount, // ✅ Include count
+        message: "Template created successfully. Activate it to use in OCR processing.",
+        template: createdTemplate, // ✅ Return full template object
+        drafts_deleted: deleteDraftResult.deletedCount,
       },
       { status: 201 }
     );

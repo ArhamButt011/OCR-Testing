@@ -232,11 +232,11 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                   {getStatusBadge(template.status)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {template.metadata.usage_count?.toLocaleString() || "0"}
+                  {template?.metadata?.usage_count?.toLocaleString() || "0"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {template.metadata.success_rate !== undefined
-                    ? `${(template.metadata.success_rate * 100).toFixed(1)}%`
+                  {template?.metadata?.success_rate !== undefined
+                    ? `${(template?.metadata?.success_rate * 100).toFixed(1)}%`
                     : "N/A"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

@@ -174,7 +174,7 @@ export const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
                   </div>
                   <div>
                     <p className="text-xs text-gray-600 mb-1">Usage Count</p>
-                    <p className="font-medium text-gray-900">{template.metadata.usage_count}</p>
+                    <p className="font-medium text-gray-900">{template?.metadata?.usage_count}</p>
                   </div>
                 </div>
                 {template.description && (

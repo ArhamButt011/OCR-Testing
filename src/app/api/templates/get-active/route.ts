@@ -33,7 +33,7 @@ async function getActiveTemplatesHandler(
       .toArray();
 
     // Transform _id to string for frontend consumption
-    const formattedTemplates = activeTemplates.map((template) => ({
+    const formattedTemplates = activeTemplates.map((template:any) => ({
       _id: template._id.toString(),
       template_id: template.template_id,
       template_name: template.template_name,

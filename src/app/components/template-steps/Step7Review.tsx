@@ -11,34 +11,39 @@ export const Step7Review: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { baseUrl } = useApiConfig();
 
-  const handleSaveInactive = async () => {
-    setIsSubmitting(true);
+const handleSaveInactive = async () => {
+  setIsSubmitting(true);
 
-    try {
-      const templateRes = await submitTemplate();
-      console.log("Template saved:", templateRes);
+  try {
+    const templateRes = await submitTemplate();
+    console.log("Template API response:", templateRes);
 
-      const templateInfo = templateRes?.template || templateRes;
-      
-      toast.success(
-        `${templateRes?.message || (isEditMode ? 'Template updated successfully' : 'Template created successfully')} - ID: ${
-          templateInfo?.template_id || templateData.template_id
-        }, Version: ${templateInfo?.version || templateData.version}`
-      );
+    // Extract the actual template data - API might return { template: {...} } or just {...}
+    const templateInfo = templateRes?.template || templateRes;
+    
+    console.log("Extracted template info:", templateInfo);
+    
+    toast.success(
+      `${templateRes?.message || (isEditMode ? 'Template updated successfully' : 'Template created successfully')} - ID: ${
+        templateInfo?.template_id || templateData.template_id
+      }, Version: ${templateInfo?.version || templateData.version}`
+    );
 
-      // Pass the template data back to parent to update local state
-      setTimeout(() => {
-        if (onModalClose) {
-          onModalClose(false, templateInfo); // Don't refresh, pass template data
-        }
-      }, 1000);
-    } catch (err: any) {
-      console.error("Save failed:", err);
-      toast.error(getErrorToastText(err, "Failed to save template"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    // Pass the template data back to parent to update local state
+    // Pass templateInfo directly (not nested in an object)
+    setTimeout(() => {
+      if (onModalClose) {
+        console.log("Calling onModalClose with template data:", templateInfo);
+        onModalClose(false, templateInfo); // Pass the actual template object
+      }
+    }, 1000);
+  } catch (err: any) {
+    console.error("Save failed:", err);
+    toast.error(getErrorToastText(err, "Failed to save template"));
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <div className="space-y-6">

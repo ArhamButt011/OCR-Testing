@@ -1,13 +1,6 @@
 // src/app/templates/page.tsx
 "use client";
 
-/**
- * Optimized Templates Page with URL State Management
- * - Uses URL search params to persist pagination, filters, and sorting
- * - Maintains state when navigating back from detail pages
- * - Supports browser back/forward buttons
- */
-
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
@@ -288,19 +281,51 @@ function TemplatesContent() {
   };
 
   // Handle modal close with local state update
-  const handleModalClose = (shouldRefresh?: boolean, templateData?: any) => {
-    setIsModalOpen(false);
-    setSelectedDraftId(undefined);
-    setSelectedTemplateId(undefined);
+const handleModalClose = (shouldRefresh?: boolean, templateData?: any) => {
+  setIsModalOpen(false);
+  const wasEditing = !!selectedTemplateId;
+  const editingId = selectedTemplateId;
+  setSelectedDraftId(undefined);
+  setSelectedTemplateId(undefined);
+  
+  if (templateData) {
+    console.log('Modal closed with template data:', templateData);
     
-    if (templateData) {
-      if (selectedTemplateId) {
-        updateTemplateInState(selectedTemplateId, templateData);
-      } else {
-        addTemplateToState(templateData);
-      }
+    // Ensure we have the template object (it might be nested in a 'template' property)
+    const template = templateData.template || templateData;
+    
+    if (wasEditing && editingId) {
+      // Update existing template
+      console.log('Updating existing template:', editingId);
+      updateTemplateInState(editingId, template);
+    } else {
+      // Add new template
+      console.log('Adding new template to state');
+      
+      // Ensure the template has all required fields for the table
+      const newTemplate: Template = {
+        _id: template._id,
+        template_id: template.template_id,
+        template_name: template.template_name,
+        category: template.category,
+        status: template.status || 'inactive',
+        version: template.version,
+        metadata: template.metadata || {
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          usage_count: 0,
+          success_rate: 0,
+        },
+      };
+      
+      addTemplateToState(newTemplate);
     }
-  };
+  } else if (shouldRefresh) {
+    // Only refetch if explicitly requested
+    console.log('Refetching templates due to shouldRefresh flag');
+    // fetchTemplates();
+  }
+};
 
   const handleTest = (template: Template) => {
     setSelectedTemplate(template);

@@ -226,7 +226,7 @@ export default function TemplateDetailsPage() {
                     </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Usage Count</p>
-                      <p className="font-medium text-gray-900">{template.metadata.usage_count.toLocaleString()}</p>
+                      <p className="font-medium text-gray-900">{template?.metadata?.usage_count?.toLocaleString()}</p>
                     </div>
                   </div>
                   {template.description && (

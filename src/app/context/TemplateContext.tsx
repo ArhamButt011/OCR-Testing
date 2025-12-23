@@ -215,7 +215,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   // ============================================================================
   // AUTO-SAVE WITH DEBOUNCING
   // ============================================================================
-
+console.log('submitting template with template dtaa-> ', templateData)
   const saveDraft = useCallback(async () => {
     if (isEditMode) {
       console.log("Skipping draft save - in edit mode");

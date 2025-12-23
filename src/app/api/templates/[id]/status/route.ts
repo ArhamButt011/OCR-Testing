@@ -2,21 +2,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { withLogging } from "@/lib/apiWrapper";
-import { ObjectId } from "mongodb";
+import {ObjectId} from "mongodb"
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 const SECRET_KEY = process.env.JWT_SECRET as string;
 const AI_SERVER_URL = process.env.AI_SERVER_URL || "https://4lrl8vwxpqp35t-19123-8080.proxy.runpod.net";
 
+type RouteContext = {
+  params: Promise<Record<string, string | string[]>>;
+};
+
 async function statusChangeHandler(
   req: NextRequest | Request,
-  { params }: any
+  context: RouteContext
 ): Promise<NextResponse> {
   try {
+    const params = await context.params;
+    const id = params.id as string;
+    
     const body = await req.json();
     const { status } = body;
 
-    if (!params.id || !ObjectId.isValid(params.id)) {
+    if (!id || !ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: "Invalid or missing ID." },
         { status: 400 }
@@ -38,7 +45,7 @@ async function statusChangeHandler(
     const templatesCollection = db.collection("templates");
 
     const template = await templatesCollection.findOne({
-      _id: ObjectId.createFromHexString(params.id),
+      _id: ObjectId.createFromHexString(id),
     });
 
     if (!template) {
@@ -50,7 +57,6 @@ async function statusChangeHandler(
 
     const currentStatus = template.status;
 
-    // Rule 1: Deprecated templates cannot change status (final state)
     if (currentStatus === "deprecated") {
       return NextResponse.json(
         {
@@ -61,7 +67,6 @@ async function statusChangeHandler(
       );
     }
 
-    // Rule 2: Active templates can only become inactive (not deprecated directly)
     if (currentStatus === "active" && status === "deprecated") {
       return NextResponse.json(
         {
@@ -72,11 +77,8 @@ async function statusChangeHandler(
       );
     }
 
-    // Rule 3: Active <-> Inactive transitions are allowed (no validation needed)
-    // Rule 4: Inactive -> Deprecated is allowed (no validation needed)
-
     const updateResult = await templatesCollection.updateOne(
-      { _id: ObjectId.createFromHexString(params.id) },
+      { _id: ObjectId.createFromHexString(id) },
       {
         $set: {
           status: status,
@@ -92,21 +94,16 @@ async function statusChangeHandler(
       );
     }
 
-    // Sync with AI server
     try {
-      let aiServerPayload: any = {
-        template_id: params.id,
-        status: status,
-      };
+      let aiServerPayload: any;
 
-      // If status is active, fetch full template data and include it
+      // If status is active, send full template data
       if (status === "active") {
         const fullTemplate = await templatesCollection.findOne({
-          _id: ObjectId.createFromHexString(params.id),
+          _id: ObjectId.createFromHexString(id),
         });
 
         if (fullTemplate) {
-          // Convert MongoDB _id to string for JSON serialization
           const templateData = {
             ...fullTemplate,
             _id: fullTemplate._id.toString(),
@@ -117,20 +114,14 @@ async function statusChangeHandler(
             template: templateData,
           };
         }
-      } else if(status ==='inactive') {
-        // For inactive or deprecated, only send template_id and status
+      } else {
         aiServerPayload = {
-          template_id: params.id,
-          status: "remove",
-        }
-        }
-        else {
-          aiServerPayload = {
-          template_id: params.id,
+          template_id: id,
           status: "remove",
         };
-        }
-      
+      }
+
+      console.log('AI server payload:', aiServerPayload);
 
       const aiServerResponse = await fetch(`${AI_SERVER_URL}/api/templates/sync`, {
         method: "POST",
@@ -139,7 +130,6 @@ async function statusChangeHandler(
         },
         body: JSON.stringify(aiServerPayload),
       });
-      console.log('ai server payload-> ', aiServerPayload)
 
       if (!aiServerResponse.ok) {
         const errorText = await aiServerResponse.text();
@@ -154,7 +144,7 @@ async function statusChangeHandler(
 
     return NextResponse.json({
       success: true,
-      template_id: params.id,
+      template_id: id,
       status: status,
       previous_status: currentStatus,
       message: `Template status changed from ${currentStatus} to ${status}`,
