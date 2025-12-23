@@ -6,6 +6,11 @@ import { ObjectId } from 'mongodb';
 
 const DB_NAME = process.env.DB_NAME || "my-next-app";
 
+// Helper function to validate ObjectId
+function isValidObjectId(id: string): boolean {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -16,6 +21,18 @@ export async function GET(
     if (!documentId) {
       return NextResponse.json(
         { success: false, error: 'Document ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate ObjectId format before attempting to create ObjectId
+    if (!isValidObjectId(documentId)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Invalid document ID format',
+          details: 'Document ID must be a 24-character hexadecimal string'
+        },
         { status: 400 }
       );
     }
@@ -40,15 +57,17 @@ export async function GET(
     // Get all unique template IDs from suggested templates
     const templateIds = new Set<string>();
     doc.suggested_templates?.forEach((st: any) => {
-      if (st.template_id) {
+      if (st.template_id && isValidObjectId(st.template_id)) {
         templateIds.add(st.template_id);
       }
     });
 
     // Fetch all templates in a single query
-    const templates = await templatesCollection.find({
-      _id: { $in: Array.from(templateIds).map(id => new ObjectId(id)) }
-    }).toArray();
+    const templates = templateIds.size > 0 
+      ? await templatesCollection.find({
+          _id: { $in: Array.from(templateIds).map(id => new ObjectId(id)) }
+        }).toArray()
+      : [];
 
     // Create template lookup map
     const templateMap = new Map(
@@ -93,7 +112,9 @@ export async function GET(
       suggested_templates: sortedSuggestions,
       
       // Document thumbnail
-      document_thumbnail: doc.pdfUrl ? `/api/generate-thumbnail?file=${encodeURIComponent(doc.pdfUrl)}` : null
+      document_thumbnail: doc.pdfUrl 
+        ? `/api/generate-thumbnail?file=${encodeURIComponent(doc.pdfUrl)}` 
+        : null
     };
 
     return NextResponse.json({
@@ -103,7 +124,11 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching document:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch document', details: String(error) },
+      { 
+        success: false, 
+        error: 'Failed to fetch document', 
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }

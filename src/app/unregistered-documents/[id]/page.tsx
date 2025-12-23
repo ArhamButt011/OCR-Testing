@@ -12,6 +12,7 @@ import { TemplateDetailsModal } from "@/app/components/unregistered-documents/Te
 import { CreateTemplateModal } from "../../components/CreateTemplateModal";
 import Swal from "sweetalert2";
 import Image from "next/image";
+import Link from "next/link";
 
 interface ClassificationDetails {
   primary_model_prediction: string;
@@ -322,12 +323,12 @@ export default function DocumentDetailsPage() {
                       {document.suggested_templates.length === 0 ? (
                         <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                           <p className="text-gray-500 mb-4">No template suggestions available</p>
-                          <button
-                            onClick={() => setCreateTemplateModalOpen(true)}
+                          <Link
+                           href={'/templates'}
                             className="px-4 py-2 border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 transition"
                           >
                             Create New Template
-                          </button>
+                          </Link>
                         </div>
                       ) : (
                         <div className="space-y-3">
@@ -401,7 +402,7 @@ export default function DocumentDetailsPage() {
                                     }}
                                     className="text-xs text-primary hover:text-primary-dark font-medium"
                                   >
-                                    View Details →
+                                    View Details
                                   </button>
                                 </div>
 
@@ -419,13 +420,14 @@ export default function DocumentDetailsPage() {
                       )}
 
                       <div className="mt-6 flex items-center justify-between">
-                        <button
-                          onClick={() => setCreateTemplateModalOpen(true)}
-                          disabled={isAssigning}
+                        <Link
+                         href={'/templates'}
+                          // onClick={() => setCreateTemplateModalOpen(true)}
+                          // disabled={isAssigning}
                           className="px-4 py-2 border-gray-300 text-white bg-[#6B7280] rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
                           Create New Template
-                        </button>
+                        </Link>
 
                         <button
                           onClick={handleAssign}
