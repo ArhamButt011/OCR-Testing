@@ -735,8 +735,9 @@ const MasterPage = () => {
                     : data?.Stamp_Exists === "no"
                     ? "no"
                     : data?.Stamp_Exists,
-                uptd_Usr_Cd:
-                  data?.Template_ID || data?.template_id === null ? "" : "OCR",
+                // uptd_Usr_Cd:
+                //   data?.Template_ID || data?.template_id === null ? "" : "OCR",
+                 uptd_Usr_Cd: "OCR",
                 finalStatus: "valid",
                 reviewStatus: "unConfirmed",
                 recognitionStatus: recognitionStatus,
