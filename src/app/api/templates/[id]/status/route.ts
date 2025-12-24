@@ -117,7 +117,7 @@ async function statusChangeHandler(
       } else {
         aiServerPayload = {
           template_id: id,
-          status: "remove",
+          action: "remove",
         };
       }
 
