@@ -84,6 +84,7 @@ interface Job {
   updatedAt?: string;
   customerOrderNum?: string | string[] | null;
   template: any;
+  suggested_templates:any;
 }
 
 interface ProcessedData {
@@ -2266,7 +2267,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.sealIntact === null ||
-                              job.sealIntact === undefined ? (
+                              job.sealIntact === undefined || job?.suggested_templates?.length>0 ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2276,7 +2277,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.totalQty === null ||
-                              job.totalQty === undefined ? (
+                              job.totalQty === undefined || job?.suggested_templates?.length>0 ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2286,7 +2287,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.received === null ||
-                              job.received === undefined ? (
+                              job.received === undefined || job?.suggested_templates?.length>0 ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2296,7 +2297,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.damaged === null ||
-                              job.damaged === undefined ? (
+                              job.damaged === undefined || job?.suggested_templates?.length>0 ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2305,7 +2306,7 @@ const MasterPage = () => {
                               )}
                             </td>
                             <td className="py-2 px-4 border-b text-center">
-                              {job.short === null || job.short === undefined ? (
+                              {job.short === null || job.short === undefined || job?.suggested_templates?.length>0 ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2314,7 +2315,7 @@ const MasterPage = () => {
                               )}
                             </td>
                             <td className="py-2 px-4 border-b text-center">
-                              {job.over === null || job.over === undefined ? (
+                              {job.over === null || job.over === undefined || job?.suggested_templates?.length>0 ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>
@@ -2324,7 +2325,7 @@ const MasterPage = () => {
                             </td>
                             <td className="py-2 px-4 border-b text-center">
                               {job.refused === null ||
-                              job.refused === undefined ? (
+                              job.refused === undefined || job?.suggested_templates?.length>0 ? (
                                 <span className="flex justify-center items-center">
                                   {/* <IoIosInformationCircle className="text-2xl text-red-500" /> */}
                                 </span>

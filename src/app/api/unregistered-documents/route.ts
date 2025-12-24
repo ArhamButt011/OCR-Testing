@@ -21,13 +21,9 @@ export async function GET(req: NextRequest) {
     const mockDataCollection = db.collection('mockData');
     const templatesCollection = db.collection('templates');
 
-    // Build filter for unregistered documents
+    // Build filter - only include documents with suggested_templates array that has at least one element
     const filter: any = {
-      $or: [
-        { template_id: null },
-        { template_id: { $exists: false } },
-        { template_id: '' }
-      ]
+      suggested_templates: { $exists: true, $ne: [] }
     };
 
     // Search filter

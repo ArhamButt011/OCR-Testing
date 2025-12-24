@@ -18,12 +18,19 @@ export async function GET(request: Request) {
     const db = client.db(DB_NAME);
     const mockDataCollection = db.collection('mockData');
 
-    // Build date filter
+    // Build date filter - createdAt is stored as Date object
     const dateFilter: any = {};
     if (startDate && endDate) {
+      // Create Date objects and set to start/end of day
+      const startDateObj = new Date(startDate);
+      startDateObj.setHours(0, 0, 0, 0);
+      
+      const endDateObj = new Date(endDate);
+      endDateObj.setHours(23, 59, 59, 999);
+      
       dateFilter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: startDateObj,
+        $lte: endDateObj
       };
     }
 
@@ -33,26 +40,28 @@ export async function GET(request: Request) {
     const totalDocs = await mockDataCollection.countDocuments(dateFilter);
     console.log('📄 Total Docs:', totalDocs);
     
-    // Unregistered = documents with null or invalid template_id
+    // Unregistered = documents with suggested_templates array length > 0
     const unregisteredCount = await mockDataCollection.countDocuments({
       ...dateFilter,
-      $or: [
-        { template_id: null },
-        { template_id: { $exists: false } },
-        { template_id: "" }
-      ]
+      suggested_templates: { $exists: true, $ne: [] }
     });
     console.log('❌ Unregistered:', unregisteredCount);
     
+    // Processed = documents with valid template_id (registered and processed)
     const processedCount = await mockDataCollection.countDocuments({
       ...dateFilter,
-      uptd_Usr_Cd: { $exists: true, $ne: null }
+      template_id: { $exists: true, $nin: [null, ""] }
     });
     console.log('✅ Processed:', processedCount);
 
-    // 2. Average Confidence
+    // 2. Average Confidence - using direct confidence field
     const avgConfidenceResult = await mockDataCollection.aggregate([
       { $match: dateFilter },
+      {
+        $match: {
+          confidence: { $exists: true, $ne: null }
+        }
+      },
       { 
         $group: { 
           _id: null, 
@@ -114,7 +123,7 @@ export async function GET(request: Request) {
     ]).toArray();
     console.log('📋 Docs Per Template:', docsPerTemplate.length);
 
-    // 4. Confidence Distribution (Histogram)
+    // 4. Confidence Distribution (Histogram) - using direct confidence field
     const confidenceDistribution = await mockDataCollection.aggregate([
       { $match: dateFilter },
       {
@@ -148,10 +157,9 @@ export async function GET(request: Request) {
             $sum: {
               $cond: [
                 {
-                  $or: [
-                    { $eq: ['$template_id', null] },
-                    { $not: { $gt: ['$template_id', null] } },
-                    { $eq: ['$template_id', ''] }
+                  $and: [
+                    { $isArray: '$suggested_templates' },
+                    { $gt: [{ $size: '$suggested_templates' }, 0] }
                   ]
                 },
                 1,
@@ -177,7 +185,7 @@ export async function GET(request: Request) {
     ]).toArray();
     console.log('📈 Unregistered Trend:', unregisteredTrend.length);
 
-    // 6. Documents Processed Over Time (Daily)
+    // 6. Documents Processed Over Time (Daily) - by template
     const docsOverTime = await mockDataCollection.aggregate([
       { $match: dateFilter },
       {
@@ -217,17 +225,44 @@ export async function GET(request: Request) {
       {
         $project: {
           date: '$_id.date',
+          template_id: '$_id.template_id',
           template_name: {
             $ifNull: ['$templateInfo.template_name', 'Unknown Template']
           },
           count: 1
         }
       },
-      { $sort: { date: 1 } }
+      { $sort: { date: 1, template_name: 1 } }
     ]).toArray();
     console.log('📅 Docs Over Time:', docsOverTime.length);
 
-    // 7. Template Usage Ranking
+    // 7. Category Distribution
+    const categoryDistribution = await mockDataCollection.aggregate([
+      { $match: dateFilter },
+      {
+        $match: {
+          'classification_details.primary_model_prediction': { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: '$classification_details.primary_model_prediction',
+          count: { $sum: 1 },
+          avgConfidence: { $avg: '$confidence' }
+        }
+      },
+      {
+        $project: {
+          category: '$_id',
+          count: 1,
+          avgConfidence: 1
+        }
+      },
+      { $sort: { count: -1 } }
+    ]).toArray();
+    console.log('📊 Category Distribution:', categoryDistribution.length);
+
+    // 8. Template Usage Ranking
     const templateRanking = docsPerTemplate.slice(0, 10); // Top 10
 
     // Response
@@ -238,13 +273,16 @@ export async function GET(request: Request) {
           totalDocuments: totalDocs,
           avgConfidence: parseFloat((avgConfidence * 100).toFixed(2)),
           unregisteredRate: totalDocs > 0 ? parseFloat(((unregisteredCount / totalDocs) * 100).toFixed(2)) : 0,
-          processedRate: totalDocs > 0 ? parseFloat(((processedCount / totalDocs) * 100).toFixed(2)) : 0
+          processedRate: totalDocs > 0 ? parseFloat(((processedCount / totalDocs) * 100).toFixed(2)) : 0,
+          unregisteredCount,
+          processedCount
         },
         docsPerTemplate,
         confidenceDistribution: confidenceDistribution.map(bucket => ({
           range: `${(bucket._id * 100).toFixed(0)}-${((bucket._id + 0.2) * 100).toFixed(0)}%`,
           count: bucket.count
         })),
+        categoryDistribution,
         unregisteredTrend,
         docsOverTime,
         templateRanking
@@ -277,14 +315,87 @@ export async function POST(request: Request) {
 
     const dateFilter: any = {};
     if (startDate && endDate) {
+      // Create Date objects and set to start/end of day
+      const startDateObj = new Date(startDate);
+      startDateObj.setHours(0, 0, 0, 0);
+      
+      const endDateObj = new Date(endDate);
+      endDateObj.setHours(23, 59, 59, 999);
+      
       dateFilter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: startDateObj,
+        $lte: endDateObj
       };
     }
 
     if (type === 'summary') {
-      // Export summary data
+      // Export summary data by category
+      const data = await mockDataCollection.aggregate([
+        { $match: dateFilter },
+        {
+          $match: {
+            'classification_details.primary_model_prediction': { $exists: true, $ne: null }
+          }
+        },
+        {
+          $group: {
+            _id: '$classification_details.primary_model_prediction',
+            count: { $sum: 1 },
+            avgProcessingTime: { $avg: '$processing_time' },
+            avgConfidence: { $avg: '$confidence' },
+            unregistered: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $isArray: '$suggested_templates' },
+                      { $gt: [{ $size: '$suggested_templates' }, 0] }
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        },
+        {
+          $project: {
+            category: '$_id',
+            count: 1,
+            avgProcessingTime: 1,
+            avgConfidence: 1,
+            unregistered: 1,
+            processed: { $subtract: ['$count', '$unregistered'] }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]).toArray();
+
+      const headers = ['Category', 'Total Documents', 'Processed', 'Unregistered', 'Avg Processing Time (ms)', 'Avg Confidence (%)'];
+      
+      const csvRows = [
+        headers.join(','),
+        ...data.map(row => [
+          row.category || 'Unknown',
+          row.count,
+          row.processed || 0,
+          row.unregistered || 0,
+          row.avgProcessingTime?.toFixed(2) || 0,
+          ((row.avgConfidence || 0) * 100).toFixed(2)
+        ].join(','))
+      ];
+
+      return new NextResponse(csvRows.join('\n'), {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename=analytics_summary.csv'
+        }
+      });
+    }
+
+    if (type === 'templates') {
+      // Export template-based data
       const data = await mockDataCollection.aggregate([
         { $match: dateFilter },
         {
@@ -338,7 +449,7 @@ export async function POST(request: Request) {
       return new NextResponse(csvRows.join('\n'), {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': 'attachment; filename=analytics_summary.csv'
+          'Content-Disposition': 'attachment; filename=template_analytics.csv'
         }
       });
     }
