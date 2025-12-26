@@ -1,4 +1,5 @@
 // src/app/api/cv-logs-path/route.ts
+export const runtime = 'nodejs';
 import { NextResponse, NextRequest } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { withLogging } from "@/lib/apiWrapper";

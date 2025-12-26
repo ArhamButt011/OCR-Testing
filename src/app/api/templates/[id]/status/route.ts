@@ -112,7 +112,7 @@ async function statusChangeHandler(
           aiServerPayload = {
             action: "add",
             template: templateData,
-          };
+        };
         }
       } else {
         aiServerPayload = {

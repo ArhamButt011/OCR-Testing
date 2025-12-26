@@ -1,16 +1,27 @@
-// next.config.ts
 import { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['oracledb'],
   typescript: {
-    ignoreBuildErrors: true, // ✅ Disable TypeScript errors
+    ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: true, // ✅ Disable ESLint errors
+    ignoreDuringBuilds: true,
   },
   webpack: (config, { isServer }) => {
     config.externals = [...(config.externals || []), 'oracledb'];
+    
+    // ✅ Suppress fsevents warnings
+    if (isServer) {
+      config.externals.push({
+        'fsevents': 'commonjs fsevents'
+      });
+    }
+    
+    config.ignoreWarnings = [
+      { module: /node_modules\/chokidar/ }
+    ];
+    
     return config;
   },
   env: {

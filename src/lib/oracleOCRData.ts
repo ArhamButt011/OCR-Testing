@@ -4,6 +4,7 @@ import clientPromise from "./mongodb";
 import { getOracleConnection } from "./oracle";
 import { OracleRow, PodFile } from "@/type";
 import { getJobsFromMongo } from "./getJobsFromMongo";
+import { ObjectId } from "mongodb";
 import fs from "fs";
 import path from "path";
 
@@ -13,7 +14,7 @@ interface MongoJob {
 }
 
 interface MockData {
-  _id: string;                 // <- string _id
+  _id: string;             
   fileId: string;
   pdfUrl: string;
   blNumber: number | string | null;
@@ -433,7 +434,27 @@ export async function getOracleOCRData(
 
     const totalJobs = (countResult.rows?.[0] as { TOTAL: number })?.TOTAL || 0;
     const rows = result.rows as OracleRow[];
+    const templateIds = [...new Set(
+      rows
+        .map((row: OracleRow) => row.TEMPLATE_ID)
+        .filter((id): id is string => id != null && id !== "")
+    )];
 
+    console.log(`Found ${templateIds.length} unique template IDs`);
+
+    const templatesCollection = db.collection("templates");
+    const templates = await templatesCollection
+      .find({
+        _id: { $in: templateIds.map(id => new ObjectId(id)) }
+      })
+      .toArray();
+
+    const templateMap = new Map(
+      templates.map((template) => [
+        template._id.toString(),
+        template
+      ])
+    );
     const jobs = rows.map((row: OracleRow) => {
       const matchedMongoJob = (data.jobs as MongoJob[]).find((job) => {
         const cleanFileName = job.pdfUrl.substring(
@@ -442,7 +463,9 @@ export async function getOracleOCRData(
         );
         return cleanFileName === row.FILE_ID;
       });
-
+      // Find matching template
+      const templateId = row.TEMPLATE_ID;
+      const matchedTemplate = templateId ? templateMap.get(templateId) : null;
       return {
         _id: matchedMongoJob?._id || `${row.FILE_ID}`,
         fileName: row.FILE_NAME || "",
@@ -459,6 +482,13 @@ export async function getOracleOCRData(
         createdAt: row.CRTD_DTT,
         sealIntact: row.OCR_SYMT_SEAL,
         reviewedBy: row.UPTD_USR_CD,
+        template_id: templateId || null,
+        template: matchedTemplate ? {
+          _id: matchedTemplate._id.toString(),
+          template_name: matchedTemplate.template_name || null,
+          template_id:matchedTemplate.template_name || null,
+          description: matchedTemplate.description || null,
+        } : null,
       };
     });
 

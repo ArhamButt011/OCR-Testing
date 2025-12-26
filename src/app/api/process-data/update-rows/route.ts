@@ -117,7 +117,7 @@ async function putHandler(req: Request) {
         .find({ _id: { $in: objectIds } })
         .toArray();
     }
-
+console.log('job to update-> ', jobsToUpdate)
     for (const job of jobsToUpdate) {
       let { fileId } = job;
       console.log("Processing job:", job);
@@ -190,6 +190,7 @@ async function putHandler(req: Request) {
          OCR_SYMT_ORVG  = :symtOrvg,
          OCR_SYMT_REFS  = :symtRefs,
          OCR_SYMT_SEAL  = :symtSeal,
+         template_id    = :templateId,
          RECV_DATA_DTT  = SYSDATE,
          CRTD_USR_CD    = 'OCR',
          CRTD_DTT       = NVL(CRTD_DTT, :crtdDtt),
@@ -207,7 +208,8 @@ async function putHandler(req: Request) {
             symtShrt: job.short,
             symtOrvg: job.over,
             symtRefs: job.refused,
-            symtSeal: job.sealIntact ?? "N",
+            symtSeal: job.sealIntact=== "yes" ? "Y" : "N",
+             templateId: job.template_id || null,
             fileId,
             crtdDtt,
           }
@@ -224,7 +226,7 @@ async function putHandler(req: Request) {
         await conn.execute(
           `INSERT INTO ${process.env.ORACLE_DB_USER_NAME}.XTI_FILE_POD_OCR_T 
     (FILE_ID, OCR_BOLNO, OCR_ISSQTY, OCR_RCVQTY, OCR_STMP_POD_DTT, OCR_STMP_SIGN, 
-     OCR_SYMT_NONE, OCR_SYMT_DAMG, OCR_SYMT_SHRT, OCR_SYMT_ORVG, OCR_SYMT_REFS, OCR_SYMT_SEAL,
+     OCR_SYMT_NONE, OCR_SYMT_DAMG, OCR_SYMT_SHRT, OCR_SYMT_ORVG, OCR_SYMT_REFS, OCR_SYMT_SEAL, template_id,
      RECV_DATA_DTT, CRTD_USR_CD, CRTD_DTT, UPTD_DTT,UPTD_USR_CD)
    VALUES 
     (:fileId, :bolNo, :issQty, :rcvQty, :podDate, :sign, 
@@ -241,7 +243,8 @@ async function putHandler(req: Request) {
             symtShrt: job.short,
             symtOrvg: job.over,
             symtRefs: job.refused,
-            symtSeal: job.sealIntact ?? "N",
+            symtSeal: job.sealIntact=== "yes" ? "Y" : "N",
+            templateId: job.template_id || null,
             fileId,
             crtdDtt,
           }

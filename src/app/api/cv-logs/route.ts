@@ -1,4 +1,7 @@
-// src/app/api/cv-logs/route.ts
+// Force Node.js runtime
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { getCVLogWatcher } from '@/lib/cvLogWatcher';
 

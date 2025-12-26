@@ -1,10 +1,11 @@
 // src/app/api/cv-logs-stream/route.ts
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { getCVLogWatcher } from '@/lib/cvLogWatcher';
 import fs from 'fs';
 import path from 'path';
 
-export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;

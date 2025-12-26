@@ -89,6 +89,7 @@ async function putOCRDataHandler(
          OCR_SYMT_ORVG = :symtOrvg, 
          OCR_SYMT_REFS = :symtRefs, 
          OCR_SYMT_SEAL = :symtSeal,
+         template_id = :templateId,
          RECV_DATA_DTT = SYSDATE,
          UPTD_USR_CD = 'OCR',
          UPTD_DTT = SYSDATE
@@ -104,6 +105,7 @@ async function putOCRDataHandler(
           symtOrvg: ocrData.over,
           symtRefs: ocrData.refused,
           symtSeal: ocrData.sealIntact,
+          templateId: ocrData.template_id || null,
           fileId: fileId,
         }
       );
