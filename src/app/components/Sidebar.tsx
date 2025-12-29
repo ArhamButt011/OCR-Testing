@@ -1164,11 +1164,9 @@ console.log('is templates open:', isTemplatesOpen);
    <button
   onClick={() => {
     if (isExpanded) {
-      // closing manually → release manual lock
       setManual(false);
       toggleSidebar(false);
     } else {
-      // opening manually → lock manual mode
       setManual(true);
       toggleSidebar(true);
     }
