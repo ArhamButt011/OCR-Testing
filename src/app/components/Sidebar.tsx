@@ -685,7 +685,7 @@ console.log('is templates open:', isTemplatesOpen);
                       transition: "opacity 0.3s ease, width 0.3s ease",
                     }}
                   >
-                    UnReg Documents
+                    Unreg Documents
                   </span>
                 </li>
               </Link>

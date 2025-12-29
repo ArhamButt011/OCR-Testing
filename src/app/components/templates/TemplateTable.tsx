@@ -160,7 +160,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                 onClick={() => onSort("template_name")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
-                <div className="flex items-center">
+                <div className="flex items-center justify-center">
                   Name
                   {renderSortIcon("template_name")}
                 </div>
@@ -171,7 +171,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                 onClick={() => onSort("category")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
-                <div className="flex items-center">
+                <div className="flex items-center justify-center">
                   Category
                   {renderSortIcon("category")}
                 </div>
@@ -182,7 +182,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                 onClick={() => onSort("status")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
-                <div className="flex items-center">
+                <div className="flex items-center justify-center">
                   Status
                   {renderSortIcon("status")}
                 </div>
@@ -191,16 +191,16 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
               {/* Documents Processed - Sortable */}
               <th
                 onClick={() => onSort("metadata.usage_count")}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
-                <div className="flex items-center">
+                <div className="flex items-center justify-center">
                   Documents Processed
                   {renderSortIcon("metadata.usage_count")}
                 </div>
               </th>
 
               {/* Accuracy Rate - Sortable */}
-              <th
+              {/* <th
                 onClick={() => onSort("metadata.success_rate")}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               >
@@ -208,7 +208,7 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                   Accuracy Rate
                   {renderSortIcon("metadata.success_rate")}
                 </div>
-              </th>
+              </th> */}
 
               {/* Actions - Not sortable */}
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -222,23 +222,23 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                   {template.template_id}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-center">
                   {template.template_name}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">
                   {template.category}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap text-center">
                   {getStatusBadge(template.status)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">
                   {template?.metadata?.usage_count?.toLocaleString() || "0"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {template?.metadata?.success_rate !== undefined
                     ? `${(template?.metadata?.success_rate * 100).toFixed(1)}%`
                     : "N/A"}
-                </td>
+                </td> */}
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-3 items-center">
                     <button
