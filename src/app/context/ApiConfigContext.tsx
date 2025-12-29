@@ -53,7 +53,7 @@ export const ApiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
           setOcrApiUrl(`https://kkti3idqzhgqny-8080.proxy.runpod.net/run-ocr`);
           setTestTemplateApiUrl(`https://4lrl8vwxpqp35t-19123-8080.proxy.runpod.net/api/templates/test`);
           setAIBaseUrl(`https://4lrl8vwxpqp35t-19123-8080.proxy.runpod.net`)
-          setBaseUrl(`https://3h1zeztf4fpc9t-3000.proxy.runpod.net`);
+          setBaseUrl(`https://n3zsyo0b1k8vgs-3000.proxy.runpod.net`);
           // setBaseUrl(`http://localhost:3000`);
         }
       } catch (err) {
