@@ -9,12 +9,12 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   
-  // ✅ Generate unique build ID on each build
+  // ✅ Generate completely unique build ID every time
   generateBuildId: async () => {
-    return `build-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    return `build-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   },
   
-  // ✅ Prevent aggressive caching during development/deployment
+  // ✅ NUCLEAR cache prevention
   async headers() {
     return [
       {
@@ -22,23 +22,29 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: process.env.NODE_ENV === 'production' 
-              ? 'public, max-age=3600, must-revalidate'  // 1 hour cache in production
-              : 'no-cache, no-store, must-revalidate',    // No cache in dev
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
           },
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+          {
+            key: 'Surrogate-Control',
+            value: 'no-store',
           },
         ],
       },
       {
-        // Stronger cache control for API routes
-        source: '/api/:path*',
+        // Extra aggressive for static files
+        source: '/_next/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
+            value: 'no-store, must-revalidate',
           },
         ],
       },
@@ -48,7 +54,6 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     config.externals = [...(config.externals || []), 'oracledb'];
     
-    // ✅ Suppress fsevents warnings
     if (isServer) {
       config.externals.push({
         'fsevents': 'commonjs fsevents'
