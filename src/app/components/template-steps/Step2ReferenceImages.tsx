@@ -17,15 +17,15 @@ export const Step2ReferenceImages: React.FC = () => {
   const images = templateData.identification?.reference_images || [];
   const maxImages = 5;
 
-  console.log("📸 Current images:", images.length);
-  console.log("🌐 Base URL:", baseUrl);
+  console.log("Current images:", images.length);
+  console.log("Base URL:", baseUrl);
 
   const handleFileSelect = useCallback(
     async (files: FileList | null) => {
-      console.log("🔵 File selection triggered");
+      console.log("File selection triggered");
       
       if (!files || files.length === 0) {
-        console.log("❌ No files selected");
+        console.log("No files selected");
         return;
       }
 
