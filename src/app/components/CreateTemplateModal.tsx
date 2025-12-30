@@ -16,7 +16,7 @@ import type { Template } from "./templates/TemplateTable";
 
 interface CreateTemplateModalProps {
   isOpen: boolean;
-  onClose: (shouldRefresh?: boolean, templateData?: any) => void; // Updated signature
+  onClose: (shouldRefresh?: boolean, templateData?: any) => void;
   draftId?: string;
   templateId?: string;
 }
@@ -61,6 +61,7 @@ function ModalContentInner({
     saveDraft,
     isSaving,
     lastSaved,
+    isLoadingTemplate, // Add this
   } = useTemplate();
 
   const steps = [
@@ -107,7 +108,27 @@ function ModalContentInner({
 
           {/* Auto-save Indicator */}
           <div className="flex items-center gap-4 mr-4">
-            {isSaving ? (
+            {isLoadingTemplate ? (
+              <span className="flex items-center text-sm text-blue-600">
+                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" aria-hidden>
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Loading template...
+              </span>
+            ) : isSaving ? (
               <span className="flex items-center text-sm text-gray-600">
                 <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" aria-hidden>
                   <circle
@@ -139,6 +160,7 @@ function ModalContentInner({
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-500 focus:outline-none transition-colors"
             aria-label="Close modal"
+            disabled={isLoadingTemplate}
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path
@@ -195,14 +217,47 @@ function ModalContentInner({
         </div>
       </div>
 
+      {/* Content Area with Loading State */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <CurrentStepComponent />
+        {isLoadingTemplate ? (
+          <div className="flex items-center justify-center h-full min-h-[400px]">
+            <div className="text-center">
+              <svg
+                className="animate-spin h-12 w-12 mx-auto text-primary mb-4"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              <p className="text-lg font-medium text-gray-900">Loading Template Data</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Please wait while we fetch the template details...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <CurrentStepComponent />
+        )}
       </div>
 
+      {/* Footer with disabled buttons during loading */}
       <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
         <button
           onClick={handleBack}
-          disabled={currentStep === 1}
+          disabled={currentStep === 1 || isLoadingTemplate}
           className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -220,7 +275,8 @@ function ModalContentInner({
           {!isEditMode && (
             <button
               onClick={() => saveDraft()}
-              className="inline-flex items-center px-4 py-2 border border-primary rounded-md text-sm font-medium text-primary bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+              disabled={isLoadingTemplate}
+              className="inline-flex items-center px-4 py-2 border border-primary rounded-md text-sm font-medium text-primary bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path
@@ -237,7 +293,8 @@ function ModalContentInner({
           {currentStep < totalSteps ? (
             <button
               onClick={handleNext}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+              disabled={isLoadingTemplate}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
               <svg className="h-4 w-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -256,9 +313,6 @@ function ModalContentInner({
   );
 }
 
-/* --------------------------
-   Exported CreateTemplateModal that uses Portal + TemplateProvider
-   -------------------------- */
 export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
   isOpen,
   onClose,

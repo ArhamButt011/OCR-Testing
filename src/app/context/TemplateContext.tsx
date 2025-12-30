@@ -20,6 +20,8 @@ export interface ReferenceImage {
   file_path: string;
   file?: File;
   original_name?: string;
+  mime_type?: string;
+  size?: number;
   preview?: string;
 }
 
@@ -141,6 +143,7 @@ interface TemplateContextType {
   currentStep: number;
   totalSteps: number;
   templateData: TemplateData;
+    isLoadingTemplate: boolean;
   draftId: string | null;
   isSaving: boolean;
   lastSaved: Date | null;
@@ -208,6 +211,7 @@ export const TemplateProvider: React.FC<TemplateProviderProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isEditMode, setIsEditMode] = useState(!!initialTemplateId);
   const [originalDraftId, setOriginalDraftId] = useState<string | null>(null);
+    const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
 
   const saveTimerRef = useRef<NodeJS.Timeout>();
   const hasUnsavedChanges = useRef(false);
@@ -284,6 +288,8 @@ console.log('submitting template with template dtaa-> ', templateData)
   }, [templateData, saveDraft]);
 
   const loadDraft = useCallback(async (id: string) => {
+        setIsLoadingTemplate(true);
+
     try {
       const response = await axios.get(`/api/templates/draft?draft_id=${id}`);
       const data = response.data;
@@ -318,9 +324,13 @@ console.log('submitting template with template dtaa-> ', templateData)
       console.error("Failed to load draft:", error);
       throw error;
     }
+    finally {
+      setIsLoadingTemplate(false);
+    }
   }, []);
 
   const loadTemplate = useCallback(async (templateId: string) => {
+     setIsLoadingTemplate(true);
     try {
       const response = await axios.get(`/api/templates/${templateId}`);
       const data = response.data;
@@ -339,6 +349,9 @@ console.log('submitting template with template dtaa-> ', templateData)
     } catch (error) {
       console.error("Failed to load template:", error);
       throw error;
+    }
+    finally {
+      setIsLoadingTemplate(false);
     }
   }, []);
 
@@ -654,6 +667,7 @@ console.log('submitting template with template dtaa-> ', templateData)
     lastSaved,
     errors,
     isEditMode,
+    isLoadingTemplate,
     originalDraftId,
     onModalClose,
     setCurrentStep,

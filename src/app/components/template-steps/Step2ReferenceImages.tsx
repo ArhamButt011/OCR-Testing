@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef } from "react";
+import axios from "axios";
 import { useTemplate } from "@/app/context/TemplateContext";
 import { useApiConfig } from "@/app/context/ApiConfigContext";
 
@@ -44,10 +45,18 @@ export const Step2ReferenceImages: React.FC = () => {
       const validFiles: File[] = [];
       const duplicateFiles: string[] = [];
       
-      console.log("🔍 Validating", files.length, "file(s)...");
+      console.log("Validating", files.length, "file(s)...");
+      console.log("Existing images in state:", images.map(img => ({
+        name: img.original_name,
+        size: img.size,
+        hasFile: !!img.file,
+        hasFileName: img.file?.name ? true : false
+      })));
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        
+        console.log(`Checking file: ${file.name}, size: ${file.size}, type: ${file.type}`);
 
         // Check file type
         if (!file.type.startsWith("image/")) {
@@ -61,49 +70,74 @@ export const Step2ReferenceImages: React.FC = () => {
           continue;
         }
 
-        // Check for duplicates (compare by name, size, and type)
-        const isDuplicate = images.some((existingImage) => {
-          if (existingImage.file) {
-            return (
+        // Check for duplicates
+        let isDuplicate = false;
+        
+        for (const existingImage of images) {
+          console.log(`Comparing with existing: ${existingImage.original_name}, size: ${existingImage.size}, hasFile: ${!!existingImage.file}, hasFileName: ${existingImage.file?.name ? true : false}`);
+          
+          // Case 1: Check if existingImage has a proper File object (with name property)
+          if (existingImage.file && existingImage.file.name) {
+            const fileMatch = 
               existingImage.file.name === file.name &&
               existingImage.file.size === file.size &&
-              existingImage.file.type === file.type
-            );
+              existingImage.file.type === file.type;
+            
+            console.log(`  File object comparison: ${fileMatch}`);
+            
+            if (fileMatch) {
+              isDuplicate = true;
+              break;
+            }
+          } else {
+            // Case 2: Existing image from database (no proper File object)
+            const nameMatches = existingImage.original_name === file.name;
+            const sizeMatches = existingImage.size === file.size;
+            const typeMatches = existingImage.mime_type 
+              ? existingImage.mime_type === file.type 
+              : true;
+            
+            console.log(`  DB comparison - name: ${nameMatches}, size: ${sizeMatches}, type: ${typeMatches}`);
+            
+            if (nameMatches && sizeMatches && typeMatches) {
+              isDuplicate = true;
+              break;
+            }
           }
-          // Also check by original_name if file object isn't available
-          return existingImage.original_name === file.name;
-        });
+        }
 
         if (isDuplicate) {
-          console.log(`🔴 Duplicate: ${file.name}`);
+          console.log(`DUPLICATE FOUND: ${file.name}`);
           duplicateFiles.push(file.name);
           continue;
         }
 
+        console.log(`File ${file.name} is valid`);
         validFiles.push(file);
       }
 
-      // Show duplicate error
+      // Show duplicate error with better messaging
       if (duplicateFiles.length > 0) {
-        const errorMsg = `Duplicate image(s): ${duplicateFiles.join(", ")}. Already uploaded.`;
-        console.log("⚠️", errorMsg);
+        const errorMsg = `Duplicate image(s) detected: ${duplicateFiles.join(", ")}. This image${duplicateFiles.length > 1 ? 's are' : ' is'} already uploaded.`;
+        console.log("Duplicate error:", errorMsg);
         setError("reference_images", errorMsg);
         
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
         
+        // If all files are duplicates, stop here
         if (validFiles.length === 0) {
           return;
         }
       }
 
       if (validFiles.length === 0) {
-        console.log("❌ No valid files after validation");
+        console.log("No valid files after validation");
         return;
       }
 
-      console.log("✅ Valid files:", validFiles.map(f => f.name).join(", "));
+      console.log("Valid files:", validFiles.map(f => `${f.name} (${f.size} bytes)`).join(", "));
 
       setUploading(true);
       clearError("reference_images");
@@ -114,46 +148,31 @@ export const Step2ReferenceImages: React.FC = () => {
           formData.append("images", file);
         });
 
-        // Upload with progress
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            const percent = (e.loaded / e.total) * 100;
-            setUploadProgress({ all: percent });
-          }
-        });
-
-        const uploadPromise = new Promise<any>((resolve, reject) => {
-          xhr.addEventListener("load", () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(JSON.parse(xhr.responseText));
-            } else {
-              reject(new Error(`Upload failed: ${xhr.status}`));
+        // Upload with progress using axios
+        const response = await axios.post("/api/templates/reference-images", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percent = (progressEvent.loaded / progressEvent.total) * 100;
+              setUploadProgress({ all: percent });
             }
-          });
-
-          xhr.addEventListener("error", () => reject(new Error("Upload failed")));
-          xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
-
-          xhr.open("POST", "/api/templates/reference-images");
-          xhr.send(formData);
+          },
         });
 
-        const response = await uploadPromise;
-        console.log("📤 Upload response:", response);
+        console.log("Upload response:", response.data);
 
-        // Store File objects with uploaded images
-        const newImages = response.images.map((img: any, idx: number) => ({
+        const newImages = response.data.images.map((img: any, idx: number) => ({
           image_id: img.image_id,
-          file_path: img.file_path, // Will be /api/templates/images/xxx.png
+          file_path: img.file_path,
           original_name: img.original_name,
           size: img.size,
           mime_type: img.mime_type,
-          file: validFiles[idx], // Store original File
+          file: validFiles[idx],
         }));
 
-        console.log("✅ New images:", newImages.map((img: any) => img.original_name).join(", "));
+        console.log("New images:", newImages.map((img: any) => img.original_name).join(", "));
 
         updateTemplateData({
           identification: {
@@ -162,10 +181,15 @@ export const Step2ReferenceImages: React.FC = () => {
           },
         });
 
-        console.log("✅ Upload complete!");
+        console.log("Upload complete!");
       } catch (error) {
-        console.error("❌ Upload error:", error);
-        setError("reference_images", "Failed to upload images. Please try again.");
+        console.error("Upload error:", error);
+        if (axios.isAxiosError(error)) {
+          const errorMessage = error.response?.data?.error || error.message;
+          setError("reference_images", `Failed to upload images: ${errorMessage}`);
+        } else {
+          setError("reference_images", "Failed to upload images. Please try again.");
+        }
       } finally {
         setUploading(false);
         setUploadProgress({});
@@ -178,19 +202,18 @@ export const Step2ReferenceImages: React.FC = () => {
     [images, templateData.identification, updateTemplateData, setError, clearError]
   );
 
+  console.log("images-> ", images);
+  
   const handleRemoveImage = useCallback(
     async (imageId: string) => {
       try {
-        console.log("🗑️ Removing:", imageId);
+        console.log("Removing image:", imageId);
 
-        const response = await fetch(
-          `/api/templates/reference-images/${imageId}`,
-          { method: "DELETE" }
+        const response = await axios.delete(
+          `/api/templates/reference-images/${imageId}`
         );
 
-        if (!response.ok) {
-          throw new Error("Failed to delete");
-        }
+        console.log("Delete result:", response.data);
 
         const updatedImages = images.filter((img) => img.image_id !== imageId);
         updateTemplateData({
@@ -200,17 +223,22 @@ export const Step2ReferenceImages: React.FC = () => {
           },
         });
 
-        console.log("✅ Removed successfully");
+        console.log("Image removed successfully");
       } catch (error) {
-        console.error("❌ Delete error:", error);
-        setError("reference_images", "Failed to remove image");
+        console.error("Delete error:", error);
+        if (axios.isAxiosError(error)) {
+          const errorMessage = error.response?.data?.error || error.message;
+          setError("reference_images", `Failed to remove image: ${errorMessage}`);
+        } else {
+          setError("reference_images", "Failed to remove image");
+        }
       }
     },
     [images, templateData.identification, updateTemplateData, setError]
   );
 
   const handleImageError = useCallback((imageId: string, filePath: string) => {
-    console.error("❌ Image load failed:", {
+    console.error("Image load failed:", {
       imageId,
       filePath,
       fullUrl: `${baseUrl}${filePath}`
@@ -219,7 +247,7 @@ export const Step2ReferenceImages: React.FC = () => {
   }, [baseUrl]);
 
   const handleImageLoad = useCallback((imageId: string) => {
-    console.log("✅ Image loaded:", imageId);
+    console.log("Image loaded:", imageId);
     setImageLoadErrors(prev => ({ ...prev, [imageId]: false }));
   }, []);
 
