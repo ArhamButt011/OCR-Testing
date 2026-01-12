@@ -203,6 +203,8 @@ export const Step2ReferenceImages: React.FC = () => {
   );
 
   console.log("images-> ", images);
+  console.log("Base url-> ", baseUrl);
+
   
   const handleRemoveImage = useCallback(
     async (imageId: string) => {

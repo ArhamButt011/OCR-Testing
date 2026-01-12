@@ -19,9 +19,9 @@ dayjs.extend(isBetween);
 
 //Remote uncomment below lines
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "https://3h1zeztf4fpc9t-3000.proxy.runpod.net/api";
+  process.env.NEXT_PUBLIC_API_BASE_URL || "https://zpslyprio8quro-3000.proxy.runpod.net/api";
 const OCR_URL =
-  process.env.NEXT_PUBLIC_OCR_API_URL || "https://4lrl8vwxpqp35t-8080.proxy.runpod.net/run-ocr";
+  process.env.NEXT_PUBLIC_OCR_API_URL || "https://h86md9lnjv592j-8080.proxy.runpod.net/run-ocr";
   
 const PROXY_DEADLINE_MS = Number(process.env.PROXY_DEADLINE_MS || 120000);
 const BATCH_SIZE = Number(process.env.OCR_BATCH_SIZE || 3); // primary pass batch size
