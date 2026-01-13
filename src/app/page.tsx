@@ -1,18 +1,12 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
 export default function Home() {
-  const router = useRouter();
-  
-  useEffect(() => {
-    router.replace('/admin-login');
-  }, [router]);
-  
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="animate-pulse">Loading...</div>
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Root Page Works!</h1>
+        <a href="/admin-login" className="text-blue-500 underline">
+          Go to Admin Login
+        </a>
+      </div>
     </div>
   );
 }
