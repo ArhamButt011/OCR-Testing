@@ -88,6 +88,7 @@ function handleAuthAndProceed(request: NextRequest) {
 }
 
 export const config = {
+  runtime: 'nodejs',
   matcher: [
     '/jobs',
     '/logs',
